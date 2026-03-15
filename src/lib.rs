@@ -1,3 +1,5 @@
+use std::sync::OnceLock;
+
 use aho_corasick::{
   AhoCorasick as RawAhoCorasick, AhoCorasickBuilder,
   AhoCorasickKind, MatchKind as RawMatchKind,
@@ -98,9 +100,16 @@ fn build_automaton(
 pub struct AhoCorasick {
   /// Main automaton (leftmost semantics).
   inner: RawAhoCorasick,
-  /// Separate automaton for overlapping search
-  /// (Standard match kind required by the crate).
-  overlapping: RawAhoCorasick,
+  /// Lazily built automaton for overlapping search.
+  /// Overlapping requires `MatchKind::Standard`,
+  /// which is incompatible with leftmost semantics.
+  /// Built on first `findOverlappingIter` call to
+  /// avoid wasting memory when unused.
+  overlapping: OnceLock<RawAhoCorasick>,
+  /// Stored for lazy overlapping automaton build.
+  patterns: Vec<String>,
+  case_insensitive: bool,
+  dfa: bool,
   pattern_count: u32,
 }
 
@@ -140,18 +149,29 @@ impl AhoCorasick {
       dfa,
     )?;
 
-    // Overlapping requires MatchKind::Standard.
-    let overlapping = build_automaton(
-      &patterns,
-      RawMatchKind::Standard,
-      case_insensitive,
-      dfa,
-    )?;
-
     Ok(Self {
       inner,
-      overlapping,
+      overlapping: OnceLock::new(),
+      patterns,
+      case_insensitive,
+      dfa,
       pattern_count,
+    })
+  }
+
+  /// Get or build the overlapping automaton.
+  /// Uses `get_or_init` — the build cannot fail
+  /// because the same patterns already built the
+  /// primary automaton successfully.
+  fn overlapping_ac(&self) -> &RawAhoCorasick {
+    self.overlapping.get_or_init(|| {
+      build_automaton(
+        &self.patterns,
+        RawMatchKind::Standard,
+        self.case_insensitive,
+        self.dfa,
+      )
+      .expect("overlapping automaton build failed")
     })
   }
 
@@ -204,15 +224,18 @@ impl AhoCorasick {
   /// Find all overlapping matches.
   ///
   /// Reports every match at every position, including
-  /// those that overlap with each other.
+  /// those that overlap with each other. The
+  /// overlapping automaton is built lazily on first
+  /// call to avoid memory overhead when unused.
   #[napi]
   pub fn find_overlapping_iter(
     &self,
     haystack: String,
   ) -> Vec<Match> {
+    let ov = self.overlapping_ac();
+
     if haystack.is_ascii() {
-      return self
-        .overlapping
+      return ov
         .find_overlapping_iter(&haystack)
         .map(|m| Match {
           pattern: m.pattern().as_u32(),
@@ -223,9 +246,7 @@ impl AhoCorasick {
     }
 
     let table = build_byte_to_utf16_table(&haystack);
-    self
-      .overlapping
-      .find_overlapping_iter(&haystack)
+    ov.find_overlapping_iter(&haystack)
       .map(|m| Match {
         pattern: m.pattern().as_u32(),
         start: table[m.start()],
