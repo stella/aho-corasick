@@ -17,6 +17,10 @@ npm/*/*.node
 # Debug
 npm-debug.log*
 
+# Benchmark corpus (downloaded separately)
+__bench__/corpus/*.txt
+__bench__/corpus/E.coli
+
 # Misc
 .DS_Store
 *.pem
