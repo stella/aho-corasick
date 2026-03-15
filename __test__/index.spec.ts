@@ -196,6 +196,62 @@ describe("overlapping matches", () => {
     expect(extract("abcdef", ll1.findIter("abcdef")[0]!)).toBe("abcdef");
     expect(extract("abcdef", ll2.findIter("abcdef")[0]!)).toBe("abcdef");
   });
+
+  test("pyahocorasick#133: longer pattern fails, shorter should still match", () => {
+    // Regression from pyahocorasick: when a longer
+    // candidate ("abd") fails partway through, the
+    // shorter match ("b") at that position must
+    // still be reported.
+    const ac = new AhoCorasick(["b", "c", "abd"], {
+      matchKind: "leftmost-longest",
+    });
+    const matches = ac.findIter("abc");
+    const found = matches.map((m) =>
+      extract("abc", m),
+    );
+
+    expect(found).toContain("b");
+    expect(found).toContain("c");
+  });
+
+  test("pyahocorasick#133: CJK longer pattern fails", () => {
+    // Same bug but with CJK: "国家知识产权局" fails
+    // (not in text) but "知识产权" should still match.
+    const ac = new AhoCorasick(
+      ["知识产权", "国家知识产权局"],
+      { matchKind: "leftmost-longest" },
+    );
+    const text = "国家知识产权";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(1);
+    expect(extract(text, matches[0]!)).toBe(
+      "知识产权",
+    );
+  });
+
+  test("leftmost-longest with shared prefix", () => {
+    // "alpha beta" should win over "alpha" at the
+    // same position (iter_long use case from
+    // pyahocorasick#21)
+    const ac = new AhoCorasick(
+      ["alpha", "alpha beta", "beta gamma", "gamma"],
+      { matchKind: "leftmost-longest" },
+    );
+    const text = "I went to alpha beta gamma";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    // "alpha beta" should win over "alpha"
+    expect(found).toContain("alpha beta");
+    // "gamma" should be found after "alpha beta"
+    expect(found).toContain("gamma");
+    // "alpha" alone should NOT appear (shadowed
+    // by "alpha beta")
+    expect(found).not.toContain("alpha");
+  });
 });
 
 // ─── Unicode: character offsets ───────────────
@@ -444,6 +500,36 @@ describe("offset correctness after multi-byte", () => {
       ["coffee"],
     );
     expect(result).toBe("I love coffee culture");
+  });
+
+  test("pyahocorasick#53: supplementary plane offsets", () => {
+    // pyahocorasick had wrong end positions for
+    // supplementary plane chars on Windows (UCS-2).
+    // Our UTF-16 offset table handles this.
+    const ac = new AhoCorasick(["🙈"]);
+    const text = "see no evil 🙈 monkey";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(1);
+    expect(extract(text, matches[0]!)).toBe("🙈");
+    // 🙈 is 2 UTF-16 code units (surrogate pair)
+    const start = matches[0]!.start;
+    const end = matches[0]!.end;
+    expect(end - start).toBe(2);
+  });
+
+  test("supplementary plane chars between matches", () => {
+    // Multiple matches with emoji between them
+    const ac = new AhoCorasick(["test"]);
+    const text = "test🙈🙉🙊test";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(2);
+    expect(extract(text, matches[0]!)).toBe("test");
+    expect(extract(text, matches[1]!)).toBe("test");
+    // First: 0..4, then 3 emoji * 2 units = 6,
+    // so second: 10..14
+    expect(matches[1]!.start).toBe(10);
   });
 
   test("buf offsets differ from char offsets", () => {
