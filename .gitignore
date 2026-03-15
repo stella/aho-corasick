@@ -21,6 +21,10 @@ npm-debug.log*
 __bench__/corpus/*.txt
 __bench__/corpus/E.coli
 
+# Bench dependencies (separate from root)
+__bench__/node_modules
+__bench__/bun.lock
+
 # Misc
 .DS_Store
 *.pem

@@ -47,16 +47,17 @@
     "test": "bun test",
     "format": "oxfmt . && rustfmt src/lib.rs",
     "lint": "oxlint .",
-    "bench": "bun run __bench__/index.ts"
+    "bench": "bun run __bench__/speed.ts",
+    "bench:speed": "bun run __bench__/speed.ts",
+    "bench:unicode": "bun run __bench__/unicode.ts",
+    "bench:correctness": "bun run __bench__/correctness.ts",
+    "bench:all": "bun run bench:speed && bun run bench:unicode && bun run bench:correctness",
+    "bench:install": "cd __bench__ && bun install"
   },
   "devDependencies": {
-    "@monyone/aho-corasick": "^1.1.6",
     "@napi-rs/cli": "^3.0.0",
-    "@tanishiking/aho-corasick": "^0.0.1",
     "@types/node": "^25.5.0",
-    "ahocorasick": "^1.0.2",
     "bun-types": "^1.3.10",
-    "modern-ahocorasick": "^2.0.4",
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0"
   },

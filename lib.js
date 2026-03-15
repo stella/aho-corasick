@@ -13,6 +13,7 @@ const NativeStreamMatcher = native.StreamMatcher;
  */
 function unpack(packed) {
   const len = packed.length;
+  // eslint-disable-next-line unicorn/no-new-array
   const matches = new Array(len / 3);
   for (let i = 0, j = 0; i < len; i += 3, j++) {
     matches[j] = {
