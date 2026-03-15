@@ -1,0 +1,76 @@
+# @stella/aho-corasick
+
+> NAPI-RS bindings to the Rust aho-corasick crate
+> for Node.js and Bun. Multi-pattern string
+> searching in linear time.
+
+## Quick start
+
+```typescript
+import { AhoCorasick } from "@stella/aho-corasick";
+
+const ac = new AhoCorasick(["foo", "bar", "baz"]);
+
+ac.isMatch("hello foo world"); // true
+
+ac.findIter("foo bar baz");
+// [
+//   { pattern: 0, start: 0, end: 3 },
+//   { pattern: 1, start: 4, end: 7 },
+//   { pattern: 2, start: 8, end: 11 },
+// ]
+
+ac.replaceAll("foo bar baz", ["A", "B", "C"]);
+// "A B C"
+```
+
+## API
+
+### AhoCorasick
+
+Constructor: `new AhoCorasick(patterns: string[], options?: Options)`
+
+Options:
+- `matchKind`: `"leftmost-first"` (default) or `"leftmost-longest"`
+- `caseInsensitive`: `boolean` (default `false`, ASCII-only: A-Z to a-z)
+- `dfa`: `boolean` (default `false`, force DFA mode)
+
+Methods:
+- `isMatch(haystack: string): boolean` — any pattern matches?
+- `findIter(haystack: string): Match[]` — non-overlapping matches
+- `findOverlappingIter(haystack: string): Match[]` — all overlapping matches
+- `replaceAll(haystack: string, replacements: string[]): string` — replace; `replacements[i]` replaces pattern `i`
+- `findIterBuf(haystack: Buffer): Match[]` — search Buffer, returns byte offsets
+- `isMatchBuf(haystack: Buffer): boolean` — any match in Buffer?
+- `patternCount: number` — getter, number of patterns
+
+### StreamMatcher
+
+Constructor: `new StreamMatcher(patterns: string[], options?: Options)`
+
+For searching across chunked/streamed input. Handles cross-boundary matches automatically.
+
+Methods:
+- `write(chunk: Buffer): Match[]` — feed chunk, returns matches with global byte offsets
+- `flush(): Match[]` — finalize after last chunk
+- `reset(): void` — reset for reuse
+
+### Types
+
+```typescript
+type Match = {
+  pattern: number; // index into patterns array
+  start: number;   // UTF-16 code unit offset
+  end: number;     // exclusive
+};
+```
+
+Offsets from string methods are UTF-16 code units, compatible with `String.prototype.slice()`. Offsets from Buffer methods are byte offsets.
+
+## Important notes
+
+- Case insensitivity is ASCII-only (A-Z to a-z). Turkish İ, German ß, and other Unicode case folding is not supported.
+- `leftmost-first`: pattern insertion order determines which pattern wins at a position. `leftmost-longest`: longest match wins regardless of order.
+- The automaton is built once at construction and reused. Construction is O(patterns); search is O(haystack + matches).
+- `replaceAll` requires exactly `patternCount` replacements or it throws.
+- Native dependency: requires prebuilt binary or Rust toolchain. Not available in edge runtimes.
