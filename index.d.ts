@@ -68,9 +68,12 @@ export declare class StreamMatcher {
 export interface Match {
   /** Index into the patterns array. */
   pattern: number
-  /** Start **character** offset in the haystack. */
+  /**
+   * Start offset in the haystack (UTF-16 code
+   * units, matching JS `String` indexing).
+   */
   start: number
-  /** End **character** offset (exclusive). */
+  /** End offset (exclusive, UTF-16 code units). */
   end: number
 }
 

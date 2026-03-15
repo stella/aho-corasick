@@ -34,31 +34,30 @@ pub struct Options {
 pub struct Match {
   /// Index into the patterns array.
   pub pattern: u32,
-  /// Start **character** offset in the haystack.
+  /// Start offset in the haystack (UTF-16 code
+  /// units, matching JS `String` indexing).
   pub start: u32,
-  /// End **character** offset (exclusive).
+  /// End offset (exclusive, UTF-16 code units).
   pub end: u32,
 }
 
-/// Build a byte-offset-to-char-offset lookup table.
+/// Build a byte-offset → UTF-16-code-unit-offset
+/// lookup table.
 ///
-/// Returns a vec where `table[byte_offset]` gives the
-/// character index at that byte position. Only
-/// populated at character boundaries; indices between
-/// boundaries are unused. The table has length
-/// `haystack.len() + 1` so that `byte_end ==
-/// haystack.len()` is valid.
-fn build_byte_to_char_table(
+/// JS strings are UTF-16: chars above U+FFFF
+/// (emoji, CJK extensions, etc.) take 2 code units
+/// (a surrogate pair). We must return offsets
+/// compatible with `String.prototype.slice()`.
+fn build_byte_to_utf16_table(
   haystack: &str,
 ) -> Vec<u32> {
   let mut table = vec![0u32; haystack.len() + 1];
-  let mut char_idx: u32 = 0;
-  for (byte_idx, _) in haystack.char_indices() {
-    table[byte_idx] = char_idx;
-    char_idx += 1;
+  let mut utf16_idx: u32 = 0;
+  for (byte_idx, ch) in haystack.char_indices() {
+    table[byte_idx] = utf16_idx;
+    utf16_idx += ch.len_utf16() as u32;
   }
-  // Sentinel for byte_end == haystack.len().
-  table[haystack.len()] = char_idx;
+  table[haystack.len()] = utf16_idx;
   table
 }
 
@@ -190,7 +189,7 @@ impl AhoCorasick {
         .collect();
     }
 
-    let table = build_byte_to_char_table(&haystack);
+    let table = build_byte_to_utf16_table(&haystack);
     self
       .inner
       .find_iter(&haystack)
@@ -223,7 +222,7 @@ impl AhoCorasick {
         .collect();
     }
 
-    let table = build_byte_to_char_table(&haystack);
+    let table = build_byte_to_utf16_table(&haystack);
     self
       .overlapping
       .find_overlapping_iter(&haystack)

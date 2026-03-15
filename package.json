@@ -48,8 +48,13 @@
     "bench": "bun run __bench__/index.ts"
   },
   "devDependencies": {
-    "@napi-rs/cli": "^3.0.0",
     "@monyone/aho-corasick": "^1.1.6",
+    "@napi-rs/cli": "^3.0.0",
+    "@tanishiking/aho-corasick": "^0.0.1",
+    "@types/node": "^25.5.0",
+    "ahocorasick": "^1.0.2",
+    "bun-types": "^1.3.10",
+    "modern-ahocorasick": "^2.0.4",
     "oxfmt": "latest",
     "oxlint": "latest"
   },
