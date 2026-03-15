@@ -43,32 +43,184 @@ pub struct Match {
   pub end: u32,
 }
 
-/// Build a byte-offset → UTF-16-code-unit-offset
-/// lookup table.
-///
-/// JS strings are UTF-16: chars above U+FFFF
-/// (emoji, CJK extensions, etc.) take 2 code units
-/// (a surrogate pair). We must return offsets
-/// compatible with `String.prototype.slice()`.
-fn build_byte_to_utf16_table(
-  haystack: &str,
-) -> Vec<u32> {
-  let mut table = vec![0u32; haystack.len() + 1];
-  let mut utf16_idx: u32 = 0;
-  for (byte_idx, ch) in haystack.char_indices() {
-    table[byte_idx] = utf16_idx;
-    utf16_idx += ch.len_utf16() as u32;
+// ─── UTF-16 offset translation ────────────────
+//
+// The aho-corasick crate returns byte offsets into
+// UTF-8. JS strings use UTF-16 code unit indexing.
+// We need to translate, but avoid a full O(n)
+// lookup table allocation.
+//
+// Strategy:
+// - ASCII fast path: byte offset == UTF-16 offset
+// - Non-ASCII: incremental translation — walk only
+//   the bytes between matches. Zero allocation,
+//   O(matched region) instead of O(haystack).
+
+/// Count UTF-16 code units in a UTF-8 byte span.
+/// Each UTF-8 sequence maps to either 1 or 2
+/// UTF-16 code units (2 for supplementary plane,
+/// i.e., 4-byte UTF-8 sequences).
+fn byte_span_utf16_len(bytes: &[u8]) -> u32 {
+  let mut count = 0u32;
+  let mut i = 0;
+  while i < bytes.len() {
+    let b = bytes[i];
+    if b < 0x80 {
+      count += 1;
+      i += 1;
+    } else if b < 0xE0 {
+      count += 1;
+      i += 2;
+    } else if b < 0xF0 {
+      count += 1;
+      i += 3;
+    } else {
+      // Supplementary plane: 2 UTF-16 code units.
+      count += 2;
+      i += 4;
+    }
   }
-  table[haystack.len()] = utf16_idx;
-  table
+  count
 }
 
+/// Find non-overlapping matches with incremental
+/// byte→UTF-16 offset translation. Matches from
+/// aho-corasick arrive in ascending byte order, so
+/// we maintain a running position and only walk the
+/// bytes between consecutive matches.
+fn find_with_offsets(
+  ac: &RawAhoCorasick,
+  haystack: &str,
+) -> Vec<Match> {
+  let bytes = haystack.as_bytes();
+  let mut results = Vec::new();
+  let mut last_byte: usize = 0;
+  let mut last_utf16: u32 = 0;
+
+  for m in ac.find_iter(haystack) {
+    // Advance from last_byte to m.start().
+    last_utf16 +=
+      byte_span_utf16_len(&bytes[last_byte..m.start()]);
+    let start = last_utf16;
+    last_byte = m.start();
+
+    // Advance through the match.
+    last_utf16 +=
+      byte_span_utf16_len(&bytes[last_byte..m.end()]);
+    let end = last_utf16;
+    last_byte = m.end();
+
+    results.push(Match {
+      pattern: m.pattern().as_u32(),
+      start,
+      end,
+    });
+  }
+  results
+}
+
+/// Overlapping search with incremental offset
+/// translation. Overlapping matches may NOT arrive
+/// in strictly ascending start order (a match can
+/// start before a previous one ends), but they do
+/// arrive in ascending *end* order. We use a full
+/// scan for overlapping since the incremental
+/// assumption doesn't hold.
+fn find_overlapping_with_offsets(
+  ac: &RawAhoCorasick,
+  haystack: &str,
+) -> Vec<Match> {
+  // For overlapping, matches can interleave, so we
+  // build a byte→UTF-16 map. But we use the compact
+  // OXC-style formula: only iterate char_indices
+  // once instead of allocating a full table.
+  //
+  // Collect all byte positions we need to translate,
+  // sort them, then walk once.
+  let raw_matches: Vec<_> =
+    ac.find_overlapping_iter(haystack).collect();
+
+  if raw_matches.is_empty() {
+    return Vec::new();
+  }
+
+  // Collect unique byte offsets we need.
+  let mut offsets: Vec<usize> = Vec::with_capacity(
+    raw_matches.len() * 2,
+  );
+  for m in &raw_matches {
+    offsets.push(m.start());
+    offsets.push(m.end());
+  }
+  offsets.sort_unstable();
+  offsets.dedup();
+
+  // Single pass: walk char_indices, resolve each
+  // offset as we reach it.
+  let mut offset_map: Vec<(usize, u32)> =
+    Vec::with_capacity(offsets.len());
+  let mut utf16_idx: u32 = 0;
+  let mut next = 0;
+  let haystack_bytes = haystack.as_bytes();
+
+  for (byte_idx, ch) in haystack.char_indices() {
+    while next < offsets.len()
+      && offsets[next] == byte_idx
+    {
+      offset_map.push((byte_idx, utf16_idx));
+      next += 1;
+    }
+    utf16_idx += ch.len_utf16() as u32;
+  }
+  // Handle offsets at haystack.len().
+  let end_byte = haystack_bytes.len();
+  while next < offsets.len()
+    && offsets[next] == end_byte
+  {
+    offset_map.push((end_byte, utf16_idx));
+    next += 1;
+  }
+
+  // Build a lookup closure.
+  let lookup = |byte_off: usize| -> u32 {
+    match offset_map
+      .binary_search_by_key(&byte_off, |&(b, _)| b)
+    {
+      Ok(i) => offset_map[i].1,
+      Err(_) => 0, // should never happen
+    }
+  };
+
+  raw_matches
+    .iter()
+    .map(|m| Match {
+      pattern: m.pattern().as_u32(),
+      start: lookup(m.start()),
+      end: lookup(m.end()),
+    })
+    .collect()
+}
+
+// ─── Automaton builders ───────────────────────
 
 fn default_options() -> Options {
   Options {
     match_kind: None,
     case_insensitive: None,
     dfa: None,
+  }
+}
+
+fn resolve_match_kind(
+  mk: MatchKind,
+) -> RawMatchKind {
+  match mk {
+    MatchKind::LeftmostFirst => {
+      RawMatchKind::LeftmostFirst
+    }
+    MatchKind::LeftmostLongest => {
+      RawMatchKind::LeftmostLongest
+    }
   }
 }
 
@@ -82,11 +234,9 @@ fn build_automaton(
   builder
     .match_kind(match_kind)
     .ascii_case_insensitive(case_insensitive);
-
   if dfa {
     builder.kind(Some(AhoCorasickKind::DFA));
   }
-
   builder.build(patterns).map_err(|e| {
     Error::from_reason(format!(
       "Failed to build automaton: {e}"
@@ -94,19 +244,17 @@ fn build_automaton(
   })
 }
 
+// ─── AhoCorasick ──────────────────────────────
+
 /// Aho-Corasick automaton for multi-pattern string
 /// searching.
 #[napi]
 pub struct AhoCorasick {
-  /// Main automaton (leftmost semantics).
+  /// Primary automaton (leftmost semantics).
   inner: RawAhoCorasick,
-  /// Lazily built automaton for overlapping search.
-  /// Overlapping requires `MatchKind::Standard`,
-  /// which is incompatible with leftmost semantics.
-  /// Built on first `findOverlappingIter` call to
-  /// avoid wasting memory when unused.
+  /// Lazily built overlapping automaton.
   overlapping: OnceLock<RawAhoCorasick>,
-  /// Stored for lazy overlapping automaton build.
+  /// Original patterns for lazy builds.
   patterns: Vec<String>,
   case_insensitive: bool,
   dfa: bool,
@@ -122,29 +270,21 @@ impl AhoCorasick {
     patterns: Vec<String>,
     options: Option<Options>,
   ) -> Result<Self> {
-    let opts = options.unwrap_or_else(default_options);
-
-    let match_kind = opts
-      .match_kind
-      .unwrap_or(MatchKind::LeftmostFirst);
+    let opts =
+      options.unwrap_or_else(default_options);
+    let match_kind = resolve_match_kind(
+      opts
+        .match_kind
+        .unwrap_or(MatchKind::LeftmostFirst),
+    );
     let case_insensitive =
       opts.case_insensitive.unwrap_or(false);
     let dfa = opts.dfa.unwrap_or(false);
-
-    let raw_match_kind = match match_kind {
-      MatchKind::LeftmostFirst => {
-        RawMatchKind::LeftmostFirst
-      }
-      MatchKind::LeftmostLongest => {
-        RawMatchKind::LeftmostLongest
-      }
-    };
-
     let pattern_count = patterns.len() as u32;
 
     let inner = build_automaton(
       &patterns,
-      raw_match_kind,
+      match_kind,
       case_insensitive,
       dfa,
     )?;
@@ -159,10 +299,7 @@ impl AhoCorasick {
     })
   }
 
-  /// Get or build the overlapping automaton.
-  /// Uses `get_or_init` — the build cannot fail
-  /// because the same patterns already built the
-  /// primary automaton successfully.
+  /// Lazy overlapping automaton.
   fn overlapping_ac(&self) -> &RawAhoCorasick {
     self.overlapping.get_or_init(|| {
       build_automaton(
@@ -190,69 +327,79 @@ impl AhoCorasick {
     self.inner.is_match(&haystack)
   }
 
-  /// Find all non-overlapping matches.
-  #[napi]
-  pub fn find_iter(
+  /// Find all non-overlapping matches. Returns a
+  /// packed `Uint32Array` of `[pattern, start, end]`
+  /// triples. The JS wrapper unpacks these into
+  /// `Match` objects. Returning a typed array avoids
+  /// creating thousands of JS objects across FFI.
+  #[napi(js_name = "_findIterPacked")]
+  pub fn find_iter_packed(
     &self,
     haystack: String,
-  ) -> Vec<Match> {
-    // ASCII fast path: byte offsets == char offsets.
+  ) -> Uint32Array {
     if haystack.is_ascii() {
-      return self
-        .inner
-        .find_iter(&haystack)
-        .map(|m| Match {
-          pattern: m.pattern().as_u32(),
-          start: m.start() as u32,
-          end: m.end() as u32,
-        })
-        .collect();
+      let mut packed = Vec::new();
+      for m in self.inner.find_iter(&haystack) {
+        packed.push(m.pattern().as_u32());
+        packed.push(m.start() as u32);
+        packed.push(m.end() as u32);
+      }
+      return Uint32Array::new(packed);
     }
 
-    let table = build_byte_to_utf16_table(&haystack);
-    self
-      .inner
-      .find_iter(&haystack)
-      .map(|m| Match {
-        pattern: m.pattern().as_u32(),
-        start: table[m.start()],
-        end: table[m.end()],
-      })
-      .collect()
+    let bytes = haystack.as_bytes();
+    let mut packed = Vec::new();
+    let mut last_byte: usize = 0;
+    let mut last_utf16: u32 = 0;
+
+    for m in self.inner.find_iter(&haystack) {
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..m.start()],
+      );
+      let start = last_utf16;
+      last_byte = m.start();
+
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..m.end()],
+      );
+      let end = last_utf16;
+      last_byte = m.end();
+
+      packed.push(m.pattern().as_u32());
+      packed.push(start);
+      packed.push(end);
+    }
+    Uint32Array::new(packed)
   }
 
-  /// Find all overlapping matches.
-  ///
-  /// Reports every match at every position, including
-  /// those that overlap with each other. The
-  /// overlapping automaton is built lazily on first
-  /// call to avoid memory overhead when unused.
-  #[napi]
-  pub fn find_overlapping_iter(
+  /// Find all overlapping matches (packed).
+  #[napi(js_name = "_findOverlappingIterPacked")]
+  pub fn find_overlapping_iter_packed(
     &self,
     haystack: String,
-  ) -> Vec<Match> {
+  ) -> Uint32Array {
     let ov = self.overlapping_ac();
 
     if haystack.is_ascii() {
-      return ov
-        .find_overlapping_iter(&haystack)
-        .map(|m| Match {
-          pattern: m.pattern().as_u32(),
-          start: m.start() as u32,
-          end: m.end() as u32,
-        })
-        .collect();
+      let mut packed = Vec::new();
+      for m in ov.find_overlapping_iter(&haystack) {
+        packed.push(m.pattern().as_u32());
+        packed.push(m.start() as u32);
+        packed.push(m.end() as u32);
+      }
+      return Uint32Array::new(packed);
     }
 
-    let table = build_byte_to_utf16_table(&haystack);
-    ov.find_overlapping_iter(&haystack)
-      .map(|m| Match {
-        pattern: m.pattern().as_u32(),
-        start: table[m.start()],
-        end: table[m.end()],
-      })
-      .collect()
+    let matches =
+      find_overlapping_with_offsets(ov, &haystack);
+    let mut packed =
+      Vec::with_capacity(matches.len() * 3);
+    for m in matches {
+      packed.push(m.pattern);
+      packed.push(m.start);
+      packed.push(m.end);
+    }
+    Uint32Array::new(packed)
   }
 
   /// Replace all non-overlapping matches.
@@ -307,8 +454,8 @@ impl AhoCorasick {
     self.inner.is_match(bytes)
   }
 
-  /// Find matches in a single chunk. Byte offsets are
-  /// relative to the chunk start.
+  /// Find matches in a single chunk. Byte offsets
+  /// are relative to the chunk start.
   #[napi]
   pub fn find_in_chunk(
     &self,
@@ -327,11 +474,16 @@ impl AhoCorasick {
   }
 }
 
+// ─── StreamMatcher ────────────────────────────
+
 /// Streaming matcher that handles chunk boundaries.
 ///
 /// Feed chunks via `write()` and collect matches.
 /// Internally buffers the overlap region between
 /// chunks so cross-boundary matches are found.
+///
+/// Operates on raw bytes (UTF-8). Offsets are global
+/// byte offsets across all chunks.
 #[napi]
 pub struct StreamMatcher {
   inner: RawAhoCorasick,
@@ -348,23 +500,16 @@ impl StreamMatcher {
     patterns: Vec<String>,
     options: Option<Options>,
   ) -> Result<Self> {
-    let opts = options.unwrap_or_else(default_options);
-
-    let match_kind = opts
-      .match_kind
-      .unwrap_or(MatchKind::LeftmostFirst);
+    let opts =
+      options.unwrap_or_else(default_options);
+    let match_kind = resolve_match_kind(
+      opts
+        .match_kind
+        .unwrap_or(MatchKind::LeftmostFirst),
+    );
     let case_insensitive =
       opts.case_insensitive.unwrap_or(false);
     let dfa = opts.dfa.unwrap_or(false);
-
-    let raw_match_kind = match match_kind {
-      MatchKind::LeftmostFirst => {
-        RawMatchKind::LeftmostFirst
-      }
-      MatchKind::LeftmostLongest => {
-        RawMatchKind::LeftmostLongest
-      }
-    };
 
     let max_pattern_len = patterns
       .iter()
@@ -374,7 +519,7 @@ impl StreamMatcher {
 
     let inner = build_automaton(
       &patterns,
-      raw_match_kind,
+      match_kind,
       case_insensitive,
       dfa,
     )?;
@@ -387,8 +532,8 @@ impl StreamMatcher {
     })
   }
 
-  /// Feed a chunk and return matches with global byte
-  /// offsets.
+  /// Feed a chunk and return matches with global
+  /// byte offsets.
   #[napi]
   pub fn write(
     &mut self,
@@ -423,8 +568,6 @@ impl StreamMatcher {
 
     let mut matches = Vec::new();
     for m in self.inner.find_iter(&combined) {
-      // Skip matches fully within the overlap
-      // (already reported by previous write).
       if m.start() < overlap_len
         && m.end() <= overlap_len
       {
@@ -440,7 +583,6 @@ impl StreamMatcher {
       });
     }
 
-    // Save tail as overlap for next chunk.
     let overlap_size = (self.max_pattern_len - 1)
       .min(combined.len());
     self.overlap_buf = combined
@@ -451,7 +593,8 @@ impl StreamMatcher {
     matches
   }
 
-  /// Flush remaining state. Call after the last chunk.
+  /// Flush remaining state. Call after the last
+  /// chunk.
   #[napi]
   pub fn flush(&mut self) -> Vec<Match> {
     self.overlap_buf.clear();

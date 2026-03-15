@@ -14,15 +14,16 @@ export declare class AhoCorasick {
   get patternCount(): number
   /** Returns `true` if any pattern matches. */
   isMatch(haystack: string): boolean
-  /** Find all non-overlapping matches. */
-  findIter(haystack: string): Array<Match>
   /**
-   * Find all overlapping matches.
-   *
-   * Reports every match at every position, including
-   * those that overlap with each other.
+   * Find all non-overlapping matches. Returns a
+   * packed `Uint32Array` of `[pattern, start, end]`
+   * triples. The JS wrapper unpacks these into
+   * `Match` objects. Returning a typed array avoids
+   * creating thousands of JS objects across FFI.
    */
-  findOverlappingIter(haystack: string): Array<Match>
+  _findIterPacked(haystack: string): Uint32Array
+  /** Find all overlapping matches (packed). */
+  _findOverlappingIterPacked(haystack: string): Uint32Array
   /**
    * Replace all non-overlapping matches.
    *
@@ -37,8 +38,8 @@ export declare class AhoCorasick {
   /** Check whether any pattern matches in a `Buffer`. */
   isMatchBuf(haystack: Buffer): boolean
   /**
-   * Find matches in a single chunk. Byte offsets are
-   * relative to the chunk start.
+   * Find matches in a single chunk. Byte offsets
+   * are relative to the chunk start.
    */
   findInChunk(chunk: Buffer): Array<Match>
 }
@@ -49,16 +50,22 @@ export declare class AhoCorasick {
  * Feed chunks via `write()` and collect matches.
  * Internally buffers the overlap region between
  * chunks so cross-boundary matches are found.
+ *
+ * Operates on raw bytes (UTF-8). Offsets are global
+ * byte offsets across all chunks.
  */
 export declare class StreamMatcher {
   /** Create a streaming matcher. */
   constructor(patterns: Array<string>, options?: Options | undefined | null)
   /**
-   * Feed a chunk and return matches with global byte
-   * offsets.
+   * Feed a chunk and return matches with global
+   * byte offsets.
    */
   write(chunk: Buffer): Array<Match>
-  /** Flush remaining state. Call after the last chunk. */
+  /**
+   * Flush remaining state. Call after the last
+   * chunk.
+   */
   flush(): Array<Match>
   /** Reset for reuse with new input. */
   reset(): void

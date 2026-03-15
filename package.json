@@ -19,9 +19,11 @@
     "native",
     "rust"
   ],
-  "main": "index.js",
-  "types": "index.d.ts",
+  "main": "lib.js",
+  "types": "lib.d.ts",
   "files": [
+    "lib.js",
+    "lib.d.ts",
     "index.js",
     "index.d.ts"
   ],
