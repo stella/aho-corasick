@@ -1,0 +1,163 @@
+name: CI
+
+env:
+  NODE_VERSION: "22"
+  CARGO_INCREMENTAL: 0
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run lint
+
+  build:
+    name: Build - ${{ matrix.settings.target }}
+    runs-on: ${{ matrix.settings.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        settings:
+          - target: x86_64-apple-darwin
+            os: macos-13
+          - target: aarch64-apple-darwin
+            os: macos-14
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-unknown-linux-musl
+            os: ubuntu-latest
+            cross: true
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.settings.target }}
+
+      - uses: Swatinem/rust-cache@v2
+        with:
+          shared-key: build-${{ matrix.settings.target }}
+
+      - uses: oven-sh/setup-bun@v2
+
+      - run: bun install --frozen-lockfile
+
+      - name: Build (native)
+        if: ${{ !matrix.settings.cross }}
+        run: >
+          bun run build
+          --target ${{ matrix.settings.target }}
+
+      - name: Build (cross-compile)
+        if: ${{ matrix.settings.cross }}
+        uses: addnab/docker-run-action@v3
+        with:
+          image: ghcr.io/napi-rs/napi-rs/nodejs-rust:lts-debian
+          options: >
+            --user 0:0
+            -v ${{ github.workspace }}:/build
+            -w /build
+          run: >
+            rustup target add ${{ matrix.settings.target }}
+            && yarn
+            && yarn build
+            --target ${{ matrix.settings.target }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bindings-${{ matrix.settings.target }}
+          path: "*.node"
+          if-no-files-found: error
+
+  test:
+    name: Test
+    needs: [build]
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-14, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Move artifacts
+        shell: bash
+        run: |
+          ls -R artifacts/
+          for dir in artifacts/bindings-*; do
+            cp "$dir"/*.node . 2>/dev/null || true
+          done
+          ls -la *.node 2>/dev/null || echo "No .node files"
+
+      - run: bun test
+
+  publish:
+    name: Publish
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [test, lint]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://registry.npmjs.org
+
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Prepare npm packages
+        run: bun x @napi-rs/cli artifacts
+
+      - name: Publish to npm
+        run: |
+          npm publish --access public --provenance
+          for pkg in npm/*/; do
+            cd "$pkg"
+            npm publish --access public --provenance
+            cd ../..
+          done
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          generate_release_notes: true

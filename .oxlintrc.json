@@ -1,0 +1,14 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "rules": {
+    "no-console": "off",
+    "require-await": "error",
+    "no-useless-catch": "error",
+    "typescript/no-explicit-any": "error",
+    "typescript/consistent-type-definitions": [
+      "error",
+      "type"
+    ]
+  },
+  "ignorePatterns": ["*.node", "npm/"]
+}
