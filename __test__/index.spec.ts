@@ -525,6 +525,443 @@ describe("offset correctness after multi-byte", () => {
 
 });
 
+// ─── Adopted from other libraries ─────────────
+//
+// Test cases sourced from:
+// - github.com/BrunoRB/ahocorasick (test/basic.js)
+// - github.com/sonofmagic/modern-ahocorasick
+//   (test/index.test.ts, test/next.test.ts)
+// - github.com/tanishiking/aho-corasick-js
+//   (src/trie.test.ts)
+// - github.com/G-Research/ahocorasick_rs
+//   (tests/test_ac.py)
+// - github.com/WojciechMula/pyahocorasick
+//   (tests/test_issue_*.py, tests/test_unit.py)
+// - github.com/BurntSushi/aho-corasick
+//   (src/tests.rs)
+
+describe("adopted: Cyrillic (BrunoRB)", () => {
+  test("Cyrillic with suffix overlap", () => {
+    const ac = new AhoCorasick([
+      "Федеральной",
+      "ной",
+      "idea",
+    ]);
+    const text =
+      "! Федеральной I have no idea what this means.";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("Федеральной");
+    expect(found).toContain("idea");
+  });
+});
+
+describe("adopted: special characters (BrunoRB)", () => {
+  test("newlines and special chars", () => {
+    const ac = new AhoCorasick([
+      "**",
+      "666",
+      "\n",
+    ]);
+    const text = "\n & 666 ==! \n";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("\n");
+    expect(found).toContain("666");
+    expect(matches.length).toBeGreaterThanOrEqual(3);
+  });
+
+  test("null byte patterns (BurntSushi)", () => {
+    const ac = new AhoCorasick([
+      "\x00\x00\x01",
+      "\x00\x00\x00",
+    ]);
+    const matches = ac.findIter("\x00\x00\x00");
+    expect(matches).toHaveLength(1);
+    expect(extract("\x00\x00\x00", matches[0]!)).toBe(
+      "\x00\x00\x00",
+    );
+  });
+});
+
+describe("adopted: emoji sequences (modern-ahocorasick)", () => {
+  test("CJK Extension B (surrogate pairs)", () => {
+    // 𠮟 (U+20B9F) is outside BMP
+    const ac = new AhoCorasick(["𠮟", "𠮟る"]);
+    const text = "人を𠮟る";
+    const matches = ac.findIter(text);
+
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+    for (const m of matches) {
+      const s = extract(text, m);
+      expect(["𠮟", "𠮟る"]).toContain(s);
+    }
+  });
+
+  test("ZWJ family emoji", () => {
+    const pattern = "👨‍👩‍👧‍👦";
+    const ac = new AhoCorasick([pattern]);
+    const text = "😁👨‍👩‍👧‍👦😀";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(1);
+    expect(extract(text, matches[0]!)).toBe(pattern);
+  });
+
+  test("table flip unicode (BrunoRB)", () => {
+    const ac = new AhoCorasick([
+      "°□°",
+      "┻━┻",
+    ]);
+    const text = "- (╯°□°)╯︵ ┻━┻ ";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("°□°");
+    expect(found).toContain("┻━┻");
+  });
+
+  test("emoji with snowman (ahocorasick_rs)", () => {
+    const ac = new AhoCorasick([
+      "d ☃f",
+      "há",
+      "l🤦l",
+    ]);
+    const text = "hello, world ☃fishá l🤦l";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("d ☃f");
+    expect(found).toContain("há");
+    expect(found).toContain("l🤦l");
+  });
+});
+
+describe("adopted: CJK supplementary (tanishiking)", () => {
+  test("𩸽 (CJK Extension B) offset", () => {
+    const ac = new AhoCorasick(["LOVE"]);
+    const text = "𩸽 LOVE";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(1);
+    expect(extract(text, matches[0]!)).toBe("LOVE");
+    // 𩸽 = 2 UTF-16 code units, space = 1
+    expect(matches[0]!.start).toBe(3);
+  });
+
+  test("hehehehe overlapping repetition", () => {
+    const ac = new AhoCorasick(["he", "hehehehe"]);
+    const overlapping =
+      ac.findOverlappingIter("hehehehehe");
+    const found = overlapping.map((m) =>
+      extract("hehehehehe", m),
+    );
+
+    // Should find many "he" and at least one "hehehehe"
+    expect(found.filter((s) => s === "he").length)
+      .toBeGreaterThanOrEqual(4);
+    expect(found).toContain("hehehehe");
+  });
+});
+
+describe("adopted: Polish diacritics (pyahocorasick#8)", () => {
+  test("Polish diacritics: non-overlapping", () => {
+    const ac = new AhoCorasick([
+      "wąż",
+      "mąż",
+      "żółć",
+      "aż",
+      "waży",
+    ]);
+    const text = "wyważyć";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    // leftmost-first: "waży" wins, "aż" is inside
+    expect(found).toContain("waży");
+    expect(found).not.toContain("aż");
+  });
+
+  test("Polish diacritics: overlapping", () => {
+    const ac = new AhoCorasick([
+      "wąż",
+      "mąż",
+      "żółć",
+      "aż",
+      "waży",
+    ]);
+    const text = "wyważyć";
+    const overlapping = ac.findOverlappingIter(text);
+    const found = overlapping.map((m) =>
+      extract(text, m),
+    );
+
+    // overlapping finds both
+    expect(found).toContain("waży");
+    expect(found).toContain("aż");
+  });
+});
+
+describe("adopted: match semantics (ahocorasick_rs)", () => {
+  test("discontent: leftmost-first vs leftmost-longest", () => {
+    const patterns = [
+      "content",
+      "disco",
+      "disc",
+      "discontent",
+      "winter",
+    ];
+    const text =
+      "This is the winter of my discontent";
+
+    // leftmost-first: "disco" wins (inserted before
+    // "discontent")
+    const lf = new AhoCorasick(patterns);
+    const lfMatches = lf.findIter(text);
+    const lfFound = lfMatches.map((m) =>
+      extract(text, m),
+    );
+    expect(lfFound).toContain("winter");
+    expect(lfFound).toContain("disco");
+    expect(lfFound).not.toContain("discontent");
+
+    // leftmost-longest: "discontent" wins
+    const ll = new AhoCorasick(patterns, {
+      matchKind: "leftmost-longest",
+    });
+    const llMatches = ll.findIter(text);
+    const llFound = llMatches.map((m) =>
+      extract(text, m),
+    );
+    expect(llFound).toContain("winter");
+    expect(llFound).toContain("discontent");
+    expect(llFound).not.toContain("disco");
+    expect(llFound).not.toContain("disc");
+  });
+
+  test("overlapping finds all", () => {
+    const ac = new AhoCorasick([
+      "content",
+      "disco",
+      "disc",
+      "discontent",
+      "winter",
+    ]);
+    const text =
+      "This is the winter of my discontent";
+    const overlapping =
+      ac.findOverlappingIter(text);
+    const found = overlapping.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("winter");
+    expect(found).toContain("disc");
+    expect(found).toContain("disco");
+    expect(found).toContain("discontent");
+    expect(found).toContain("content");
+  });
+});
+
+describe("adopted: edge cases (BurntSushi)", () => {
+  test("sequential non-overlapping", () => {
+    const ac = new AhoCorasick(["inf", "ind"]);
+    const matches = ac.findIter("infind");
+    expect(matches).toHaveLength(2);
+    expect(extract("infind", matches[0]!)).toBe(
+      "inf",
+    );
+    expect(extract("infind", matches[1]!)).toBe(
+      "ind",
+    );
+  });
+
+  test("pattern order preserved in results", () => {
+    const ac = new AhoCorasick(["ind", "inf"]);
+    const matches = ac.findIter("infind");
+    expect(matches).toHaveLength(2);
+    // "inf" matches first (position 0), "ind" at 3
+    expect(extract("infind", matches[0]!)).toBe(
+      "inf",
+    );
+    expect(extract("infind", matches[1]!)).toBe(
+      "ind",
+    );
+  });
+
+  test("path-like patterns", () => {
+    const ac = new AhoCorasick([
+      "libcore/",
+      "libstd/",
+    ]);
+    const matches = ac.findIter(
+      "libcore/char/methods.rs",
+    );
+    expect(matches).toHaveLength(1);
+    expect(
+      extract(
+        "libcore/char/methods.rs",
+        matches[0]!,
+      ),
+    ).toBe("libcore/");
+  });
+
+  test("near-miss long pattern (BurntSushi)", () => {
+    const ac = new AhoCorasick(
+      ["abcdefghi", "hz", "abcdefgh"],
+      { matchKind: "leftmost-longest" },
+    );
+    const matches = ac.findIter("abcdefghz");
+    expect(matches).toHaveLength(1);
+    expect(
+      extract("abcdefghz", matches[0]!),
+    ).toBe("abcdefgh");
+  });
+
+  test("sam prefix ambiguity (BurntSushi)", () => {
+    const ac = new AhoCorasick([
+      "amwix",
+      "samwise",
+      "sam",
+    ]);
+    const matches = ac.findIter("Zsamwix");
+    // "sam" matches before "samwise" could complete
+    expect(matches).toHaveLength(1);
+    expect(extract("Zsamwix", matches[0]!)).toBe(
+      "sam",
+    );
+  });
+
+  test("duplicate patterns under case folding (BurntSushi)", () => {
+    const ac = new AhoCorasick(["foo", "FOO"], {
+      caseInsensitive: true,
+    });
+    // Both patterns match "fOo"; leftmost-first
+    // picks the first one
+    const matches = ac.findIter("fOo");
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.pattern).toBe(0);
+  });
+
+  test("case-insensitive mixed (BurntSushi)", () => {
+    const ac = new AhoCorasick(["fOoBaR"], {
+      caseInsensitive: true,
+    });
+    const matches = ac.findIter("quux foobar baz");
+    expect(matches).toHaveLength(1);
+    expect(
+      extract("quux foobar baz", matches[0]!),
+    ).toBe("foobar");
+  });
+
+  test("suffix .com pattern (BrunoRB)", () => {
+    const ac = new AhoCorasick([
+      ".com.au",
+      ".com",
+    ]);
+    expect(
+      ac.findIter("www.yahoo.com").length,
+    ).toBe(1);
+    expect(
+      extract(
+        "www.yahoo.com",
+        ac.findIter("www.yahoo.com")[0]!,
+      ),
+    ).toBe(".com");
+    expect(
+      ac.findIter("www.example.org").length,
+    ).toBe(0);
+  });
+
+  test("misleading prefix: h he her hers (tanishiking)", () => {
+    const ac = new AhoCorasick(["hers"]);
+    const matches = ac.findIter("h he her hers");
+    expect(matches).toHaveLength(1);
+    expect(
+      extract("h he her hers", matches[0]!),
+    ).toBe("hers");
+  });
+
+  test("duplicate patterns (modern-ahocorasick)", () => {
+    const ac = new AhoCorasick(["a", "a", "b"]);
+    const matches = ac.findIter("ab");
+    // Should find "a" (at least once) and "b"
+    const found = matches.map((m) =>
+      extract("ab", m),
+    );
+    expect(found).toContain("a");
+    expect(found).toContain("b");
+  });
+
+  test("case sensitivity: a vs A (modern-ahocorasick)", () => {
+    const ac = new AhoCorasick(["a", "A"]);
+    const matches = ac.findIter("Aa");
+    expect(matches).toHaveLength(2);
+    expect(extract("Aa", matches[0]!)).toBe("A");
+    expect(extract("Aa", matches[1]!)).toBe("a");
+  });
+
+  test("repeated single char (pyahocorasick#10)", () => {
+    const ac = new AhoCorasick(["S"]);
+    const matches = ac.findIter("SSS");
+    expect(matches).toHaveLength(3);
+  });
+
+  test("pyahocorasick#56: overlapping prefix/suffix", () => {
+    const ac = new AhoCorasick([
+      "poke",
+      "go",
+      "pokegois",
+      "egoist",
+    ]);
+    const text = "pokego pokego  pokegoist";
+    const matches = ac.findIter(text);
+
+    // Verify we find matches (exact count depends
+    // on leftmost-first semantics)
+    expect(matches.length).toBeGreaterThanOrEqual(3);
+    for (const m of matches) {
+      expect(
+        ["poke", "go", "pokegois", "egoist"],
+      ).toContain(extract(text, m));
+    }
+  });
+
+  test("drug names: long match suppresses substring (pyahocorasick#133)", () => {
+    const ac = new AhoCorasick(
+      [
+        "trimethoprim",
+        "sulfamethoxazole",
+        "meth",
+      ],
+      { matchKind: "leftmost-longest" },
+    );
+    const text =
+      "sulfamethoxazole and trimethoprim";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) =>
+      extract(text, m),
+    );
+
+    expect(found).toContain("sulfamethoxazole");
+    expect(found).toContain("trimethoprim");
+    // "meth" is inside both, should be suppressed
+    expect(found).not.toContain("meth");
+  });
+});
+
 // ─── Streaming ────────────────────────────────
 
 describe("StreamMatcher", () => {
