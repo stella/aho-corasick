@@ -1,0 +1,13 @@
+{
+  "name": "@stll/aho-corasick-darwin-x64",
+  "version": "0.1.0",
+  "os": ["darwin"],
+  "cpu": ["x64"],
+  "main": "aho-corasick.darwin-x64.node",
+  "files": ["aho-corasick.darwin-x64.node"],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/stella/aho-corasick"
+  }
+}
