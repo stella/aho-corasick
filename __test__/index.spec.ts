@@ -105,15 +105,6 @@ describe("AhoCorasick", () => {
     expect(ac.isMatch("a test")).toBe(true);
   });
 
-  test("findIterBuf returns byte offsets", () => {
-    const ac = new AhoCorasick(["foo"]);
-    const buf = Buffer.from("hello foo world");
-    const matches = ac.findIterBuf(buf);
-
-    expect(matches).toHaveLength(1);
-    expect(matches[0]!.start).toBe(6);
-    expect(matches[0]!.end).toBe(9);
-  });
 });
 
 // ─── Overlapping matches ──────────────────────
@@ -532,19 +523,6 @@ describe("offset correctness after multi-byte", () => {
     expect(matches[1]!.start).toBe(10);
   });
 
-  test("buf offsets differ from char offsets", () => {
-    const ac = new AhoCorasick(["test"]);
-    const text = "étest"; // é = 2 UTF-8 bytes
-    const buf = Buffer.from(text);
-
-    const charMatches = ac.findIter(text);
-    const byteMatches = ac.findIterBuf(buf);
-
-    // Char offset: start=1 (after é)
-    expect(charMatches[0]!.start).toBe(1);
-    // Byte offset: start=2 (after 2-byte é)
-    expect(byteMatches[0]!.start).toBe(2);
-  });
 });
 
 // ─── Streaming ────────────────────────────────

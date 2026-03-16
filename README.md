@@ -105,16 +105,6 @@ sm.reset(); // reuse for another stream
 between chunks so that matches spanning chunk
 boundaries are found.
 
-### Buffer API
-
-For working with raw bytes:
-
-```typescript
-const buf = Buffer.from("hello foo world");
-ac.findIterBuf(buf); // byte offsets
-ac.isMatchBuf(buf); // boolean
-```
-
 ## Benchmarks
 
 Measured on Apple M3, 24 GB RAM, macOS 25.3.0,
@@ -186,12 +176,10 @@ compatible with `String.prototype.slice()`.
 | Method | Returns | Description |
 | --- | --- | --- |
 | `new AhoCorasick(patterns, options?)` | instance | Build automaton |
-| `.isMatch(haystack)` | `boolean` | Any pattern matches? |
 | `.findIter(haystack)` | `Match[]` | Non-overlapping matches |
 | `.findOverlappingIter(haystack)` | `Match[]` | All overlapping matches |
+| `.isMatch(haystack)` | `boolean` | Any pattern matches? |
 | `.replaceAll(haystack, replacements)` | `string` | Replace matched patterns |
-| `.findIterBuf(buffer)` | `Match[]` | Matches in Buffer (byte offsets) |
-| `.isMatchBuf(buffer)` | `boolean` | Any match in Buffer? |
 | `.patternCount` | `number` | Number of patterns |
 
 ### `StreamMatcher`

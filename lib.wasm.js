@@ -55,17 +55,6 @@ class AhoCorasick {
     );
   }
 
-  findIterBuf(haystack) {
-    return this._inner.findIterBuf(haystack);
-  }
-
-  isMatchBuf(haystack) {
-    return this._inner.isMatchBuf(haystack);
-  }
-
-  findInChunk(chunk) {
-    return this._inner.findInChunk(chunk);
-  }
 }
 
 module.exports.AhoCorasick = AhoCorasick;

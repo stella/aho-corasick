@@ -47,21 +47,11 @@ class AhoCorasick {
     );
   }
 
-  findIterPacked(haystack) {
-    return this._inner._findIterPacked(haystack);
-  }
-
   findOverlappingIter(haystack) {
     return unpack(
       this._inner._findOverlappingIterPacked(
         haystack,
       ),
-    );
-  }
-
-  findOverlappingIterPacked(haystack) {
-    return this._inner._findOverlappingIterPacked(
-      haystack,
     );
   }
 
@@ -72,17 +62,6 @@ class AhoCorasick {
     );
   }
 
-  findIterBuf(haystack) {
-    return this._inner.findIterBuf(haystack);
-  }
-
-  isMatchBuf(haystack) {
-    return this._inner.isMatchBuf(haystack);
-  }
-
-  findInChunk(chunk) {
-    return this._inner.findInChunk(chunk);
-  }
 }
 
 const StreamMatcher = NativeStreamMatcher;

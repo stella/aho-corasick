@@ -60,33 +60,8 @@ export declare class AhoCorasick {
   /** Find all non-overlapping matches. */
   findIter(haystack: string): Match[];
 
-  /**
-   * Same as `findIter` but returns a packed
-   * `Uint32Array` of `[pattern, start, end, ...]`
-   * triples instead of `Match` objects.
-   *
-   * Use for large inputs where millions of JS
-   * objects would spike memory. Iterate with:
-   * ```ts
-   * const packed = ac.findIterPacked(text);
-   * for (let i = 0; i < packed.length; i += 3) {
-   *   const pattern = packed[i];
-   *   const start = packed[i + 1];
-   *   const end = packed[i + 2];
-   * }
-   * ```
-   */
-  findIterPacked(haystack: string): Uint32Array;
-
   /** Find all overlapping matches. */
   findOverlappingIter(haystack: string): Match[];
-
-  /**
-   * Packed variant of `findOverlappingIter`.
-   */
-  findOverlappingIterPacked(
-    haystack: string,
-  ): Uint32Array;
 
   /**
    * Replace all non-overlapping matches.
@@ -96,18 +71,6 @@ export declare class AhoCorasick {
     haystack: string,
     replacements: string[],
   ): string;
-
-  /**
-   * Find matches in a `Buffer` / `Uint8Array`.
-   * Returns **byte offsets**.
-   */
-  findIterBuf(haystack: Buffer): Match[];
-
-  /** Check for match in a `Buffer`. */
-  isMatchBuf(haystack: Buffer): boolean;
-
-  /** Find matches in a chunk (byte offsets). */
-  findInChunk(chunk: Buffer): Match[];
 }
 
 /**
