@@ -1,91 +1,118 @@
 /**
- * Unicode edge case benchmark.
+ * Unicode benchmark: Leipzig Corpora Collection
  *
- * Tests performance on non-ASCII text: Czech
- * diacritics, emoji, CJK, Turkish İ/ı.
+ * Real-world text from academic corpora:
+ * - Czech news (2024, Leipzig Corpora Collection)
+ * - Turkish news (2024, Leipzig Corpora Collection)
+ * - Japanese newscrawl (2019, Leipzig Corpora Collection)
+ * - Chinese Wikipedia (2021, Leipzig Corpora Collection)
+ * - German news (2024, Leipzig Corpora Collection)
+ *
+ * Ref: D. Goldhahn, T. Eckart, U. Quasthoff.
+ * "Building Large Monolingual Dictionaries at the
+ * Leipzig Corpora Collection." LREC 2012.
  *
  * Run: bun run bench:unicode
  */
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import {
   bench,
   libs,
   printSpeedups,
 } from "./helpers";
 
-const N = 5;
+const CORPUS = join(__dirname, "corpus");
+const load = (name: string): string => {
+  try {
+    return readFileSync(
+      join(CORPUS, name),
+      "utf-8",
+    );
+  } catch {
+    return "";
+  }
+};
+
+const ces = load("ces_news_2024_300K.txt");
+const tur = load("tur_news_2024_300K.txt");
+const jpn = load("jpn_newscrawl_2019_300K.txt");
+const cmn = load("cmn_wikipedia_2021_300K.txt");
+const deu = load("deu_news_2024_300K.txt");
+
+const missing = [
+  !ces && "Czech",
+  !tur && "Turkish",
+  !jpn && "Japanese",
+  !cmn && "Chinese",
+  !deu && "German",
+].filter(Boolean);
+
+if (missing.length > 0) {
+  console.error(
+    `Missing corpora: ${missing.join(", ")}.\n` +
+      "Download from Leipzig Corpora Collection:\n" +
+      "  bun run bench:download",
+  );
+  process.exit(1);
+}
+
+const N = 3;
 
 console.log("=".repeat(62));
-console.log(" UNICODE EDGE CASE BENCHMARKS");
+console.log(" UNICODE BENCHMARKS");
+console.log(
+  " Leipzig Corpora Collection (academic)",
+);
 console.log("=".repeat(62));
-
-const czechText =
-  "V tomto soudním řízení byla podána žaloba " +
-  "na základě smlouvy. Případ se týká nároku " +
-  "na náhradu škody dle zákona. Účastník " +
-  "řízení podal důkaz. Rozhodnutí soudu bylo " +
-  "vydáno v souladu se zákonem. ".repeat(1000);
-
-const emojiText =
-  "🔥 This is fire 🎉 and hot 🚀 launch " +
-  "day 💪 strong 🌟 star ✨ sparkle ".repeat(
-    1000,
-  );
-
-const cjkText =
-  "ABC有限公司 DEF股份有限公司 GHI LLC " +
-  "JKL合同会社 MNO株式会社 PQR ".repeat(1000);
-
-const turkishText =
-  "İstanbul'da bir mahkeme kararı verildi. " +
-  "Istanbul ilçesi ılık havada güzel. " +
-  "Dava sürecinde istanbul hakkında ".repeat(
-    1000,
-  );
-
-const germanText =
-  "Die Straße führt zur Großen Mauer. " +
-  "Gemäß Beschluss des Gerichts über " +
-  "das Verfahren bezüglich der Klage. ".repeat(
-    1000,
-  );
 
 const scenarios = [
   {
-    label: `Czech diacritics (${(czechText.length / 1e3).toFixed(0)}K chars, 10 patterns)`,
+    label: `Czech news (${(ces.length / 1e6).toFixed(1)} MB), 10 legal terms`,
     patterns: [
-      "případ", "soudní", "řízení", "žaloba",
+      "soudní", "řízení", "žaloba", "případ",
       "nárok", "důkaz", "smlouva", "zákon",
-      "účastník", "rozhodnutí",
+      "rozhodnutí", "účastník",
     ],
-    haystack: czechText,
+    haystack: ces,
   },
   {
-    label: `Emoji-heavy (${(emojiText.length / 1e3).toFixed(0)}K chars, 6 patterns)`,
+    label: `Turkish news (${(tur.length / 1e6).toFixed(1)} MB), 10 terms`,
     patterns: [
-      "🔥", "fire", "🎉", "hot", "🚀", "launch",
+      "mahkeme", "dava", "karar", "İstanbul",
+      "hükümet", "başkan", "milyon", "şirket",
+      "ülke", "dünya",
     ],
-    haystack: emojiText,
+    haystack: tur,
   },
   {
-    label: `CJK legal forms (${(cjkText.length / 1e3).toFixed(0)}K chars, 5 patterns)`,
+    label: `Japanese newscrawl (${(jpn.length / 1e6).toFixed(1)} MB), 10 terms`,
     patterns: [
-      "有限公司", "株式会社", "合同会社",
-      "LLC", "股份",
+      "東京", "日本", "裁判所", "政府",
+      "会社", "事件", "調査", "報告",
+      "問題", "経済",
     ],
-    haystack: cjkText,
+    haystack: jpn,
   },
   {
-    label: `Turkish İ/ı (${(turkishText.length / 1e3).toFixed(0)}K chars, 3 patterns)`,
-    patterns: ["İstanbul", "istanbul", "ılık"],
-    haystack: turkishText,
-  },
-  {
-    label: `German ß/ü (${(germanText.length / 1e3).toFixed(0)}K chars, 4 patterns)`,
+    label: `Chinese Wikipedia (${(cmn.length / 1e6).toFixed(1)} MB), 10 terms`,
     patterns: [
-      "Straße", "Beschluss", "Verfahren",
-      "bezüglich",
+      "中国", "公司", "政府", "世界",
+      "城市", "大学", "历史", "人民",
+      "国家", "社会",
     ],
-    haystack: germanText,
+    haystack: cmn,
+  },
+  {
+    label: `German news (${(deu.length / 1e6).toFixed(1)} MB), 10 terms`,
+    patterns: [
+      "Gericht", "Verfahren", "Beschluss",
+      "Straße", "München", "Gesellschaft",
+      "Regierung", "Unternehmen", "Deutschland",
+      "Millionen",
+    ],
+    haystack: deu,
   },
 ];
 

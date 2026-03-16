@@ -47,12 +47,13 @@
     "test": "bun test",
     "format": "oxfmt . && rustfmt src/lib.rs",
     "lint": "oxlint .",
-    "bench": "bun run __bench__/speed.ts",
-    "bench:speed": "bun run __bench__/speed.ts",
-    "bench:unicode": "bun run __bench__/unicode.ts",
-    "bench:correctness": "bun run __bench__/correctness.ts",
-    "bench:all": "bun run bench:speed && bun run bench:unicode && bun run bench:correctness",
-    "bench:install": "cd __bench__ && bun install"
+    "bench": "bun __bench__/speed.ts",
+    "bench:speed": "bun __bench__/speed.ts",
+    "bench:unicode": "bun __bench__/unicode.ts",
+    "bench:correctness": "bun __bench__/correctness.ts",
+    "bench:all": "bun __bench__/speed.ts && bun __bench__/unicode.ts && bun __bench__/correctness.ts",
+    "bench:install": "cd __bench__ && bun install",
+    "bench:download": "bash __bench__/download-corpus.sh"
   },
   "devDependencies": {
     "@napi-rs/cli": "^3.0.0",
