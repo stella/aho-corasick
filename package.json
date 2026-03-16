@@ -20,12 +20,27 @@
     "rust"
   ],
   "main": "lib.js",
+  "module": "lib.mjs",
   "types": "lib.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./lib.d.ts",
+        "default": "./lib.mjs"
+      },
+      "require": {
+        "types": "./lib.d.ts",
+        "default": "./lib.js"
+      }
+    }
+  },
   "browser": {
-    "./lib.js": "./lib.wasm.js"
+    "./lib.js": "./lib.wasm.js",
+    "./lib.mjs": "./lib.wasm.js"
   },
   "files": [
     "lib.js",
+    "lib.mjs",
     "lib.d.ts",
     "lib.wasm.js",
     "index.js",
