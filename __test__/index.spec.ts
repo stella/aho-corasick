@@ -27,9 +27,9 @@ describe("AhoCorasick", () => {
     const matches = ac.findIter("foo bar foo");
 
     expect(matches).toEqual([
-      { pattern: 0, start: 0, end: 3 },
-      { pattern: 1, start: 4, end: 7 },
-      { pattern: 0, start: 8, end: 11 },
+      { pattern: 0, start: 0, end: 3, text: "foo" },
+      { pattern: 1, start: 4, end: 7, text: "bar" },
+      { pattern: 0, start: 8, end: 11, text: "foo" },
     ]);
   });
 
@@ -523,6 +523,186 @@ describe("offset correctness after multi-byte", () => {
     expect(matches[1]!.start).toBe(10);
   });
 
+});
+
+// ─── Whole word matching ──────────────────────
+
+describe("wholeWords option", () => {
+  test("basic whole word filtering", () => {
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+    const matches = ac.findIter(
+      "test testing tested a test",
+    );
+
+    // Only "test" at positions 0 and 23 are whole
+    // words. "testing" and "tested" are partial.
+    expect(matches).toHaveLength(2);
+    expect(matches[0]!.text).toBe("test");
+    expect(matches[0]!.start).toBe(0);
+    expect(matches[1]!.text).toBe("test");
+    expect(matches[1]!.start).toBe(22);
+  });
+
+  test("whole words with punctuation", () => {
+    const ac = new AhoCorasick(["LLC"], {
+      wholeWords: true,
+    });
+    const matches = ac.findIter(
+      "ABC LLC, DEF (LLC) GHI-LLC",
+    );
+
+    // LLC surrounded by spaces/punctuation = whole
+    expect(matches).toHaveLength(3);
+  });
+
+  test("whole words rejects partial", () => {
+    const ac = new AhoCorasick(["art"], {
+      wholeWords: true,
+    });
+
+    // "art" inside "start", "party", "article"
+    expect(
+      ac.findIter("start party article").length,
+    ).toBe(0);
+
+    // "art" as whole word
+    expect(
+      ac.findIter("the art of code").length,
+    ).toBe(1);
+  });
+
+  test("whole words with diacritics", () => {
+    const ac = new AhoCorasick(["případ"], {
+      wholeWords: true,
+    });
+
+    // "případ" inside "případu" (Czech genitive)
+    expect(ac.findIter("v případu").length).toBe(0);
+
+    // "případ" as whole word
+    const matches = ac.findIter("tento případ je");
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.text).toBe("případ");
+  });
+
+  test("whole words: CJK bypasses boundary check", () => {
+    // CJK has no word boundaries; every character
+    // boundary is valid.
+    const ac = new AhoCorasick(["知识"], {
+      wholeWords: true,
+    });
+    const matches = ac.findIter("国家知识产权");
+
+    // Should match even though surrounded by other
+    // CJK characters
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.text).toBe("知识");
+  });
+
+  test("whole words: mixed CJK and Latin", () => {
+    const ac = new AhoCorasick(["LLC", "有限公司"], {
+      wholeWords: true,
+    });
+    const text = "ABC有限公司 DEF LLC";
+    const matches = ac.findIter(text);
+
+    // Both should match: CJK always passes,
+    // LLC is surrounded by space/end
+    expect(matches).toHaveLength(2);
+    expect(matches[0]!.text).toBe("有限公司");
+    expect(matches[1]!.text).toBe("LLC");
+  });
+
+  test("whole words: start and end of string", () => {
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // At start
+    expect(ac.findIter("test is here").length).toBe(
+      1,
+    );
+    // At end
+    expect(ac.findIter("this is test").length).toBe(
+      1,
+    );
+    // Entire string
+    expect(ac.findIter("test").length).toBe(1);
+  });
+
+  test("whole words: numbers are word chars", () => {
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // "test" adjacent to numbers = not whole word
+    expect(ac.findIter("test123").length).toBe(0);
+    expect(ac.findIter("123test").length).toBe(0);
+
+    // "test" with space before number = whole word
+    expect(ac.findIter("test 123").length).toBe(1);
+  });
+
+  test("whole words: Cyrillic boundary", () => {
+    const ac = new AhoCorasick(["idea"], {
+      wholeWords: true,
+    });
+
+    // "idea" inside Cyrillic context
+    expect(
+      ac.findIter("нетidea").length,
+    ).toBe(0);
+
+    // "idea" as whole word between Cyrillic
+    expect(
+      ac.findIter("нет idea тут").length,
+    ).toBe(1);
+  });
+
+  test("whole words with overlapping patterns", () => {
+    // leftmost-first: "he" wins over "hers" at
+    // position 16 because "he" is inserted first.
+    // Use leftmost-longest to get "hers".
+    const ac = new AhoCorasick(
+      ["he", "she", "hers"],
+      {
+        wholeWords: true,
+        matchKind: "leftmost-longest",
+      },
+    );
+    const text = "she said he has hers";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("she");
+    expect(found).toContain("he");
+    expect(found).toContain("hers");
+  });
+
+  test("without wholeWords (default)", () => {
+    const ac = new AhoCorasick(["test"]);
+
+    // Without wholeWords, finds partial matches
+    expect(ac.findIter("testing").length).toBe(1);
+    expect(
+      ac.findIter("testing")[0]!.text,
+    ).toBe("test");
+  });
+
+  // tanishiking's "sugar" test
+  test("whole words: sugar in sugarcane (tanishiking)", () => {
+    const ac = new AhoCorasick(["sugar"], {
+      wholeWords: true,
+    });
+    const text = "sugarcane sugarcane sugar canesugar";
+    const matches = ac.findIter(text);
+
+    expect(matches).toHaveLength(1);
+    expect(matches[0]!.text).toBe("sugar");
+    expect(matches[0]!.start).toBe(20);
+  });
 });
 
 // ─── Adopted from other libraries ─────────────

@@ -34,6 +34,7 @@ Options:
 - `matchKind`: `"leftmost-first"` (default) or `"leftmost-longest"`
 - `caseInsensitive`: `boolean` (default `false`, ASCII-only: A-Z to a-z)
 - `dfa`: `boolean` (default `false`, force DFA mode)
+- `wholeWords`: `boolean` (default `false`, Unicode-aware word boundary detection; CJK always passes)
 
 Methods:
 - `findIter(haystack: string): Match[]` — non-overlapping matches
@@ -60,10 +61,11 @@ type Match = {
   pattern: number; // index into patterns array
   start: number;   // UTF-16 code unit offset
   end: number;     // exclusive
+  text: string;    // the matched substring
 };
 ```
 
-Offsets are UTF-16 code units, compatible with `String.prototype.slice()`.
+Offsets are UTF-16 code units, compatible with `String.prototype.slice()`. `text` is `haystack.slice(start, end)`.
 
 ## Important notes
 

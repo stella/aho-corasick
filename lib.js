@@ -11,15 +11,18 @@ const NativeStreamMatcher = native.StreamMatcher;
  * Unpack a Uint32Array of [pattern, start, end, ...]
  * triples into Match objects.
  */
-function unpack(packed) {
+function unpack(packed, haystack) {
   const len = packed.length;
   // eslint-disable-next-line unicorn/no-new-array
   const matches = new Array(len / 3);
   for (let i = 0, j = 0; i < len; i += 3, j++) {
+    const start = packed[i + 1];
+    const end = packed[i + 2];
     matches[j] = {
       pattern: packed[i],
-      start: packed[i + 1],
-      end: packed[i + 2],
+      start,
+      end,
+      text: haystack.slice(start, end),
     };
   }
   return matches;
@@ -44,6 +47,7 @@ class AhoCorasick {
   findIter(haystack) {
     return unpack(
       this._inner._findIterPacked(haystack),
+      haystack,
     );
   }
 
@@ -52,6 +56,7 @@ class AhoCorasick {
       this._inner._findOverlappingIterPacked(
         haystack,
       ),
+      haystack,
     );
   }
 

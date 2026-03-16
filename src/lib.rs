@@ -29,6 +29,11 @@ pub struct Options {
   pub case_insensitive: Option<bool>,
   /// Force DFA mode. Default: `false` (auto NFA).
   pub dfa: Option<bool>,
+  /// Only match whole words. Default: `false`.
+  /// Uses Unicode `is_alphanumeric()` for boundary
+  /// detection (covers all scripts). CJK characters
+  /// are always treated as word boundaries.
+  pub whole_words: Option<bool>,
 }
 
 /// A single match returned by the search methods.
@@ -41,6 +46,108 @@ pub struct Match {
   pub start: u32,
   /// End offset (exclusive, UTF-16 code units).
   pub end: u32,
+}
+
+// ─── Word boundary detection ──────────────────
+//
+// Uses Unicode `char::is_alphanumeric()` which
+// covers all scripts (Latin, Cyrillic, Greek,
+// Arabic, Hebrew, etc.) without a hardcoded
+// character list.
+//
+// CJK exception: CJK ideographs are alphanumeric
+// per Unicode, but CJK languages don't use spaces
+// between words. Every CJK character boundary is
+// a valid word boundary.
+
+/// Check if a character is CJK (ideographs,
+/// hiragana, katakana, hangul).
+fn is_cjk(ch: char) -> bool {
+  matches!(ch as u32,
+    0x3040..=0x309F   // Hiragana
+    | 0x30A0..=0x30FF // Katakana
+    | 0x3400..=0x4DBF // CJK Extension A
+    | 0x4E00..=0x9FFF // CJK Unified Ideographs
+    | 0xAC00..=0xD7AF // Hangul Syllables
+    | 0xF900..=0xFAFF // CJK Compatibility
+    | 0x20000..=0x2FA1F // CJK Extensions B-F
+    | 0x30000..=0x323AF // CJK Extensions G-I
+  )
+}
+
+/// Check if the character at `byte_pos` in the
+/// haystack is a word-interior character (would
+/// prevent a word boundary).
+fn is_word_char_at(
+  haystack: &str,
+  byte_pos: usize,
+) -> bool {
+  if byte_pos >= haystack.len() {
+    return false;
+  }
+  // SAFETY: we only call this at valid char
+  // boundaries (start/end of AC matches, which
+  // are always at UTF-8 boundaries).
+  let ch = haystack[byte_pos..].chars().next();
+  match ch {
+    Some(c) => c.is_alphanumeric() && !is_cjk(c),
+    None => false,
+  }
+}
+
+/// Check if the character just before `byte_pos`
+/// is a word-interior character.
+fn is_word_char_before(
+  haystack: &str,
+  byte_pos: usize,
+) -> bool {
+  if byte_pos == 0 {
+    return false;
+  }
+  // Walk backwards to find the previous char.
+  let ch = haystack[..byte_pos].chars().next_back();
+  match ch {
+    Some(c) => c.is_alphanumeric() && !is_cjk(c),
+    None => false,
+  }
+}
+
+/// Check if the first char of the match is CJK.
+fn match_starts_with_cjk(
+  haystack: &str,
+  start: usize,
+) -> bool {
+  haystack[start..]
+    .chars()
+    .next()
+    .map_or(false, is_cjk)
+}
+
+/// Check if the last char of the match is CJK.
+fn match_ends_with_cjk(
+  haystack: &str,
+  end: usize,
+) -> bool {
+  haystack[..end]
+    .chars()
+    .next_back()
+    .map_or(false, is_cjk)
+}
+
+/// Check if a match at [start..end) is at word
+/// boundaries. CJK characters at the boundary
+/// edge of the match always pass (CJK has no
+/// inter-word spaces).
+fn is_whole_word(
+  haystack: &str,
+  start: usize,
+  end: usize,
+) -> bool {
+  let start_ok = !is_word_char_before(haystack, start)
+    || match_starts_with_cjk(haystack, start);
+  let end_ok = !is_word_char_at(haystack, end)
+    || match_ends_with_cjk(haystack, end);
+  start_ok && end_ok
 }
 
 // ─── UTF-16 offset translation ────────────────
@@ -83,124 +190,6 @@ fn byte_span_utf16_len(bytes: &[u8]) -> u32 {
   count
 }
 
-/// Find non-overlapping matches with incremental
-/// byte→UTF-16 offset translation. Matches from
-/// aho-corasick arrive in ascending byte order, so
-/// we maintain a running position and only walk the
-/// bytes between consecutive matches.
-fn find_with_offsets(
-  ac: &RawAhoCorasick,
-  haystack: &str,
-) -> Vec<Match> {
-  let bytes = haystack.as_bytes();
-  let mut results = Vec::new();
-  let mut last_byte: usize = 0;
-  let mut last_utf16: u32 = 0;
-
-  for m in ac.find_iter(haystack) {
-    // Advance from last_byte to m.start().
-    last_utf16 +=
-      byte_span_utf16_len(&bytes[last_byte..m.start()]);
-    let start = last_utf16;
-    last_byte = m.start();
-
-    // Advance through the match.
-    last_utf16 +=
-      byte_span_utf16_len(&bytes[last_byte..m.end()]);
-    let end = last_utf16;
-    last_byte = m.end();
-
-    results.push(Match {
-      pattern: m.pattern().as_u32(),
-      start,
-      end,
-    });
-  }
-  results
-}
-
-/// Overlapping search with incremental offset
-/// translation. Overlapping matches may NOT arrive
-/// in strictly ascending start order (a match can
-/// start before a previous one ends), but they do
-/// arrive in ascending *end* order. We use a full
-/// scan for overlapping since the incremental
-/// assumption doesn't hold.
-fn find_overlapping_with_offsets(
-  ac: &RawAhoCorasick,
-  haystack: &str,
-) -> Vec<Match> {
-  // For overlapping, matches can interleave, so we
-  // build a byte→UTF-16 map. But we use the compact
-  // OXC-style formula: only iterate char_indices
-  // once instead of allocating a full table.
-  //
-  // Collect all byte positions we need to translate,
-  // sort them, then walk once.
-  let raw_matches: Vec<_> =
-    ac.find_overlapping_iter(haystack).collect();
-
-  if raw_matches.is_empty() {
-    return Vec::new();
-  }
-
-  // Collect unique byte offsets we need.
-  let mut offsets: Vec<usize> = Vec::with_capacity(
-    raw_matches.len() * 2,
-  );
-  for m in &raw_matches {
-    offsets.push(m.start());
-    offsets.push(m.end());
-  }
-  offsets.sort_unstable();
-  offsets.dedup();
-
-  // Single pass: walk char_indices, resolve each
-  // offset as we reach it.
-  let mut offset_map: Vec<(usize, u32)> =
-    Vec::with_capacity(offsets.len());
-  let mut utf16_idx: u32 = 0;
-  let mut next = 0;
-  let haystack_bytes = haystack.as_bytes();
-
-  for (byte_idx, ch) in haystack.char_indices() {
-    while next < offsets.len()
-      && offsets[next] == byte_idx
-    {
-      offset_map.push((byte_idx, utf16_idx));
-      next += 1;
-    }
-    utf16_idx += ch.len_utf16() as u32;
-  }
-  // Handle offsets at haystack.len().
-  let end_byte = haystack_bytes.len();
-  while next < offsets.len()
-    && offsets[next] == end_byte
-  {
-    offset_map.push((end_byte, utf16_idx));
-    next += 1;
-  }
-
-  // Build a lookup closure.
-  let lookup = |byte_off: usize| -> u32 {
-    match offset_map
-      .binary_search_by_key(&byte_off, |&(b, _)| b)
-    {
-      Ok(i) => offset_map[i].1,
-      Err(_) => 0, // should never happen
-    }
-  };
-
-  raw_matches
-    .iter()
-    .map(|m| Match {
-      pattern: m.pattern().as_u32(),
-      start: lookup(m.start()),
-      end: lookup(m.end()),
-    })
-    .collect()
-}
-
 // ─── Automaton builders ───────────────────────
 
 fn default_options() -> Options {
@@ -208,6 +197,7 @@ fn default_options() -> Options {
     match_kind: None,
     case_insensitive: None,
     dfa: None,
+    whole_words: None,
   }
 }
 
@@ -258,6 +248,7 @@ pub struct AhoCorasick {
   patterns: Vec<String>,
   case_insensitive: bool,
   dfa: bool,
+  whole_words: bool,
   pattern_count: u32,
 }
 
@@ -280,6 +271,8 @@ impl AhoCorasick {
     let case_insensitive =
       opts.case_insensitive.unwrap_or(false);
     let dfa = opts.dfa.unwrap_or(false);
+    let whole_words =
+      opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
     let inner = build_automaton(
@@ -295,6 +288,7 @@ impl AhoCorasick {
       patterns,
       case_insensitive,
       dfa,
+      whole_words,
       pattern_count,
     })
   }
@@ -337,9 +331,20 @@ impl AhoCorasick {
     &self,
     haystack: String,
   ) -> Uint32Array {
+    let ww = self.whole_words;
+
     if haystack.is_ascii() {
       let mut packed = Vec::new();
       for m in self.inner.find_iter(&haystack) {
+        if ww
+          && !is_whole_word(
+            &haystack,
+            m.start(),
+            m.end(),
+          )
+        {
+          continue;
+        }
         packed.push(m.pattern().as_u32());
         packed.push(m.start() as u32);
         packed.push(m.end() as u32);
@@ -353,6 +358,16 @@ impl AhoCorasick {
     let mut last_utf16: u32 = 0;
 
     for m in self.inner.find_iter(&haystack) {
+      if ww
+        && !is_whole_word(
+          &haystack,
+          m.start(),
+          m.end(),
+        )
+      {
+        continue;
+      }
+
       last_utf16 += byte_span_utf16_len(
         &bytes[last_byte..m.start()],
       );
@@ -380,9 +395,20 @@ impl AhoCorasick {
   ) -> Uint32Array {
     let ov = self.overlapping_ac();
 
+    let ww = self.whole_words;
+
     if haystack.is_ascii() {
       let mut packed = Vec::new();
       for m in ov.find_overlapping_iter(&haystack) {
+        if ww
+          && !is_whole_word(
+            &haystack,
+            m.start(),
+            m.end(),
+          )
+        {
+          continue;
+        }
         packed.push(m.pattern().as_u32());
         packed.push(m.start() as u32);
         packed.push(m.end() as u32);
@@ -390,14 +416,72 @@ impl AhoCorasick {
       return Uint32Array::new(packed);
     }
 
-    let matches =
-      find_overlapping_with_offsets(ov, &haystack);
+    // Non-ASCII overlapping: filter at byte level
+    // first, then convert remaining to UTF-16.
+    let raw: Vec<_> = ov
+      .find_overlapping_iter(&haystack)
+      .filter(|m| {
+        !ww
+          || is_whole_word(
+            &haystack,
+            m.start(),
+            m.end(),
+          )
+      })
+      .collect();
+
+    if raw.is_empty() {
+      return Uint32Array::new(Vec::new());
+    }
+
+    // Collect unique byte offsets for translation.
+    let mut offsets: Vec<usize> =
+      Vec::with_capacity(raw.len() * 2);
+    for m in &raw {
+      offsets.push(m.start());
+      offsets.push(m.end());
+    }
+    offsets.sort_unstable();
+    offsets.dedup();
+
+    let mut offset_map: Vec<(usize, u32)> =
+      Vec::with_capacity(offsets.len());
+    let mut utf16_idx: u32 = 0;
+    let mut next = 0;
+
+    for (byte_idx, ch) in haystack.char_indices() {
+      while next < offsets.len()
+        && offsets[next] == byte_idx
+      {
+        offset_map.push((byte_idx, utf16_idx));
+        next += 1;
+      }
+      utf16_idx += ch.len_utf16() as u32;
+    }
+    let end_byte = haystack.len();
+    while next < offsets.len()
+      && offsets[next] == end_byte
+    {
+      offset_map.push((end_byte, utf16_idx));
+      next += 1;
+    }
+
+    let lookup = |byte_off: usize| -> u32 {
+      match offset_map.binary_search_by_key(
+        &byte_off,
+        |&(b, _)| b,
+      ) {
+        Ok(i) => offset_map[i].1,
+        Err(_) => 0,
+      }
+    };
+
     let mut packed =
-      Vec::with_capacity(matches.len() * 3);
-    for m in matches {
-      packed.push(m.pattern);
-      packed.push(m.start);
-      packed.push(m.end);
+      Vec::with_capacity(raw.len() * 3);
+    for m in &raw {
+      packed.push(m.pattern().as_u32());
+      packed.push(lookup(m.start()));
+      packed.push(lookup(m.end()));
     }
     Uint32Array::new(packed)
   }

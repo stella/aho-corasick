@@ -28,6 +28,14 @@ export type Options = {
    * @default false
    */
   dfa?: boolean;
+  /**
+   * Only match whole words. Uses Unicode
+   * `is_alphanumeric()` for boundary detection
+   * (covers all scripts). CJK characters are
+   * always treated as word boundaries.
+   * @default false
+   */
+  wholeWords?: boolean;
 };
 
 /** A single match result. */
@@ -39,6 +47,8 @@ export type Match = {
   start: number;
   /** End offset (exclusive). */
   end: number;
+  /** The matched text (`haystack.slice(start, end)`). */
+  text: string;
 };
 
 /**

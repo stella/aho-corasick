@@ -106,4 +106,11 @@ export interface Options {
   caseInsensitive?: boolean
   /** Force DFA mode. Default: `false` (auto NFA). */
   dfa?: boolean
+  /**
+   * Only match whole words. Default: `false`.
+   * Uses Unicode `is_alphanumeric()` for boundary
+   * detection (covers all scripts). CJK characters
+   * are always treated as word boundaries.
+   */
+  wholeWords?: boolean
 }
