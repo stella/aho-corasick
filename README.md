@@ -119,32 +119,39 @@ ac.isMatchBuf(buf); // boolean
 
 Measured on Apple M3, 24 GB RAM, macOS 25.3.0,
 Bun 1.3.10. Automaton pre-built; times are
-search-only. Each scenario averaged over multiple
-runs. Corpus:
+search-only averaged over multiple runs.
+
+Corpora:
 [Canterbury Large Corpus](https://corpus.canterbury.ac.nz/)
-(academic benchmark).
+(ASCII),
+[Leipzig Corpora Collection](https://wortschatz.uni-leipzig.de/en/download/)
+(Unicode).
 
-Run locally: `bun run bench`
+Run locally:
+`bun run bench:install && bun run bench:download && bun run bench:all`
 
-### Large inputs
-
-| Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
-| --- | --- | --- | --- | --- | --- | --- |
-| bible.txt (4.0 MB) | 20 legal terms | **2.1 ms** | 270 ms | 82 ms | 76 ms | 309 ms |
-| E.coli (4.6 MB) | 16 DNA codons | **0.8 ms** | 217 ms | 12 ms | 105 ms | 371 ms |
-
-### Unicode / edge cases
+### ASCII (Canterbury Large Corpus)
 
 | Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
 | --- | --- | --- | --- | --- | --- | --- |
-| Czech diacritics (29K) | 10 legal terms | **0.06 ms** | 1.53 ms | 0.16 ms | 0.25 ms | 3.01 ms |
-| Emoji-heavy (32K) | 6 patterns | **0.02 ms** | 1.43 ms | 0.35 ms | 0.35 ms | 2.05 ms |
-| CJK legal forms (20K) | 5 patterns | **0.07 ms** | 1.36 ms | 0.53 ms | 0.48 ms | 3.82 ms |
-| Turkish İ/ı (33K) | 3 patterns | **0.05 ms** | 1.45 ms | 0.18 ms | 0.31 ms | 2.93 ms |
+| bible.txt (4.0 MB) | 20 legal terms | **4.1 ms** | 568 ms | 173 ms | 199 ms | 828 ms |
+| E.coli (4.6 MB) | 16 DNA codons | **2.6 ms** | 741 ms | 29 ms | 222 ms | 889 ms |
+| world192.txt (2.5 MB) | 20 legal terms | **2.6 ms** | 347 ms | 118 ms | 115 ms | 473 ms |
+| bible.txt (4.0 MB) | 1 pattern | **2.0 ms** | 453 ms | 23 ms | 97 ms | 664 ms |
+
+### Unicode (Leipzig Corpora Collection)
+
+| Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
+| --- | --- | --- | --- | --- | --- | --- |
+| Czech news 2024 (4.8 MB) | 10 legal terms | **15 ms** | 543 ms | 270 ms | 127 ms | 550 ms |
+| Turkish news 2024 (5.4 MB) | 10 terms | **17 ms** | 639 ms | 305 ms | 270 ms | 693 ms |
+| Japanese newscrawl 2019 (2.4 MB) | 10 terms | **14 ms** | 321 ms | 227 ms | 108 ms | 457 ms |
+| Chinese Wikipedia 2021 (2.0 MB) | 10 terms | **10 ms** | 307 ms | 259 ms | 112 ms | 346 ms |
+| German news 2024 (5.5 MB) | 10 terms | **9 ms** | 658 ms | 237 ms | 85 ms | 642 ms |
 
 All match counts verified equal across libraries.
-Match offsets are UTF-16 code unit indices
-(compatible with `String.prototype.slice()`).
+Match offsets are UTF-16 code unit indices,
+compatible with `String.prototype.slice()`.
 
 <details>
 <summary>Alternatives tested</summary>
@@ -235,11 +242,20 @@ bun install
 # Build native module (requires Rust toolchain)
 bun run build
 
-# Run tests (61 tests, including Unicode edge cases)
+# Run tests (43 tests, including Unicode edge cases)
 bun test
 
-# Run benchmarks (requires Canterbury corpus)
-bun run bench
+# Download benchmark corpora
+bun run bench:download
+
+# Install benchmark dependencies (alternatives)
+bun run bench:install
+
+# Run benchmarks
+bun run bench:speed       # Canterbury corpus
+bun run bench:unicode     # Leipzig corpora
+bun run bench:correctness # cross-library comparison
+bun run bench:all         # all three
 
 # Lint & format
 bun run lint
