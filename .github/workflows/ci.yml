@@ -6,7 +6,10 @@ env:
 
 on:
   push:
+    branches: [main]
     tags: ["v*"]
+  pull_request:
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -146,10 +149,10 @@ jobs:
 
       - name: Publish to npm
         run: |
-          npm publish --access public --provenance
+          npm publish --access restricted --provenance
           for pkg in npm/*/; do
             cd "$pkg"
-            npm publish --access public --provenance
+            npm publish --access restricted --provenance
             cd ../..
           done
         env:

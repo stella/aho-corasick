@@ -160,7 +160,7 @@ Run locally:
 
 ### ASCII (Canterbury Large Corpus)
 
-| Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
+| Haystack | Patterns | @stll | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
 | --- | --- | --- | --- | --- | --- | --- |
 | bible.txt (4.0 MB) | 20 legal terms | **5 ms** | 444 ms | 130 ms | 129 ms | 585 ms |
 | E.coli (4.6 MB) | 16 DNA codons | **2 ms** | 288 ms | 16 ms | 135 ms | 637 ms |
@@ -169,7 +169,7 @@ Run locally:
 
 ### Unicode (Leipzig Corpora Collection)
 
-| Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
+| Haystack | Patterns | @stll | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
 | --- | --- | --- | --- | --- | --- | --- |
 | Czech news 2024 (4.8 MB) | 10 legal terms | **23 ms** | 563 ms | 271 ms | 94 ms | 652 ms |
 | Turkish news 2024 (5.4 MB) | 10 terms | **28 ms** | 724 ms | 358 ms | 158 ms | 731 ms |
@@ -183,7 +183,7 @@ The same Rust code compiles to WASM via
 `wasm32-wasip1-threads`. Bundlers (Vite, Webpack)
 auto-select the WASM build for browser targets.
 
-| Haystack | @stella WASM | @stella native | Best pure JS |
+| Haystack | @stll WASM | @stll native | Best pure JS |
 | --- | --- | --- | --- |
 | bible.txt (4.0 MB) | **34 ms** | 4 ms | 186 ms |
 | Czech news (4.8 MB) | **61 ms** | 17 ms | 208 ms |
