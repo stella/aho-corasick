@@ -66,6 +66,7 @@
   "scripts": {
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
+    "build:wasm": "napi build --target wasm32-wasip1-threads --release",
     "artifacts": "napi artifacts",
     "universal": "napi universal",
     "prepublishOnly": "napi prepublish -t npm",
