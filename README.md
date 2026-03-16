@@ -46,9 +46,9 @@ ac.isMatch("hello foo world"); // true
 // Find all non-overlapping matches
 ac.findIter("foo bar baz");
 // [
-//   { pattern: 0, start: 0, end: 3 },
-//   { pattern: 1, start: 4, end: 7 },
-//   { pattern: 2, start: 8, end: 11 },
+//   { pattern: 0, start: 0, end: 3, text: "foo" },
+//   { pattern: 1, start: 4, end: 7, text: "bar" },
+//   { pattern: 2, start: 8, end: 11, text: "baz" },
 // ]
 
 // Find overlapping matches
@@ -67,8 +67,9 @@ const ac = new AhoCorasick(patterns, {
   matchKind: "leftmost-longest",
   // ASCII case-insensitive (default: false)
   caseInsensitive: true,
-  // Force DFA mode (default: false, auto NFA)
-  dfa: true,
+  // Only match whole words (default: false)
+  // Unicode-aware; CJK always passes
+  wholeWords: true,
 });
 ```
 
@@ -104,6 +105,43 @@ sm.reset(); // reuse for another stream
 `StreamMatcher` automatically handles overlap
 between chunks so that matches spanning chunk
 boundaries are found.
+
+### Groups
+
+To organize patterns into named groups (e.g., for
+entity recognition), use the `pattern` index as a
+lookup key into a parallel array:
+
+```typescript
+const GROUPS = {
+  LEGAL_FORM: ["s.r.o.", "GmbH", "LLC"],
+  CURRENCY: ["EUR", "USD", "CZK"],
+};
+
+const patterns: string[] = [];
+const tag: string[] = [];
+
+for (const [group, terms]
+  of Object.entries(GROUPS)) {
+  for (const term of terms) {
+    patterns.push(term);
+    tag.push(group);
+  }
+}
+
+const ac = new AhoCorasick(patterns, {
+  wholeWords: true,
+});
+
+for (const m of ac.findIter(text)) {
+  console.log(m.text, tag[m.pattern]);
+  // "GmbH" "LEGAL_FORM"
+  // "EUR"  "CURRENCY"
+}
+```
+
+`tag[m.pattern]` is a single array index lookup
+(O(1), no hashing).
 
 ## Benchmarks
 
@@ -201,6 +239,7 @@ type MatchKind =
 type Options = {
   matchKind?: MatchKind;
   caseInsensitive?: boolean;
+  wholeWords?: boolean;
   dfa?: boolean;
 };
 
@@ -208,6 +247,7 @@ type Match = {
   pattern: number; // index into patterns array
   start: number; // UTF-16 code unit offset
   end: number; // exclusive
+  text: string; // matched substring
 };
 ```
 
@@ -248,7 +288,7 @@ bun install
 # Build native module (requires Rust toolchain)
 bun run build
 
-# Run tests (43 tests, including Unicode edge cases)
+# Run tests (80 tests, including Unicode edge cases)
 bun test
 
 # Download benchmark corpora
