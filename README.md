@@ -134,20 +134,36 @@ Run locally:
 
 | Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
 | --- | --- | --- | --- | --- | --- | --- |
-| bible.txt (4.0 MB) | 20 legal terms | **4.1 ms** | 568 ms | 173 ms | 199 ms | 828 ms |
-| E.coli (4.6 MB) | 16 DNA codons | **2.6 ms** | 741 ms | 29 ms | 222 ms | 889 ms |
-| world192.txt (2.5 MB) | 20 legal terms | **2.6 ms** | 347 ms | 118 ms | 115 ms | 473 ms |
-| bible.txt (4.0 MB) | 1 pattern | **2.0 ms** | 453 ms | 23 ms | 97 ms | 664 ms |
+| bible.txt (4.0 MB) | 20 legal terms | **5 ms** | 444 ms | 130 ms | 129 ms | 585 ms |
+| E.coli (4.6 MB) | 16 DNA codons | **2 ms** | 288 ms | 16 ms | 135 ms | 637 ms |
+| world192.txt (2.5 MB) | 20 legal terms | **1 ms** | 300 ms | 121 ms | 71 ms | 312 ms |
+| bible.txt (4.0 MB) | 1 pattern | **1 ms** | 254 ms | 19 ms | 53 ms | 420 ms |
 
 ### Unicode (Leipzig Corpora Collection)
 
 | Haystack | Patterns | @stella | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
 | --- | --- | --- | --- | --- | --- | --- |
-| Czech news 2024 (4.8 MB) | 10 legal terms | **15 ms** | 543 ms | 270 ms | 127 ms | 550 ms |
-| Turkish news 2024 (5.4 MB) | 10 terms | **17 ms** | 639 ms | 305 ms | 270 ms | 693 ms |
-| Japanese newscrawl 2019 (2.4 MB) | 10 terms | **14 ms** | 321 ms | 227 ms | 108 ms | 457 ms |
-| Chinese Wikipedia 2021 (2.0 MB) | 10 terms | **10 ms** | 307 ms | 259 ms | 112 ms | 346 ms |
-| German news 2024 (5.5 MB) | 10 terms | **9 ms** | 658 ms | 237 ms | 85 ms | 642 ms |
+| Czech news 2024 (4.8 MB) | 10 legal terms | **23 ms** | 563 ms | 271 ms | 94 ms | 652 ms |
+| Turkish news 2024 (5.4 MB) | 10 terms | **28 ms** | 724 ms | 358 ms | 158 ms | 731 ms |
+| Japanese newscrawl 2019 (2.4 MB) | 10 terms | **16 ms** | 521 ms | 411 ms | 168 ms | 620 ms |
+| Chinese Wikipedia 2021 (2.0 MB) | 10 terms | **15 ms** | 361 ms | 323 ms | 94 ms | 607 ms |
+| German news 2024 (5.5 MB) | 10 terms | **13 ms** | 742 ms | 229 ms | 107 ms | 846 ms |
+
+### WASM (browser target)
+
+The same Rust code compiles to WASM via
+`wasm32-wasip1-threads`. Bundlers (Vite, Webpack)
+auto-select the WASM build for browser targets.
+
+| Haystack | @stella WASM | @stella native | Best pure JS |
+| --- | --- | --- | --- |
+| bible.txt (4.0 MB) | **34 ms** | 4 ms | 186 ms |
+| Czech news (4.8 MB) | **61 ms** | 17 ms | 208 ms |
+
+WASM is 4-8x slower than native, but 3-6x faster
+than the best pure-JS alternative; in browsers
+where native modules are unavailable, it is the
+fastest option.
 
 All match counts verified equal across libraries.
 Match offsets are UTF-16 code unit indices,
@@ -214,10 +230,12 @@ type Match = {
   does not handle Unicode case folding (Turkish
   `İ`/`ı`, German `ß`/`ss`, etc.). This is a
   [documented upstream limitation](https://docs.rs/aho-corasick/latest/aho_corasick/struct.AhoCorasickBuilder.html#method.ascii_case_insensitive).
-- **Native dependency.** Requires a prebuilt binary
-  or Rust toolchain. Not suitable for edge runtimes
-  (Cloudflare Workers, Deno Deploy) where native
-  modules are unsupported.
+- **WASM requires `SharedArrayBuffer`.** Browser
+  builds need `Cross-Origin-Opener-Policy: same-origin`
+  and `Cross-Origin-Embedder-Policy: require-corp`
+  headers. Edge runtimes without WASM support
+  (some Cloudflare Workers configurations) are
+  not supported.
 
 ## Acknowledgements
 
