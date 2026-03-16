@@ -117,8 +117,8 @@ jobs:
             -w /build
           run: >
             rustup target add ${{ matrix.settings.target }}
-            && yarn
-            && yarn build
+            && npm install --ignore-scripts --no-optional
+            && npx @napi-rs/cli build --platform --release
             --target ${{ matrix.settings.target }}
 
       - uses: actions/upload-artifact@v4
