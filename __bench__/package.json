@@ -1,7 +1,7 @@
 {
   "name": "aho-corasick-bench",
   "private": true,
-  "description": "Benchmarks comparing @stella/aho-corasick against JS alternatives",
+  "description": "Benchmarks comparing @stll/aho-corasick against JS alternatives",
   "dependencies": {
     "@monyone/aho-corasick": "^1.1.6",
     "@tanishiking/aho-corasick": "^0.0.1",

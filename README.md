@@ -2,7 +2,7 @@
   <img src=".github/assets/banner.png" alt="Stella" width="100%" />
 </p>
 
-# @stella/aho-corasick
+# @stll/aho-corasick
 
 [NAPI-RS](https://napi.rs/) bindings to the Rust
 [aho-corasick](https://github.com/BurntSushi/aho-corasick)
@@ -19,9 +19,9 @@ exposed to JavaScript via
 ## Install
 
 ```bash
-npm install @stella/aho-corasick
+npm install @stll/aho-corasick
 # or
-bun add @stella/aho-corasick
+bun add @stll/aho-corasick
 ```
 
 Prebuilt binaries are available for:
@@ -36,7 +36,7 @@ Prebuilt binaries are available for:
 ## Usage
 
 ```typescript
-import { AhoCorasick } from "@stella/aho-corasick";
+import { AhoCorasick } from "@stll/aho-corasick";
 
 const ac = new AhoCorasick(["foo", "bar", "baz"]);
 
@@ -81,7 +81,7 @@ chunk:
 ```typescript
 import {
   StreamMatcher,
-} from "@stella/aho-corasick";
+} from "@stll/aho-corasick";
 
 const sm = new StreamMatcher([
   "needle",

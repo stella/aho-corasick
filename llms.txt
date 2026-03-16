@@ -1,4 +1,4 @@
-# @stella/aho-corasick
+# @stll/aho-corasick
 
 > NAPI-RS bindings to the Rust aho-corasick crate
 > for Node.js and Bun. Multi-pattern string
@@ -7,7 +7,7 @@
 ## Quick start
 
 ```typescript
-import { AhoCorasick } from "@stella/aho-corasick";
+import { AhoCorasick } from "@stll/aho-corasick";
 
 const ac = new AhoCorasick(["foo", "bar", "baz"]);
 

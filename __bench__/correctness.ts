@@ -29,12 +29,12 @@ const runAll = (
 ): LibResult[] => {
   const results: LibResult[] = [];
 
-  // @stella/aho-corasick
+  // @stll/aho-corasick
   try {
     const ac = new AhoCorasick(patterns);
     const ms = ac.findIter(haystack);
     results.push({
-      name: "@stella/aho-corasick",
+      name: "@stll/aho-corasick",
       matches: ms.map((m) => ({
         text: haystack.slice(m.start, m.end),
         start: m.start,
@@ -42,7 +42,7 @@ const runAll = (
     });
   } catch (e) {
     results.push({
-      name: "@stella/aho-corasick",
+      name: "@stll/aho-corasick",
       matches: [],
       error: String(e),
     });

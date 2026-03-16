@@ -23,7 +23,7 @@ export type Lib = {
 
 export const libs: Lib[] = [
   {
-    name: "@stella/aho-corasick",
+    name: "@stll/aho-corasick",
     build: (p) => new AhoCorasick(p),
     search: (ac, h) =>
       (ac as AhoCorasick).findIter(h).length,

@@ -39,9 +39,9 @@ if (__nodeFs.existsSync(__wasmDebugFilePath)) {
   __wasmFilePath = __wasmDebugFilePath
 } else if (!__nodeFs.existsSync(__wasmFilePath)) {
   try {
-    __wasmFilePath = require.resolve('@stella/aho-corasick-wasm32-wasi/aho-corasick.wasm32-wasi.wasm')
+    __wasmFilePath = require.resolve('@stll/aho-corasick-wasm32-wasi/aho-corasick.wasm32-wasi.wasm')
   } catch {
-    throw new Error('Cannot find aho-corasick.wasm32-wasi.wasm file, and @stella/aho-corasick-wasm32-wasi package is not installed.')
+    throw new Error('Cannot find aho-corasick.wasm32-wasi.wasm file, and @stll/aho-corasick-wasm32-wasi package is not installed.')
   }
 }
 
