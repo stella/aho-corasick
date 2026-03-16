@@ -21,11 +21,20 @@
   ],
   "main": "lib.js",
   "types": "lib.d.ts",
+  "browser": {
+    "./lib.js": "./lib.wasm.js"
+  },
   "files": [
     "lib.js",
     "lib.d.ts",
+    "lib.wasm.js",
     "index.js",
-    "index.d.ts"
+    "index.d.ts",
+    "aho-corasick.wasi.cjs",
+    "aho-corasick.wasi-browser.js",
+    "browser.js",
+    "wasi-worker.mjs",
+    "wasi-worker-browser.mjs"
   ],
   "napi": {
     "binaryName": "aho-corasick",
