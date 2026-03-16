@@ -275,9 +275,22 @@ impl AhoCorasick {
       opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
+    // When wholeWords is enabled, override to
+    // leftmostLongest. With leftmostFirst, a short
+    // prefix ("P") can win over a longer match
+    // ("Pavel") that would pass the boundary check.
+    // LeftmostLongest picks the longest match at
+    // each position — the correct whole-word
+    // candidate.
+    let effective_kind = if whole_words {
+      RawMatchKind::LeftmostLongest
+    } else {
+      match_kind
+    };
+
     let inner = build_automaton(
       &patterns,
-      match_kind,
+      effective_kind,
       case_insensitive,
       dfa,
     )?;
@@ -386,6 +399,7 @@ impl AhoCorasick {
     }
     Uint32Array::new(packed)
   }
+
 
   /// Find all overlapping matches (packed).
   #[napi(js_name = "_findOverlappingIterPacked")]

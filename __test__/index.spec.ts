@@ -705,6 +705,70 @@ describe("wholeWords option", () => {
   });
 });
 
+// ─── Bug regressions ──────────────────────────
+
+describe("bug: wholeWords + leftmostFirst drops matches", () => {
+  // When a shorter pattern (e.g., "P") has a lower
+  // index than a longer pattern ("Pavel") and both
+  // start at the same position, leftmostFirst picks
+  // "P". If "P" fails the wholeWords check, the
+  // iterator has already consumed that position and
+  // "Pavel" is never seen.
+
+  test("short prefix pattern shadows whole-word match", () => {
+    // "P" is at index 0 (lower), "Pavel" at index 1
+    // "P" matches at the start of "Pavel" but fails
+    // wholeWords (followed by "a"). "Pavel" should
+    // still be found.
+    const ac = new AhoCorasick(
+      ["P", "Pavel"],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("hello Pavel world");
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("Pavel");
+  });
+
+  test("many prefix patterns with shared start", () => {
+    // Simulates the real bug: 12 patterns starting
+    // with "Pavel", plus single-letter patterns.
+    const ac = new AhoCorasick(
+      [
+        "P", "Pa", "Pav",
+        "Pavel", "Pavela", "Pavelchak",
+        "Pavelec", "Pavelek", "Pavelka",
+        "Pavelko", "Pavell", "Pavella",
+        "pane",
+      ],
+      {
+        wholeWords: true,
+        caseInsensitive: true,
+      },
+    );
+    const text = "Dobrý den, pane Pavel";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("pane");
+    expect(found).toContain("Pavel");
+  });
+
+  test("single-letter pattern blocks longer match", () => {
+    const ac = new AhoCorasick(
+      ["a", "abc"],
+      { wholeWords: true },
+    );
+    // "a" matches at start of "abc" but fails
+    // wholeWords (followed by "b"). "abc" should
+    // still match as a whole word.
+    const matches = ac.findIter("x abc y");
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("abc");
+  });
+});
+
 // ─── Adopted from other libraries ─────────────
 //
 // Test cases sourced from:
