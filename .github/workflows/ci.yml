@@ -182,10 +182,10 @@ jobs:
 
       - name: Publish to npm
         run: |
-          npm publish --access restricted --provenance
+          npm publish --access restricted
           for pkg in npm/*/; do
             cd "$pkg"
-            npm publish --access restricted --provenance
+            npm publish --access restricted
             cd ../..
           done
         env:
