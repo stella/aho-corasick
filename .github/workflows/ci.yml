@@ -116,7 +116,9 @@ jobs:
             -v ${{ github.workspace }}:/build
             -w /build
           run: >
-            rustup target add ${{ matrix.settings.target }}
+            rustup self update
+            && rustup update stable
+            && rustup target add ${{ matrix.settings.target }}
             && npm install -g @napi-rs/cli
             && npm install --no-optional
             && napi build --platform --release
