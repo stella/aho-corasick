@@ -117,8 +117,9 @@ jobs:
             -w /build
           run: >
             rustup target add ${{ matrix.settings.target }}
-            && npm install --ignore-scripts --no-optional
-            && npx @napi-rs/cli build --platform --release
+            && npm install -g @napi-rs/cli
+            && npm install --no-optional
+            && napi build --platform --release
             --target ${{ matrix.settings.target }}
 
       - uses: actions/upload-artifact@v4
