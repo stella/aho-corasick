@@ -237,14 +237,14 @@ describe("property: wholeWords finds isolated patterns", () => {
             wholeWords: true,
           });
           const matches = ac.findIter(hay);
-          const found = matches.map((m) => m.text);
 
-          // The target pattern (or a longer pattern
-          // containing it at the same position) must
-          // appear in results
+          // The target must be found at exactly
+          // position 4 (after "xxx "), or a longer
+          // pattern that covers position 4 must be
+          // present.
           const targetFound = matches.some(
             (m) =>
-              m.start <= 4 &&
+              m.start === 4 &&
               m.end >= 4 + target.length,
           );
           expect(targetFound).toBe(true);
