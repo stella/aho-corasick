@@ -330,7 +330,44 @@ impl AhoCorasick {
     &self,
     haystack: String,
   ) -> bool {
-    self.inner.is_match(&haystack)
+    if !self.whole_words {
+      return self.inner.is_match(&haystack);
+    }
+    // With wholeWords: find the first match that
+    // passes the boundary check, same algorithm
+    // as find_iter_packed but short-circuit on
+    // first hit.
+    let mut pos: usize = 0;
+    let len = haystack.len();
+    while pos < len {
+      let input =
+        Input::new(&haystack).range(pos..);
+      let m = match self.inner.find(input) {
+        Some(m) => m,
+        None => return false,
+      };
+      if is_whole_word(
+        &haystack,
+        m.start(),
+        m.end(),
+      ) {
+        return true;
+      }
+      // Rejected: try fallback at this position.
+      if self
+        .find_whole_word_at(&haystack, m.start())
+        .is_some()
+      {
+        return true;
+      }
+      // Advance past rejected position.
+      pos = m.start()
+        + haystack[m.start()..]
+          .chars()
+          .next()
+          .map_or(1, |c| c.len_utf8());
+    }
+    false
   }
 
   /// Find all non-overlapping matches. Returns a

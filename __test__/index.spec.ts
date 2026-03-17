@@ -827,6 +827,34 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     expect(found).toContain("s.r.o.");
   });
 
+  test("isMatch respects wholeWords (Devin review)", () => {
+    // Bug: isMatch bypassed wholeWords, returning
+    // true when findIter returned zero matches.
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // "test" inside "testing" is NOT a whole word
+    expect(ac.isMatch("testing")).toBe(false);
+    expect(ac.findIter("testing").length).toBe(0);
+
+    // "test" as whole word
+    expect(ac.isMatch("run test now")).toBe(true);
+    expect(ac.findIter("run test now").length).toBe(1);
+
+    // Consistency: isMatch and findIter must agree
+    const texts = [
+      "testing", "test", "a test b",
+      "testbed", "attest", "the test.",
+    ];
+    for (const text of texts) {
+      const matches = ac.findIter(text);
+      expect(ac.isMatch(text)).toBe(
+        matches.length > 0,
+      );
+    }
+  });
+
   test("pure word patterns: leftmostLongest would suffice", () => {
     // This case works with BOTH approaches.
     // Included to verify no regression.
