@@ -211,8 +211,8 @@ compatible with `String.prototype.slice()`.
 | `.findOverlappingIter(haystack)`      | `Match[]`     | All overlapping matches              |
 | `.isMatch(haystack)`                  | `boolean`     | Any pattern matches?                 |
 | `.replaceAll(haystack, replacements)` | `string`      | Replace matched patterns             |
-| `.findIterBuf(haystack)`              | `ByteMatch[]` | Matches in a `Buffer` (byte offsets) |
-| `.isMatchBuf(haystack)`               | `boolean`     | Any pattern matches in a `Buffer`?   |
+| `.findIterBuf(haystack)`              | `ByteMatch[]` | Matches in a `Buffer` / `Uint8Array` (byte offsets) |
+| `.isMatchBuf(haystack)`               | `boolean`     | Any pattern matches in a `Buffer` / `Uint8Array`?   |
 | `.patternCount`                       | `number`      | Number of patterns                   |
 
 ### `StreamMatcher`

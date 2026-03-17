@@ -136,7 +136,8 @@ export declare class AhoCorasick {
 /**
  * Streaming matcher that handles chunk boundaries.
  *
- * Feed `Buffer` chunks via `write()` and collect
+ * Feed `Buffer` / `Uint8Array` chunks via
+ * `write()` and collect
  * matches. Offsets are **global byte offsets**
  * across all chunks written since construction or
  * last `reset()`.
