@@ -4,15 +4,18 @@
 
 const native = require("./aho-corasick.wasi.cjs");
 
-function unpack(packed) {
+function unpack(packed, haystack) {
   const len = packed.length;
   // eslint-disable-next-line unicorn/no-new-array
   const matches = new Array(len / 3);
   for (let i = 0, j = 0; i < len; i += 3, j++) {
+    const start = packed[i + 1];
+    const end = packed[i + 2];
     matches[j] = {
       pattern: packed[i],
-      start: packed[i + 1],
-      end: packed[i + 2],
+      start,
+      end,
+      text: haystack.slice(start, end),
     };
   }
   return matches;
@@ -20,10 +23,7 @@ function unpack(packed) {
 
 class AhoCorasick {
   constructor(patterns, options) {
-    this._inner = new native.AhoCorasick(
-      patterns,
-      options,
-    );
+    this._inner = new native.AhoCorasick(patterns, options);
   }
 
   get patternCount() {
@@ -37,26 +37,29 @@ class AhoCorasick {
   findIter(haystack) {
     return unpack(
       this._inner._findIterPacked(haystack),
+      haystack,
     );
   }
 
   findOverlappingIter(haystack) {
     return unpack(
-      this._inner._findOverlappingIterPacked(
-        haystack,
-      ),
+      this._inner._findOverlappingIterPacked(haystack),
+      haystack,
     );
   }
 
   replaceAll(haystack, replacements) {
-    return this._inner.replaceAll(
-      haystack,
-      replacements,
-    );
+    return this._inner.replaceAll(haystack, replacements);
   }
 
+  findIterBuf(haystack) {
+    return this._inner.findIterBuf(haystack);
+  }
+
+  isMatchBuf(haystack) {
+    return this._inner.isMatchBuf(haystack);
+  }
 }
 
 module.exports.AhoCorasick = AhoCorasick;
-module.exports.StreamMatcher =
-  native.StreamMatcher;
+module.exports.StreamMatcher = native.StreamMatcher;

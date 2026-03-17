@@ -15,9 +15,12 @@ ac.isMatch("hello foo world"); // true
 
 ac.findIter("foo bar baz");
 // [
-//   { pattern: 0, start: 0, end: 3 },
-//   { pattern: 1, start: 4, end: 7 },
-//   { pattern: 2, start: 8, end: 11 },
+//   { pattern: 0, start: 0, end: 3,
+//     text: "foo" },
+//   { pattern: 1, start: 4, end: 7,
+//     text: "bar" },
+//   { pattern: 2, start: 8, end: 11,
+//     text: "baz" },
 // ]
 
 ac.replaceAll("foo bar baz", ["A", "B", "C"]);
@@ -36,22 +39,28 @@ Options:
 - `dfa`: `boolean` (default `false`, force DFA mode)
 - `wholeWords`: `boolean` (default `false`, Unicode-aware word boundary detection; CJK always passes)
 
-Methods:
+String methods (return `Match` with UTF-16 offsets + `text`):
 - `findIter(haystack: string): Match[]` — non-overlapping matches
 - `findOverlappingIter(haystack: string): Match[]` — all overlapping matches
 - `isMatch(haystack: string): boolean` — any pattern matches?
 - `replaceAll(haystack: string, replacements: string[]): string` — replace; `replacements[i]` replaces pattern `i`
+
+Buffer methods (return `ByteMatch` with byte offsets, no `text`):
+- `findIterBuf(haystack: Buffer): ByteMatch[]` — matches in a Buffer
+- `isMatchBuf(haystack: Buffer): boolean` — any pattern matches in a Buffer?
+
+Property:
 - `patternCount: number` — getter, number of patterns
 
 ### StreamMatcher
 
 Constructor: `new StreamMatcher(patterns: string[], options?: Options)`
 
-For searching across chunked/streamed input. Handles cross-boundary matches automatically.
+For searching across chunked/streamed input. Handles cross-boundary matches automatically. Returns `ByteMatch` with global byte offsets.
 
 Methods:
-- `write(chunk: Buffer): Match[]` — feed chunk, returns matches with global byte offsets
-- `flush(): Match[]` — finalize after last chunk
+- `write(chunk: Buffer): ByteMatch[]` — feed chunk, returns matches with global byte offsets
+- `flush(): ByteMatch[]` — finalize after last chunk
 - `reset(): void` — reset for reuse
 
 ### Types
@@ -63,14 +72,27 @@ type Match = {
   end: number;     // exclusive
   text: string;    // the matched substring
 };
+
+type ByteMatch = {
+  pattern: number; // index into patterns array
+  start: number;   // byte offset
+  end: number;     // exclusive
+};
 ```
 
-Offsets are UTF-16 code units, compatible with `String.prototype.slice()`. `text` is `haystack.slice(start, end)`.
+`Match` offsets are UTF-16 code units, compatible with `String.prototype.slice()`. `text` is `haystack.slice(start, end)`.
+
+`ByteMatch` offsets are raw bytes. Used by `findIterBuf`, `isMatchBuf`, and `StreamMatcher`.
+
+## Error handling
+
+- `new AhoCorasick([...])` throws if the automaton cannot be built.
+- `replaceAll` throws if `replacements.length !== patternCount`.
+- Empty patterns arrays are valid; all methods return no matches.
 
 ## Important notes
 
 - Case insensitivity is ASCII-only (A-Z to a-z). Turkish İ, German ß, and other Unicode case folding is not supported.
 - `leftmost-first`: pattern insertion order determines which pattern wins at a position. `leftmost-longest`: longest match wins regardless of order.
 - The automaton is built once at construction and reused. Construction is O(patterns); search is O(haystack + matches).
-- `replaceAll` requires exactly `patternCount` replacements or it throws.
 - Native binary for Node.js/Bun; WASM fallback for browsers. Bundlers auto-select via the `browser` field.

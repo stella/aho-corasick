@@ -79,26 +79,20 @@ For processing large files or streams chunk by
 chunk:
 
 ```typescript
-import {
-  StreamMatcher,
-} from "@stll/aho-corasick";
+import { StreamMatcher } from "@stll/aho-corasick";
 
-const sm = new StreamMatcher([
-  "needle",
-  "haystack",
-]);
+const sm = new StreamMatcher(["needle", "haystack"]);
 
 for await (const chunk of readableStream) {
   const matches = sm.write(chunk);
   for (const m of matches) {
     console.log(
-      `Pattern ${m.pattern} ` +
-        `at ${m.start}..${m.end}`,
+      `Pattern ${m.pattern} ` + `at ${m.start}..${m.end}`,
     );
   }
 }
 
-sm.flush(); // finalize
+sm.flush(); // finalize stream state
 sm.reset(); // reuse for another stream
 ```
 
@@ -121,8 +115,7 @@ const GROUPS = {
 const patterns: string[] = [];
 const tag: string[] = [];
 
-for (const [group, terms]
-  of Object.entries(GROUPS)) {
+for (const [group, terms] of Object.entries(GROUPS)) {
   for (const term of terms) {
     patterns.push(term);
     tag.push(group);
@@ -160,22 +153,22 @@ Run locally:
 
 ### ASCII (Canterbury Large Corpus)
 
-| Haystack | Patterns | @stll | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
-| --- | --- | --- | --- | --- | --- | --- |
-| bible.txt (4.0 MB) | 20 legal terms | **5 ms** | 444 ms | 130 ms | 129 ms | 585 ms |
-| E.coli (4.6 MB) | 16 DNA codons | **2 ms** | 288 ms | 16 ms | 135 ms | 637 ms |
-| world192.txt (2.5 MB) | 20 legal terms | **1 ms** | 300 ms | 121 ms | 71 ms | 312 ms |
-| bible.txt (4.0 MB) | 1 pattern | **1 ms** | 254 ms | 19 ms | 53 ms | 420 ms |
+| Haystack              | Patterns       | @stll    | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
+| --------------------- | -------------- | -------- | ------------------ | ----------- | -------- | ------------ |
+| bible.txt (4.0 MB)    | 20 legal terms | **5 ms** | 444 ms             | 130 ms      | 129 ms   | 585 ms       |
+| E.coli (4.6 MB)       | 16 DNA codons  | **2 ms** | 288 ms             | 16 ms       | 135 ms   | 637 ms       |
+| world192.txt (2.5 MB) | 20 legal terms | **1 ms** | 300 ms             | 121 ms      | 71 ms    | 312 ms       |
+| bible.txt (4.0 MB)    | 1 pattern      | **1 ms** | 254 ms             | 19 ms       | 53 ms    | 420 ms       |
 
 ### Unicode (Leipzig Corpora Collection)
 
-| Haystack | Patterns | @stll | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
-| --- | --- | --- | --- | --- | --- | --- |
-| Czech news 2024 (4.8 MB) | 10 legal terms | **23 ms** | 563 ms | 271 ms | 94 ms | 652 ms |
-| Turkish news 2024 (5.4 MB) | 10 terms | **28 ms** | 724 ms | 358 ms | 158 ms | 731 ms |
-| Japanese newscrawl 2019 (2.4 MB) | 10 terms | **16 ms** | 521 ms | 411 ms | 168 ms | 620 ms |
-| Chinese Wikipedia 2021 (2.0 MB) | 10 terms | **15 ms** | 361 ms | 323 ms | 94 ms | 607 ms |
-| German news 2024 (5.5 MB) | 10 terms | **13 ms** | 742 ms | 229 ms | 107 ms | 846 ms |
+| Haystack                         | Patterns       | @stll     | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
+| -------------------------------- | -------------- | --------- | ------------------ | ----------- | -------- | ------------ |
+| Czech news 2024 (4.8 MB)         | 10 legal terms | **23 ms** | 563 ms             | 271 ms      | 94 ms    | 652 ms       |
+| Turkish news 2024 (5.4 MB)       | 10 terms       | **28 ms** | 724 ms             | 358 ms      | 158 ms   | 731 ms       |
+| Japanese newscrawl 2019 (2.4 MB) | 10 terms       | **16 ms** | 521 ms             | 411 ms      | 168 ms   | 620 ms       |
+| Chinese Wikipedia 2021 (2.0 MB)  | 10 terms       | **15 ms** | 361 ms             | 323 ms      | 94 ms    | 607 ms       |
+| German news 2024 (5.5 MB)        | 10 terms       | **13 ms** | 742 ms             | 229 ms      | 107 ms   | 846 ms       |
 
 ### WASM (browser target)
 
@@ -183,10 +176,10 @@ The same Rust code compiles to WASM via
 `wasm32-wasip1-threads`. Bundlers (Vite, Webpack)
 auto-select the WASM build for browser targets.
 
-| Haystack | @stll WASM | @stll native | Best pure JS |
-| --- | --- | --- | --- |
-| bible.txt (4.0 MB) | **34 ms** | 4 ms | 186 ms |
-| Czech news (4.8 MB) | **61 ms** | 17 ms | 208 ms |
+| Haystack            | @stll WASM | @stll native | Best pure JS |
+| ------------------- | ---------- | ------------ | ------------ |
+| bible.txt (4.0 MB)  | **34 ms**  | 4 ms         | 186 ms       |
+| Czech news (4.8 MB) | **61 ms**  | 17 ms        | 208 ms       |
 
 WASM is 4-8x slower than native, but 3-6x faster
 than the best pure-JS alternative; in browsers
@@ -211,30 +204,30 @@ compatible with `String.prototype.slice()`.
 
 ### `AhoCorasick`
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `new AhoCorasick(patterns, options?)` | instance | Build automaton |
-| `.findIter(haystack)` | `Match[]` | Non-overlapping matches |
-| `.findOverlappingIter(haystack)` | `Match[]` | All overlapping matches |
-| `.isMatch(haystack)` | `boolean` | Any pattern matches? |
-| `.replaceAll(haystack, replacements)` | `string` | Replace matched patterns |
-| `.patternCount` | `number` | Number of patterns |
+| Method                                | Returns       | Description                          |
+| ------------------------------------- | ------------- | ------------------------------------ |
+| `new AhoCorasick(patterns, options?)` | instance      | Build automaton                      |
+| `.findIter(haystack)`                 | `Match[]`     | Non-overlapping matches              |
+| `.findOverlappingIter(haystack)`      | `Match[]`     | All overlapping matches              |
+| `.isMatch(haystack)`                  | `boolean`     | Any pattern matches?                 |
+| `.replaceAll(haystack, replacements)` | `string`      | Replace matched patterns             |
+| `.findIterBuf(haystack)`              | `ByteMatch[]` | Matches in a `Buffer` / `Uint8Array` (byte offsets) |
+| `.isMatchBuf(haystack)`               | `boolean`     | Any pattern matches in a `Buffer` / `Uint8Array`?   |
+| `.patternCount`                       | `number`      | Number of patterns                   |
 
 ### `StreamMatcher`
 
-| Method | Returns | Description |
-| --- | --- | --- |
-| `new StreamMatcher(patterns, options?)` | instance | Build streaming matcher |
-| `.write(chunk)` | `Match[]` | Feed chunk, get global matches |
-| `.flush()` | `Match[]` | Finalize stream |
-| `.reset()` | `void` | Reset for reuse |
+| Method                                  | Returns       | Description                                |
+| --------------------------------------- | ------------- | ------------------------------------------ |
+| `new StreamMatcher(patterns, options?)` | instance      | Build streaming matcher                    |
+| `.write(chunk)`                         | `ByteMatch[]` | Feed chunk, get global byte-offset matches |
+| `.flush()`                              | `ByteMatch[]` | Finalize stream                            |
+| `.reset()`                              | `void`        | Reset for reuse                            |
 
 ### Types
 
 ```typescript
-type MatchKind =
-  | "leftmost-first"
-  | "leftmost-longest";
+type MatchKind = "leftmost-first" | "leftmost-longest";
 
 type Options = {
   matchKind?: MatchKind;
@@ -243,13 +236,31 @@ type Options = {
   dfa?: boolean;
 };
 
+// Returned by string methods (findIter, etc.)
 type Match = {
   pattern: number; // index into patterns array
   start: number; // UTF-16 code unit offset
   end: number; // exclusive
   text: string; // matched substring
 };
+
+// Returned by Buffer/streaming methods
+type ByteMatch = {
+  pattern: number; // index into patterns array
+  start: number; // byte offset
+  end: number; // exclusive
+};
 ```
+
+### Error handling
+
+- `new AhoCorasick([...])` throws if the
+  automaton cannot be built (e.g. patterns exceed
+  internal size limits).
+- `replaceAll(haystack, replacements)` throws if
+  `replacements.length !== patternCount`.
+- Empty patterns arrays are valid; all search
+  methods return no matches.
 
 ## Limitations
 
@@ -278,7 +289,6 @@ is done by:
   — the Rust framework for building Node.js native
   addons. MIT licensed.
 
-
 ## Development
 
 ```bash
@@ -288,7 +298,7 @@ bun install
 # Build native module (requires Rust toolchain)
 bun run build
 
-# Run tests (80 tests, including Unicode edge cases)
+# Run tests (113 tests, including Unicode edge cases)
 bun test
 
 # Download benchmark corpora
