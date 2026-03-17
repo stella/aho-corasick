@@ -259,7 +259,7 @@ function oracleWholeWords(
   filtered.sort((a, b) =>
     a.start !== b.start
       ? a.start - b.start
-      : b.end - a.end - (a.end - a.start),
+      : (b.end - b.start) - (a.end - a.start),
   );
 
   // Step 4: greedily select non-overlapping
