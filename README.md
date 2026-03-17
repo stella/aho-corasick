@@ -92,13 +92,7 @@ for await (const chunk of readableStream) {
   }
 }
 
-// Flush remaining matches at stream end
-for (const m of sm.flush()) {
-  console.log(
-    `Pattern ${m.pattern} ` + `at ${m.start}..${m.end}`,
-  );
-}
-
+sm.flush(); // finalize stream state
 sm.reset(); // reuse for another stream
 ```
 

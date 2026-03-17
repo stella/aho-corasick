@@ -150,10 +150,7 @@ export declare class AhoCorasick {
  *       + ` byte ${m.start}..${m.end}`);
  *   }
  * }
- * for (const m of sm.flush()) {
- *   console.log(`Pattern ${m.pattern} at`
- *     + ` byte ${m.start}..${m.end}`);
- * }
+ * sm.flush(); // finalize stream state
  * ```
  */
 export declare class StreamMatcher {

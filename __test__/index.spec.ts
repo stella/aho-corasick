@@ -1284,9 +1284,7 @@ describe("findIterBuf", () => {
   test("accepts Uint8Array", () => {
     const ac = new AhoCorasick(["hello"]);
     const buf = new Uint8Array(Buffer.from("hello world"));
-    const matches = ac.findIterBuf(
-      buf as unknown as Buffer,
-    );
+    const matches = ac.findIterBuf(buf);
     expect(matches).toHaveLength(1);
   });
 });
@@ -1322,9 +1320,9 @@ describe("StreamMatcher", () => {
 
     const m1 = sm.write(Buffer.from("hel"));
     const m2 = sm.write(Buffer.from("lo world"));
-    sm.flush();
+    const m3 = sm.flush();
 
-    const all = [...m1, ...m2];
+    const all = [...m1, ...m2, ...m3];
     expect(all.some((m) => m.pattern === 0)).toBe(true);
     expect(all.some((m) => m.pattern === 1)).toBe(true);
   });
