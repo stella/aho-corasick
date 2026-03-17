@@ -212,13 +212,14 @@ describe("property: findIter ⊆ findOverlappingIter", () => {
 // Compare against findIter (fast but complex).
 // Any disagreement is a bug in the fast path.
 
-const isWordCharJS = (ch: string) =>
-  /\p{L}|\p{N}/u.test(ch);
-
 const isCjkJS = (ch: string) =>
   /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(
     ch,
   );
+
+// Match Rust: is_alphanumeric() && !is_cjk()
+const isWordCharJS = (ch: string) =>
+  /\p{L}|\p{N}/u.test(ch) && !isCjkJS(ch);
 
 function isWholeWordJS(
   hay: string,
