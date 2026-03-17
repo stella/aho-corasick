@@ -2,7 +2,8 @@ use std::sync::OnceLock;
 
 use aho_corasick::{
   AhoCorasick as RawAhoCorasick, AhoCorasickBuilder,
-  AhoCorasickKind, MatchKind as RawMatchKind,
+  AhoCorasickKind, Input,
+  MatchKind as RawMatchKind,
 };
 use napi::bindgen_prelude::*;
 use napi_derive::napi;
@@ -249,10 +250,6 @@ pub struct AhoCorasick {
   case_insensitive: bool,
   dfa: bool,
   whole_words: bool,
-  /// True when wholeWords is on AND patterns contain
-  /// non-word characters, requiring the slow
-  /// overlapping search path for correctness.
-  ww_needs_overlapping: bool,
   pattern_count: u32,
 }
 
@@ -279,25 +276,12 @@ impl AhoCorasick {
       opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
-    // When wholeWords is enabled and ALL patterns
-    // are pure word characters (alphanumeric/CJK),
-    // we can use leftmostLongest with a simple
-    // post-filter (fast path). If any pattern
-    // contains non-word chars (spaces, hyphens,
-    // dots), we must use the overlapping automaton
-    // (slow path) because a longer match containing
-    // non-word chars can shadow a shorter valid
-    // whole-word match.
-    let ww_needs_overlapping = whole_words
-      && patterns.iter().any(|p| {
-        p.chars().any(|c| {
-          !c.is_alphanumeric() && !is_cjk(c)
-        })
-      });
-
-    let effective_kind = if whole_words
-      && !ww_needs_overlapping
-    {
+    // When wholeWords is enabled, use leftmostLongest
+    // so the longest match wins at each position.
+    // If the longest fails the boundary check, a
+    // targeted anchored fallback query finds shorter
+    // alternatives at that position only.
+    let effective_kind = if whole_words {
       RawMatchKind::LeftmostLongest
     } else {
       match_kind
@@ -317,7 +301,6 @@ impl AhoCorasick {
       case_insensitive,
       dfa,
       whole_words,
-      ww_needs_overlapping,
       pattern_count,
     })
   }
@@ -360,25 +343,107 @@ impl AhoCorasick {
     &self,
     haystack: String,
   ) -> Uint32Array {
-    if self.ww_needs_overlapping {
-      return self
-        .find_iter_whole_words_packed(&haystack);
+    if !self.whole_words {
+      // No wholeWords: standard fast path.
+      return self.find_iter_simple(&haystack);
     }
 
-    let ww = self.whole_words;
+    // wholeWords: single-pass with targeted
+    // fallback. Use manual `find()` loop so we
+    // can retry at rejected positions.
+    let mut packed = Vec::new();
+    let mut pos: usize = 0;
+    let len = haystack.len();
+    let is_ascii = haystack.is_ascii();
 
-    if haystack.is_ascii() {
-      let mut packed = Vec::new();
-      for m in self.inner.find_iter(&haystack) {
-        if ww
-          && !is_whole_word(
-            &haystack,
-            m.start(),
-            m.end(),
+    // For non-ASCII offset tracking.
+    let bytes = haystack.as_bytes();
+    let mut last_byte: usize = 0;
+    let mut last_utf16: u32 = 0;
+
+    while pos < len {
+      let input = Input::new(&haystack).range(pos..);
+      let m = match self.inner.find(input) {
+        Some(m) => m,
+        None => break,
+      };
+
+      if is_whole_word(
+        &haystack,
+        m.start(),
+        m.end(),
+      ) {
+        // Fast path: accepted by wholeWords.
+        if is_ascii {
+          packed.push(m.pattern().as_u32());
+          packed.push(m.start() as u32);
+          packed.push(m.end() as u32);
+        } else {
+          last_utf16 += byte_span_utf16_len(
+            &bytes[last_byte..m.start()],
+          );
+          let s = last_utf16;
+          last_byte = m.start();
+          last_utf16 += byte_span_utf16_len(
+            &bytes[last_byte..m.end()],
+          );
+          let e = last_utf16;
+          last_byte = m.end();
+          packed.push(m.pattern().as_u32());
+          packed.push(s);
+          packed.push(e);
+        }
+        pos = m.end();
+      } else {
+        // Rejected: targeted anchored fallback
+        // at this position only.
+        if let Some((pat, start, end)) =
+          self.find_whole_word_at(
+            &haystack, m.start(),
           )
         {
-          continue;
+          if is_ascii {
+            packed.push(pat);
+            packed.push(start as u32);
+            packed.push(end as u32);
+          } else {
+            last_utf16 += byte_span_utf16_len(
+              &bytes[last_byte..start],
+            );
+            let s = last_utf16;
+            last_byte = start;
+            last_utf16 += byte_span_utf16_len(
+              &bytes[last_byte..end],
+            );
+            let e = last_utf16;
+            last_byte = end;
+            packed.push(pat);
+            packed.push(s);
+            packed.push(e);
+          }
+          pos = end;
+        } else {
+          // No whole-word match at this position.
+          // Advance by one character.
+          pos = m.start()
+            + haystack[m.start()..]
+              .chars()
+              .next()
+              .map_or(1, |c| c.len_utf8());
         }
+      }
+    }
+    Uint32Array::new(packed)
+  }
+
+  /// Standard find_iter without wholeWords.
+  fn find_iter_simple(
+    &self,
+    haystack: &str,
+  ) -> Uint32Array {
+    if haystack.is_ascii() {
+      let mut packed = Vec::new();
+      for m in self.inner.find_iter(haystack) {
         packed.push(m.pattern().as_u32());
         packed.push(m.start() as u32);
         packed.push(m.end() as u32);
@@ -391,16 +456,7 @@ impl AhoCorasick {
     let mut last_byte: usize = 0;
     let mut last_utf16: u32 = 0;
 
-    for m in self.inner.find_iter(&haystack) {
-      if ww
-        && !is_whole_word(
-          &haystack,
-          m.start(),
-          m.end(),
-        )
-      {
-        continue;
-      }
+    for m in self.inner.find_iter(haystack) {
       last_utf16 += byte_span_utf16_len(
         &bytes[last_byte..m.start()],
       );
@@ -420,96 +476,62 @@ impl AhoCorasick {
     Uint32Array::new(packed)
   }
 
-  /// wholeWords search: use overlapping automaton
-  /// to find ALL matches, filter by word boundaries,
-  /// then greedily select non-overlapping (longest
-  /// at each position).
+  /// Targeted overlapping query at a single
+  /// position. Returns the longest whole-word
+  /// match starting at `start`, or None.
   ///
-  /// Cannot use the non-overlapping iterator with a
-  /// post-filter because rejected matches consume
-  /// positions, hiding valid matches underneath.
-  fn find_iter_whole_words_packed(
+  /// Uses unanchored overlapping search from
+  /// `start` and filters for matches starting
+  /// exactly at `start`. Breaks early once
+  /// matches move past the start position.
+  fn find_whole_word_at(
     &self,
     haystack: &str,
-  ) -> Uint32Array {
+    start: usize,
+  ) -> Option<(u32, usize, usize)> {
     let ov = self.overlapping_ac();
+    let input = Input::new(haystack).range(start..);
 
-    // Step 1: all overlapping matches that pass
-    // the word boundary check.
-    let mut candidates: Vec<(u32, usize, usize)> =
-      Vec::new();
-    for m in ov.find_overlapping_iter(haystack) {
-      if is_whole_word(
-        haystack,
-        m.start(),
-        m.end(),
-      ) {
-        candidates.push((
-          m.pattern().as_u32(),
-          m.start(),
-          m.end(),
-        ));
+    let mut best: Option<(u32, usize, usize)> = None;
+    let mut state =
+      aho_corasick::automaton::OverlappingState::start();
+
+    loop {
+      ov.find_overlapping(input.clone(), &mut state);
+      let m = match state.get_match() {
+        Some(m) => m,
+        None => break,
+      };
+
+      // Only consider matches starting at `start`.
+      if m.start() != start {
+        break;
+      }
+
+      if is_whole_word(haystack, m.start(), m.end())
+      {
+        match best {
+          None => {
+            best = Some((
+              m.pattern().as_u32(),
+              m.start(),
+              m.end(),
+            ));
+          }
+          Some((_, _, prev_end))
+            if m.end() > prev_end =>
+          {
+            best = Some((
+              m.pattern().as_u32(),
+              m.start(),
+              m.end(),
+            ));
+          }
+          _ => {}
+        }
       }
     }
-
-    if candidates.is_empty() {
-      return Uint32Array::new(Vec::new());
-    }
-
-    // Step 2: sort by start, then longest first.
-    candidates.sort_by(|a, b| {
-      a.1.cmp(&b.1).then_with(|| {
-        (b.2 - b.1).cmp(&(a.2 - a.1))
-      })
-    });
-
-    // Step 3: greedily select non-overlapping.
-    let mut selected: Vec<(u32, usize, usize)> =
-      Vec::new();
-    let mut last_end: usize = 0;
-    for &(pat, start, end) in &candidates {
-      if start >= last_end {
-        selected.push((pat, start, end));
-        last_end = end;
-      }
-    }
-
-    // Step 4: pack with UTF-16 offsets.
-    if haystack.is_ascii() {
-      let mut packed =
-        Vec::with_capacity(selected.len() * 3);
-      for (pat, start, end) in selected {
-        packed.push(pat);
-        packed.push(start as u32);
-        packed.push(end as u32);
-      }
-      return Uint32Array::new(packed);
-    }
-
-    let bytes = haystack.as_bytes();
-    let mut packed =
-      Vec::with_capacity(selected.len() * 3);
-    let mut last_byte: usize = 0;
-    let mut last_utf16: u32 = 0;
-
-    for (pat, start, end) in selected {
-      last_utf16 += byte_span_utf16_len(
-        &bytes[last_byte..start],
-      );
-      let utf16_start = last_utf16;
-      last_byte = start;
-
-      last_utf16 += byte_span_utf16_len(
-        &bytes[last_byte..end],
-      );
-      let utf16_end = last_utf16;
-      last_byte = end;
-
-      packed.push(pat);
-      packed.push(utf16_start);
-      packed.push(utf16_end);
-    }
-    Uint32Array::new(packed)
+    best
   }
 
 
