@@ -30,11 +30,7 @@ function unpack(packed, haystack) {
 
 class AhoCorasick {
   constructor(patterns, options) {
-    this._inner = new NativeAhoCorasick(
-      patterns,
-      options,
-    );
-    this._wholeWords = options?.wholeWords ?? false;
+    this._inner = new NativeAhoCorasick(patterns, options);
   }
 
   get patternCount() {
@@ -54,20 +50,22 @@ class AhoCorasick {
 
   findOverlappingIter(haystack) {
     return unpack(
-      this._inner._findOverlappingIterPacked(
-        haystack,
-      ),
+      this._inner._findOverlappingIterPacked(haystack),
       haystack,
     );
   }
 
   replaceAll(haystack, replacements) {
-    return this._inner.replaceAll(
-      haystack,
-      replacements,
-    );
+    return this._inner.replaceAll(haystack, replacements);
   }
 
+  findIterBuf(haystack) {
+    return this._inner.findIterBuf(haystack);
+  }
+
+  isMatchBuf(haystack) {
+    return this._inner.isMatchBuf(haystack);
+  }
 }
 
 module.exports.AhoCorasick = AhoCorasick;

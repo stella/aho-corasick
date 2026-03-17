@@ -2,25 +2,41 @@
   "name": "@stll/aho-corasick",
   "version": "0.1.2",
   "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
+  "keywords": [
+    "aho-corasick",
+    "multi-pattern",
+    "napi-rs",
+    "native",
+    "rust",
+    "string-search"
+  ],
+  "homepage": "https://github.com/stella/aho-corasick#readme",
+  "bugs": {
+    "url": "https://github.com/stella/aho-corasick/issues"
+  },
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/stella/aho-corasick"
   },
-  "homepage": "https://github.com/stella/aho-corasick#readme",
-  "bugs": {
-    "url": "https://github.com/stella/aho-corasick/issues"
-  },
-  "keywords": [
-    "aho-corasick",
-    "string-search",
-    "multi-pattern",
-    "napi-rs",
-    "native",
-    "rust"
+  "files": [
+    "lib.js",
+    "lib.mjs",
+    "lib.d.ts",
+    "lib.wasm.js",
+    "index.js",
+    "aho-corasick.wasi.cjs",
+    "aho-corasick.wasi-browser.js",
+    "browser.js",
+    "wasi-worker.mjs",
+    "wasi-worker-browser.mjs"
   ],
   "main": "lib.js",
   "module": "lib.mjs",
+  "browser": {
+    "./lib.js": "./lib.wasm.js",
+    "./lib.mjs": "./lib.wasm.js"
+  },
   "types": "lib.d.ts",
   "exports": {
     ".": {
@@ -33,34 +49,6 @@
         "default": "./lib.js"
       }
     }
-  },
-  "browser": {
-    "./lib.js": "./lib.wasm.js",
-    "./lib.mjs": "./lib.wasm.js"
-  },
-  "files": [
-    "lib.js",
-    "lib.mjs",
-    "lib.d.ts",
-    "lib.wasm.js",
-    "index.js",
-    "index.d.ts",
-    "aho-corasick.wasi.cjs",
-    "aho-corasick.wasi-browser.js",
-    "browser.js",
-    "wasi-worker.mjs",
-    "wasi-worker-browser.mjs"
-  ],
-  "napi": {
-    "binaryName": "aho-corasick",
-    "targets": [
-      "x86_64-apple-darwin",
-      "aarch64-apple-darwin",
-      "x86_64-unknown-linux-gnu",
-      "aarch64-unknown-linux-gnu",
-      "x86_64-unknown-linux-musl",
-      "x86_64-pc-windows-msvc"
-    ]
   },
   "scripts": {
     "build": "napi build --platform --release",
@@ -94,15 +82,26 @@
     "oxfmt": "^0.40.0",
     "oxlint": "^1.55.0"
   },
-  "engines": {
-    "node": ">= 18"
-  },
   "optionalDependencies": {
     "@stll/aho-corasick-darwin-arm64": "0.1.2",
     "@stll/aho-corasick-darwin-x64": "0.1.2",
-    "@stll/aho-corasick-linux-x64-gnu": "0.1.2",
     "@stll/aho-corasick-linux-arm64-gnu": "0.1.2",
+    "@stll/aho-corasick-linux-x64-gnu": "0.1.2",
     "@stll/aho-corasick-linux-x64-musl": "0.1.2",
     "@stll/aho-corasick-win32-x64-msvc": "0.1.2"
+  },
+  "napi": {
+    "binaryName": "aho-corasick",
+    "targets": [
+      "x86_64-apple-darwin",
+      "aarch64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "aarch64-unknown-linux-gnu",
+      "x86_64-unknown-linux-musl",
+      "x86_64-pc-windows-msvc"
+    ]
+  },
+  "engines": {
+    "node": ">= 18"
   }
 }
