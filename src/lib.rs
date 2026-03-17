@@ -541,8 +541,13 @@ impl AhoCorasick {
       };
 
       // Only consider matches starting at `start`.
+      // Cannot break on m.start() != start because
+      // overlapping iterator yields by ascending END
+      // position. A match at start+1 ending earlier
+      // may come before a match at start ending
+      // later. Skip non-start matches.
       if m.start() != start {
-        break;
+        continue;
       }
 
       if is_whole_word(haystack, m.start(), m.end())

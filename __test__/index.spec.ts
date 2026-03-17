@@ -827,6 +827,24 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     expect(found).toContain("s.r.o.");
   });
 
+  test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {
+    // Bug: find_whole_word_at breaks on m.start()
+    // != start, but overlapping iterator returns
+    // matches by END position. A match at start+1
+    // that ends earlier comes BEFORE a match at
+    // start that ends later, causing premature break.
+    const ac = new AhoCorasick(
+      ["abc d", "abc", "b"],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("abc df");
+    const found = matches.map((m) => m.text);
+
+    // "abc d" fails wholeWords (followed by "f")
+    // Fallback should find "abc" (followed by " ")
+    expect(found).toContain("abc");
+  });
+
   test("isMatch respects wholeWords (Devin review)", () => {
     // Bug: isMatch bypassed wholeWords, returning
     // true when findIter returned zero matches.
