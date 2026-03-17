@@ -92,7 +92,13 @@ for await (const chunk of readableStream) {
   }
 }
 
-sm.flush(); // finalize
+// Flush remaining matches at stream end
+for (const m of sm.flush()) {
+  console.log(
+    `Pattern ${m.pattern} ` + `at ${m.start}..${m.end}`,
+  );
+}
+
 sm.reset(); // reuse for another stream
 ```
 
@@ -298,7 +304,7 @@ bun install
 # Build native module (requires Rust toolchain)
 bun run build
 
-# Run tests (106 tests, including Unicode edge cases)
+# Run tests (113 tests, including Unicode edge cases)
 bun test
 
 # Download benchmark corpora

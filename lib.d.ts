@@ -115,14 +115,22 @@ export declare class AhoCorasick {
   /**
    * Find matches in a `Buffer` / `Uint8Array`.
    * Returns **byte offsets** (not UTF-16).
+   *
+   * Note: `wholeWords` has no effect on Buffer
+   * methods. Use string methods for whole-word
+   * filtering.
    */
-  findIterBuf(haystack: Buffer): ByteMatch[];
+  findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
 
   /**
    * Check whether any pattern matches in a
-   * `Buffer`.
+   * `Buffer` / `Uint8Array`.
+   *
+   * Note: `wholeWords` has no effect on Buffer
+   * methods. Use string methods for whole-word
+   * filtering.
    */
-  isMatchBuf(haystack: Buffer): boolean;
+  isMatchBuf(haystack: Buffer | Uint8Array): boolean;
 }
 
 /**
@@ -142,7 +150,10 @@ export declare class AhoCorasick {
  *       + ` byte ${m.start}..${m.end}`);
  *   }
  * }
- * sm.flush();
+ * for (const m of sm.flush()) {
+ *   console.log(`Pattern ${m.pattern} at`
+ *     + ` byte ${m.start}..${m.end}`);
+ * }
  * ```
  */
 export declare class StreamMatcher {
@@ -152,7 +163,7 @@ export declare class StreamMatcher {
    * Feed a chunk, get matches with global byte
    * offsets.
    */
-  write(chunk: Buffer): ByteMatch[];
+  write(chunk: Buffer | Uint8Array): ByteMatch[];
 
   /** Flush remaining state. */
   flush(): ByteMatch[];
