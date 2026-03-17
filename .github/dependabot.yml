@@ -15,7 +15,7 @@ updates:
         patterns:
           - "*"
     labels:
-      - "dependencies"
+      - "📦 dependencies"
     commit-message:
       prefix: "chore"
     reviewers:
@@ -31,7 +31,7 @@ updates:
     cooldown:
       default-days: 3
     labels:
-      - "dependencies"
+      - "📦 dependencies"
     commit-message:
       prefix: "chore"
     reviewers:
