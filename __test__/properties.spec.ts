@@ -214,7 +214,8 @@ describe("property: wholeWords finds isolated patterns", () => {
     fc.assert(
       fc.property(
         // Generate 2-50 patterns, some may share
-        // prefixes (which triggers the bug)
+        // prefixes or contain spaces (which stress
+        // the overlapping search path)
         fc.array(
           fc.string({
             minLength: 1,
@@ -222,7 +223,6 @@ describe("property: wholeWords finds isolated patterns", () => {
           }),
           { minLength: 2, maxLength: 50 },
         ),
-        // Pick one pattern to verify
         fc.nat(),
         (pats, idx) => {
           const uniquePats = [...new Set(pats)];

@@ -275,22 +275,9 @@ impl AhoCorasick {
       opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
-    // When wholeWords is enabled, override to
-    // leftmostLongest. With leftmostFirst, a short
-    // prefix ("P") can win over a longer match
-    // ("Pavel") that would pass the boundary check.
-    // LeftmostLongest picks the longest match at
-    // each position — the correct whole-word
-    // candidate.
-    let effective_kind = if whole_words {
-      RawMatchKind::LeftmostLongest
-    } else {
-      match_kind
-    };
-
     let inner = build_automaton(
       &patterns,
-      effective_kind,
+      match_kind,
       case_insensitive,
       dfa,
     )?;
@@ -344,20 +331,14 @@ impl AhoCorasick {
     &self,
     haystack: String,
   ) -> Uint32Array {
-    let ww = self.whole_words;
+    if self.whole_words {
+      return self
+        .find_iter_whole_words_packed(&haystack);
+    }
 
     if haystack.is_ascii() {
       let mut packed = Vec::new();
       for m in self.inner.find_iter(&haystack) {
-        if ww
-          && !is_whole_word(
-            &haystack,
-            m.start(),
-            m.end(),
-          )
-        {
-          continue;
-        }
         packed.push(m.pattern().as_u32());
         packed.push(m.start() as u32);
         packed.push(m.end() as u32);
@@ -371,16 +352,6 @@ impl AhoCorasick {
     let mut last_utf16: u32 = 0;
 
     for m in self.inner.find_iter(&haystack) {
-      if ww
-        && !is_whole_word(
-          &haystack,
-          m.start(),
-          m.end(),
-        )
-      {
-        continue;
-      }
-
       last_utf16 += byte_span_utf16_len(
         &bytes[last_byte..m.start()],
       );
@@ -396,6 +367,98 @@ impl AhoCorasick {
       packed.push(m.pattern().as_u32());
       packed.push(start);
       packed.push(end);
+    }
+    Uint32Array::new(packed)
+  }
+
+  /// wholeWords search: use overlapping automaton
+  /// to find ALL matches, filter by word boundaries,
+  /// then greedily select non-overlapping (longest
+  /// at each position).
+  ///
+  /// Cannot use the non-overlapping iterator with a
+  /// post-filter because rejected matches consume
+  /// positions, hiding valid matches underneath.
+  fn find_iter_whole_words_packed(
+    &self,
+    haystack: &str,
+  ) -> Uint32Array {
+    let ov = self.overlapping_ac();
+
+    // Step 1: all overlapping matches that pass
+    // the word boundary check.
+    let mut candidates: Vec<(u32, usize, usize)> =
+      Vec::new();
+    for m in ov.find_overlapping_iter(haystack) {
+      if is_whole_word(
+        haystack,
+        m.start(),
+        m.end(),
+      ) {
+        candidates.push((
+          m.pattern().as_u32(),
+          m.start(),
+          m.end(),
+        ));
+      }
+    }
+
+    if candidates.is_empty() {
+      return Uint32Array::new(Vec::new());
+    }
+
+    // Step 2: sort by start, then longest first.
+    candidates.sort_by(|a, b| {
+      a.1.cmp(&b.1).then_with(|| {
+        (b.2 - b.1).cmp(&(a.2 - a.1))
+      })
+    });
+
+    // Step 3: greedily select non-overlapping.
+    let mut selected: Vec<(u32, usize, usize)> =
+      Vec::new();
+    let mut last_end: usize = 0;
+    for &(pat, start, end) in &candidates {
+      if start >= last_end {
+        selected.push((pat, start, end));
+        last_end = end;
+      }
+    }
+
+    // Step 4: pack with UTF-16 offsets.
+    if haystack.is_ascii() {
+      let mut packed =
+        Vec::with_capacity(selected.len() * 3);
+      for (pat, start, end) in selected {
+        packed.push(pat);
+        packed.push(start as u32);
+        packed.push(end as u32);
+      }
+      return Uint32Array::new(packed);
+    }
+
+    let bytes = haystack.as_bytes();
+    let mut packed =
+      Vec::with_capacity(selected.len() * 3);
+    let mut last_byte: usize = 0;
+    let mut last_utf16: u32 = 0;
+
+    for (pat, start, end) in selected {
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..start],
+      );
+      let utf16_start = last_utf16;
+      last_byte = start;
+
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..end],
+      );
+      let utf16_end = last_utf16;
+      last_byte = end;
+
+      packed.push(pat);
+      packed.push(utf16_start);
+      packed.push(utf16_end);
     }
     Uint32Array::new(packed)
   }
