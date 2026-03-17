@@ -397,3 +397,158 @@ describe("property: wholeWords finds isolated patterns", () => {
     );
   });
 });
+
+// ─── Property 8: findIter oracle (no wholeWords)
+
+describe("property: findIter oracle (no wholeWords)", () => {
+  test("findIter matches overlapping → greedy select", () => {
+    fc.assert(
+      fc.property(patterns, haystack, (pats, hay) => {
+        const ac = new AhoCorasick(pats);
+        const real = ac.findIter(hay);
+        const all = ac.findOverlappingIter(hay);
+
+        // Oracle: sort by start, then longest first,
+        // greedily select non-overlapping.
+        all.sort((a, b) =>
+          a.start !== b.start
+            ? a.start - b.start
+            : (b.end - b.start) - (a.end - a.start),
+        );
+        const oracle: typeof all = [];
+        let lastEnd = 0;
+        for (const m of all) {
+          if (m.start >= lastEnd) {
+            oracle.push(m);
+            lastEnd = m.end;
+          }
+        }
+
+        // Match count must agree.
+        expect(real.length).toBe(oracle.length);
+
+        // Every real match must exist in oracle
+        // (positions may differ due to leftmostFirst
+        // vs longest-at-position, but count and
+        // coverage must agree).
+        for (let i = 0; i < real.length; i++) {
+          expect(real[i]!.start).toBe(
+            oracle[i]!.start,
+          );
+          expect(real[i]!.text).toBe(
+            oracle[i]!.text,
+          );
+        }
+      }),
+      PARAMS,
+    );
+  });
+});
+
+// ─── Property 9: replaceAll oracle (no wholeWords)
+
+describe("property: replaceAll oracle (no wholeWords)", () => {
+  test("replaceAll matches findIter-based reconstruction", () => {
+    fc.assert(
+      fc.property(patterns, haystack, (pats, hay) => {
+        const ac = new AhoCorasick(pats);
+        const repls = pats.map((_, i) => `[${i}]`);
+        const result = ac.replaceAll(hay, repls);
+
+        // Oracle: build from findIter positions.
+        const matches = ac.findIter(hay);
+        let expected = "";
+        let last = 0;
+        for (const m of matches) {
+          expected += hay.slice(last, m.start);
+          expected += repls[m.pattern]!;
+          last = m.end;
+        }
+        expected += hay.slice(last);
+
+        expect(result).toBe(expected);
+      }),
+      PARAMS,
+    );
+  });
+});
+
+// ─── Property 10: StreamMatcher oracle ────────
+
+describe("property: StreamMatcher oracle", () => {
+  test("chunked search finds same matches as findIter on full string", () => {
+    fc.assert(
+      fc.property(
+        patterns,
+        // Generate ASCII haystack so byte offsets
+        // match UTF-16 offsets for comparison.
+        fc.string({
+          minLength: 0,
+          maxLength: 500,
+          unit: fc.constantFrom(
+            ..."abcdefghijklmnopqrstuvwxyz .,-".split(
+              "",
+            ),
+          ),
+        }),
+        // Chunk size 1-50
+        fc.integer({ min: 1, max: 50 }),
+        (pats, hay, chunkSize) => {
+          const {
+            StreamMatcher,
+          } = require("../lib");
+
+          // Oracle: findIter on full string
+          const ac = new AhoCorasick(pats);
+          const oracleMatches = ac.findIter(hay);
+
+          // Real: StreamMatcher in chunks
+          const sm = new StreamMatcher(pats);
+          const buf = Buffer.from(hay);
+          const streamMatches: {
+            pattern: number;
+            text: string;
+          }[] = [];
+
+          for (
+            let i = 0;
+            i < buf.length;
+            i += chunkSize
+          ) {
+            const chunk = buf.subarray(
+              i,
+              i + chunkSize,
+            );
+            for (const m of sm.write(chunk)) {
+              streamMatches.push({
+                pattern: m.pattern,
+                text: hay.slice(m.start, m.end),
+              });
+            }
+          }
+          sm.flush();
+
+          // Same match count
+          expect(streamMatches.length).toBe(
+            oracleMatches.length,
+          );
+
+          // Same matched text (offsets differ:
+          // stream uses byte offsets, findIter
+          // uses UTF-16, but for ASCII they're
+          // identical).
+          for (
+            let i = 0;
+            i < streamMatches.length;
+            i++
+          ) {
+            expect(
+              streamMatches[i]!.text,
+            ).toBe(oracleMatches[i]!.text);
+          }
+        },
+      ),
+      PARAMS,
+    );
+  });
+});
