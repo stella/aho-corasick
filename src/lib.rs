@@ -250,6 +250,7 @@ pub struct AhoCorasick {
   case_insensitive: bool,
   dfa: bool,
   whole_words: bool,
+  max_pattern_byte_len: usize,
   pattern_count: u32,
 }
 
@@ -275,6 +276,11 @@ impl AhoCorasick {
     let whole_words =
       opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
+    let max_pattern_byte_len = patterns
+      .iter()
+      .map(|p| p.len())
+      .max()
+      .unwrap_or(0);
 
     // When wholeWords is enabled, use leftmostLongest
     // so the longest match wins at each position.
@@ -301,6 +307,7 @@ impl AhoCorasick {
       case_insensitive,
       dfa,
       whole_words,
+      max_pattern_byte_len,
       pattern_count,
     })
   }
@@ -540,12 +547,23 @@ impl AhoCorasick {
         None => break,
       };
 
+      // Break once we've passed the end bound for
+      // any match at `start`. The longest possible
+      // match at `start` has end = start +
+      // max_pattern_byte_len. Since the overlapping
+      // iterator yields by ascending end position,
+      // once m.end() exceeds this bound, all matches
+      // at `start` have been seen.
+      if m.end() > start + self.max_pattern_byte_len
+      {
+        break;
+      }
+
       // Only consider matches starting at `start`.
       // Cannot break on m.start() != start because
-      // overlapping iterator yields by ascending END
-      // position. A match at start+1 ending earlier
-      // may come before a match at start ending
-      // later. Skip non-start matches.
+      // the iterator yields by end position, not
+      // start. A shorter match at start+1 may come
+      // before a longer match at start.
       if m.start() != start {
         continue;
       }

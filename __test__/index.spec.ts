@@ -827,6 +827,27 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     expect(found).toContain("s.r.o.");
   });
 
+  test("replaceAll respects wholeWords (Devin review)", () => {
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // Only replace whole words, not partials
+    expect(
+      ac.replaceAll("test testing tested test", [
+        "REPLACED",
+      ]),
+    ).toBe("REPLACED testing tested REPLACED");
+
+    // Without wholeWords, replaces all
+    const ac2 = new AhoCorasick(["test"]);
+    expect(
+      ac2.replaceAll("test testing tested test", [
+        "X",
+      ]),
+    ).toBe("X Xing Xed X");
+  });
+
   test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {
     // Bug: find_whole_word_at breaks on m.start()
     // != start, but overlapping iterator returns
