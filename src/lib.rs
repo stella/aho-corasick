@@ -249,6 +249,10 @@ pub struct AhoCorasick {
   case_insensitive: bool,
   dfa: bool,
   whole_words: bool,
+  /// True when wholeWords is on AND patterns contain
+  /// non-word characters, requiring the slow
+  /// overlapping search path for correctness.
+  ww_needs_overlapping: bool,
   pattern_count: u32,
 }
 
@@ -275,9 +279,33 @@ impl AhoCorasick {
       opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
+    // When wholeWords is enabled and ALL patterns
+    // are pure word characters (alphanumeric/CJK),
+    // we can use leftmostLongest with a simple
+    // post-filter (fast path). If any pattern
+    // contains non-word chars (spaces, hyphens,
+    // dots), we must use the overlapping automaton
+    // (slow path) because a longer match containing
+    // non-word chars can shadow a shorter valid
+    // whole-word match.
+    let ww_needs_overlapping = whole_words
+      && patterns.iter().any(|p| {
+        p.chars().any(|c| {
+          !c.is_alphanumeric() && !is_cjk(c)
+        })
+      });
+
+    let effective_kind = if whole_words
+      && !ww_needs_overlapping
+    {
+      RawMatchKind::LeftmostLongest
+    } else {
+      match_kind
+    };
+
     let inner = build_automaton(
       &patterns,
-      match_kind,
+      effective_kind,
       case_insensitive,
       dfa,
     )?;
@@ -289,6 +317,7 @@ impl AhoCorasick {
       case_insensitive,
       dfa,
       whole_words,
+      ww_needs_overlapping,
       pattern_count,
     })
   }
@@ -331,14 +360,25 @@ impl AhoCorasick {
     &self,
     haystack: String,
   ) -> Uint32Array {
-    if self.whole_words {
+    if self.ww_needs_overlapping {
       return self
         .find_iter_whole_words_packed(&haystack);
     }
 
+    let ww = self.whole_words;
+
     if haystack.is_ascii() {
       let mut packed = Vec::new();
       for m in self.inner.find_iter(&haystack) {
+        if ww
+          && !is_whole_word(
+            &haystack,
+            m.start(),
+            m.end(),
+          )
+        {
+          continue;
+        }
         packed.push(m.pattern().as_u32());
         packed.push(m.start() as u32);
         packed.push(m.end() as u32);
@@ -352,6 +392,15 @@ impl AhoCorasick {
     let mut last_utf16: u32 = 0;
 
     for m in self.inner.find_iter(&haystack) {
+      if ww
+        && !is_whole_word(
+          &haystack,
+          m.start(),
+          m.end(),
+        )
+      {
+        continue;
+      }
       last_utf16 += byte_span_utf16_len(
         &bytes[last_byte..m.start()],
       );
