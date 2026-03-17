@@ -767,6 +767,155 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
 
     expect(found).toContain("abc");
   });
+
+  test("pattern with trailing space shadows shorter word (Devin's bug)", () => {
+    // Devin review: if patterns include "a " (with
+    // trailing space), leftmostLongest picks "a "
+    // over "a", then "a " fails wholeWords because
+    // the char after the space is alphanumeric.
+    // The shorter "a" (which IS a whole word) is
+    // consumed and lost.
+    //
+    // This ONLY fails with leftmostLongest post-
+    // filter. The overlapping approach handles it.
+    const ac = new AhoCorasick(
+      ["a", "a "],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("xxx a yyy");
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("a");
+  });
+
+  test("pattern with leading space shadows word", () => {
+    const ac = new AhoCorasick(
+      ["test", " test"],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("run test now");
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("test");
+  });
+
+  test("hyphenated pattern shadows component word", () => {
+    // "New-York" as a pattern could shadow "New"
+    const ac = new AhoCorasick(
+      ["New", "New-York"],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("visit New-Yorkers");
+    const found = matches.map((m) => m.text);
+
+    // "New" should match: it's followed by "-"
+    // which is not alphanumeric = word boundary
+    expect(found).toContain("New");
+  });
+
+  test("dotted pattern: s.r.o.", () => {
+    // Legal forms with dots
+    const ac = new AhoCorasick(
+      ["s", "s.r.o."],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("firma s.r.o. Praha");
+    const found = matches.map((m) => m.text);
+
+    // "s.r.o." should match as whole word
+    // (preceded by space, followed by space)
+    expect(found).toContain("s.r.o.");
+  });
+
+  test("replaceAll respects wholeWords (Devin review)", () => {
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // Only replace whole words, not partials
+    expect(
+      ac.replaceAll("test testing tested test", [
+        "REPLACED",
+      ]),
+    ).toBe("REPLACED testing tested REPLACED");
+
+    // Without wholeWords, replaces all
+    const ac2 = new AhoCorasick(["test"]);
+    expect(
+      ac2.replaceAll("test testing tested test", [
+        "X",
+      ]),
+    ).toBe("X Xing Xed X");
+  });
+
+  test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {
+    // Bug: find_whole_word_at breaks on m.start()
+    // != start, but overlapping iterator returns
+    // matches by END position. A match at start+1
+    // that ends earlier comes BEFORE a match at
+    // start that ends later, causing premature break.
+    const ac = new AhoCorasick(
+      ["abc d", "abc", "b"],
+      { wholeWords: true },
+    );
+    const matches = ac.findIter("abc df");
+    const found = matches.map((m) => m.text);
+
+    // "abc d" fails wholeWords (followed by "f")
+    // Fallback should find "abc" (followed by " ")
+    expect(found).toContain("abc");
+  });
+
+  test("isMatch respects wholeWords (Devin review)", () => {
+    // Bug: isMatch bypassed wholeWords, returning
+    // true when findIter returned zero matches.
+    const ac = new AhoCorasick(["test"], {
+      wholeWords: true,
+    });
+
+    // "test" inside "testing" is NOT a whole word
+    expect(ac.isMatch("testing")).toBe(false);
+    expect(ac.findIter("testing").length).toBe(0);
+
+    // "test" as whole word
+    expect(ac.isMatch("run test now")).toBe(true);
+    expect(ac.findIter("run test now").length).toBe(1);
+
+    // Consistency: isMatch and findIter must agree
+    const texts = [
+      "testing", "test", "a test b",
+      "testbed", "attest", "the test.",
+    ];
+    for (const text of texts) {
+      const matches = ac.findIter(text);
+      expect(ac.isMatch(text)).toBe(
+        matches.length > 0,
+      );
+    }
+  });
+
+  test("pure word patterns: leftmostLongest would suffice", () => {
+    // This case works with BOTH approaches.
+    // Included to verify no regression.
+    const ac = new AhoCorasick(
+      [
+        "P", "Pa", "Pavel", "Pavela", "Pavelka",
+        "test", "testing",
+      ],
+      { wholeWords: true },
+    );
+    const text = "Pavel is testing a test";
+    const matches = ac.findIter(text);
+    const found = matches.map((m) => m.text);
+
+    expect(found).toContain("Pavel");
+    expect(found).toContain("test");
+    // "testing" is followed by " " = whole word
+    expect(found).toContain("testing");
+    // "P" and "Pa" should NOT appear (inside "Pavel")
+    expect(found).not.toContain("P");
+    expect(found).not.toContain("Pa");
+  });
 });
 
 // ─── Adopted from other libraries ─────────────

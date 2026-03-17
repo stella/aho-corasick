@@ -34,6 +34,7 @@ class AhoCorasick {
       patterns,
       options,
     );
+    this._wholeWords = options?.wholeWords ?? false;
   }
 
   get patternCount() {
