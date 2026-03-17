@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
   "license": "MIT",
   "repository": {
@@ -98,11 +98,11 @@
     "node": ">= 18"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "0.1.1",
-    "@stll/aho-corasick-darwin-x64": "0.1.1",
-    "@stll/aho-corasick-linux-x64-gnu": "0.1.1",
-    "@stll/aho-corasick-linux-arm64-gnu": "0.1.1",
-    "@stll/aho-corasick-linux-x64-musl": "0.1.1",
-    "@stll/aho-corasick-win32-x64-msvc": "0.1.1"
+    "@stll/aho-corasick-darwin-arm64": "0.1.2",
+    "@stll/aho-corasick-darwin-x64": "0.1.2",
+    "@stll/aho-corasick-linux-x64-gnu": "0.1.2",
+    "@stll/aho-corasick-linux-arm64-gnu": "0.1.2",
+    "@stll/aho-corasick-linux-x64-musl": "0.1.2",
+    "@stll/aho-corasick-win32-x64-msvc": "0.1.2"
   }
 }
