@@ -245,14 +245,14 @@ function isWholeWordJS(
 /** Oracle: slow but correct wholeWords search. */
 function oracleWholeWords(
   ac: InstanceType<typeof AhoCorasick>,
-  haystack: string,
+  hay: string,
 ) {
   // Step 1: all overlapping matches
-  const all = ac.findOverlappingIter(haystack);
+  const all = ac.findOverlappingIter(hay);
 
   // Step 2: filter by word boundaries
   const filtered = all.filter((m) =>
-    isWholeWordJS(haystack, m.start, m.end),
+    isWholeWordJS(hay, m.start, m.end),
   );
 
   // Step 3: sort by start, then longest first
@@ -408,12 +408,12 @@ describe("property: findIter oracle (no wholeWords)", () => {
         const real = ac.findIter(hay);
         const all = ac.findOverlappingIter(hay);
 
-        // Oracle: sort by start, then longest first,
-        // greedily select non-overlapping.
+        // Oracle: sort by start, then by pattern
+        // index (leftmostFirst = first-added wins).
         all.sort((a, b) =>
           a.start !== b.start
             ? a.start - b.start
-            : (b.end - b.start) - (a.end - a.start),
+            : a.pattern - b.pattern,
         );
         const oracle: typeof all = [];
         let lastEnd = 0;
@@ -424,13 +424,7 @@ describe("property: findIter oracle (no wholeWords)", () => {
           }
         }
 
-        // Match count must agree.
         expect(real.length).toBe(oracle.length);
-
-        // Every real match must exist in oracle
-        // (positions may differ due to leftmostFirst
-        // vs longest-at-position, but count and
-        // coverage must agree).
         for (let i = 0; i < real.length; i++) {
           expect(real[i]!.start).toBe(
             oracle[i]!.start,
