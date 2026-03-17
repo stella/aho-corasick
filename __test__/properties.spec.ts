@@ -204,7 +204,150 @@ describe("property: findIter ⊆ findOverlappingIter", () => {
   });
 });
 
-// ─── Property 6: wholeWords bug regression ────
+// ─── Property 6: oracle test ──────────────────
+//
+// The oracle is a trivially correct but slow
+// implementation: overlapping search → filter by
+// wholeWords → sort → greedy non-overlapping.
+// Compare against findIter (fast but complex).
+// Any disagreement is a bug in the fast path.
+
+const isWordCharJS = (ch: string) =>
+  /\p{L}|\p{N}/u.test(ch);
+
+const isCjkJS = (ch: string) =>
+  /\p{Script=Han}|\p{Script=Hiragana}|\p{Script=Katakana}|\p{Script=Hangul}/u.test(
+    ch,
+  );
+
+function isWholeWordJS(
+  hay: string,
+  start: number,
+  end: number,
+): boolean {
+  const before = hay[start - 1];
+  const after = hay[end];
+  const matchStart = hay[start];
+  const matchEnd = hay[end - 1];
+
+  const startOk =
+    !before ||
+    !isWordCharJS(before) ||
+    (matchStart ? isCjkJS(matchStart) : false);
+  const endOk =
+    !after ||
+    !isWordCharJS(after) ||
+    (matchEnd ? isCjkJS(matchEnd) : false);
+
+  return startOk && endOk;
+}
+
+/** Oracle: slow but correct wholeWords search. */
+function oracleWholeWords(
+  ac: InstanceType<typeof AhoCorasick>,
+  haystack: string,
+) {
+  // Step 1: all overlapping matches
+  const all = ac.findOverlappingIter(haystack);
+
+  // Step 2: filter by word boundaries
+  const filtered = all.filter((m) =>
+    isWholeWordJS(haystack, m.start, m.end),
+  );
+
+  // Step 3: sort by start, then longest first
+  filtered.sort((a, b) =>
+    a.start !== b.start
+      ? a.start - b.start
+      : b.end - a.end - (a.end - a.start),
+  );
+
+  // Step 4: greedily select non-overlapping
+  const selected: typeof filtered = [];
+  let lastEnd = 0;
+  for (const m of filtered) {
+    if (m.start >= lastEnd) {
+      selected.push(m);
+      lastEnd = m.end;
+    }
+  }
+  return selected;
+}
+
+describe("property: oracle vs findIter", () => {
+  test("findIter + wholeWords matches oracle", () => {
+    fc.assert(
+      fc.property(patterns, haystack, (pats, hay) => {
+        const ac = new AhoCorasick(pats, {
+          wholeWords: true,
+        });
+        const real = ac.findIter(hay);
+        const oracle = oracleWholeWords(ac, hay);
+
+        // Same number of matches
+        expect(real.length).toBe(oracle.length);
+
+        // Same positions and text
+        for (let i = 0; i < real.length; i++) {
+          expect(real[i]!.start).toBe(
+            oracle[i]!.start,
+          );
+          expect(real[i]!.end).toBe(
+            oracle[i]!.end,
+          );
+          expect(real[i]!.text).toBe(
+            oracle[i]!.text,
+          );
+        }
+      }),
+      PARAMS,
+    );
+  });
+
+  test("isMatch + wholeWords agrees with findIter", () => {
+    fc.assert(
+      fc.property(patterns, haystack, (pats, hay) => {
+        const ac = new AhoCorasick(pats, {
+          wholeWords: true,
+        });
+        expect(ac.isMatch(hay)).toBe(
+          ac.findIter(hay).length > 0,
+        );
+      }),
+      PARAMS,
+    );
+  });
+
+  test("replaceAll + wholeWords consistent with findIter", () => {
+    fc.assert(
+      fc.property(patterns, haystack, (pats, hay) => {
+        const ac = new AhoCorasick(pats, {
+          wholeWords: true,
+        });
+        const matches = ac.findIter(hay);
+        const repls = pats.map(
+          (_, i) => `[${i}]`,
+        );
+        const result = ac.replaceAll(hay, repls);
+
+        // Manually build expected from findIter
+        let expected = "";
+        let last = 0;
+        for (const m of matches) {
+          expected += hay.slice(last, m.start);
+          expected += repls[m.pattern]!;
+          last = m.end;
+        }
+        expected += hay.slice(last);
+
+        expect(result).toBe(expected);
+      }),
+      PARAMS,
+    );
+  });
+});
+
+// ─── Property 7: wholeWords isolated pattern ──
 //
 // This is the property that would have caught the
 // "P shadows Pavel" bug WITHOUT knowing about it.
