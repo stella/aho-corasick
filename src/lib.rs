@@ -712,9 +712,68 @@ impl AhoCorasick {
         replacements.len()
       )));
     }
-    let refs: Vec<&str> =
-      replacements.iter().map(|s| s.as_str()).collect();
-    Ok(self.inner.replace_all(&haystack, &refs))
+
+    if !self.whole_words {
+      let refs: Vec<&str> = replacements
+        .iter()
+        .map(|s| s.as_str())
+        .collect();
+      return Ok(
+        self.inner.replace_all(&haystack, &refs),
+      );
+    }
+
+    // wholeWords: same single-pass + fallback as
+    // findIter, but builds the result string
+    // directly in Rust instead of packing offsets.
+    let mut result = String::with_capacity(
+      haystack.len(),
+    );
+    let mut pos: usize = 0;
+    let len = haystack.len();
+
+    while pos < len {
+      let input =
+        Input::new(&haystack).range(pos..);
+      let m = match self.inner.find(input) {
+        Some(m) => m,
+        None => break,
+      };
+
+      if is_whole_word(
+        &haystack,
+        m.start(),
+        m.end(),
+      ) {
+        result.push_str(&haystack[pos..m.start()]);
+        result.push_str(
+          &replacements[m.pattern().as_usize()],
+        );
+        pos = m.end();
+      } else if let Some((pat, _, end)) =
+        self.find_whole_word_at(&haystack, m.start())
+      {
+        result.push_str(&haystack[pos..m.start()]);
+        result.push_str(
+          &replacements[pat as usize],
+        );
+        pos = end;
+      } else {
+        // No whole-word match here; advance one
+        // char, copying it to result.
+        let ch_len = haystack[m.start()..]
+          .chars()
+          .next()
+          .map_or(1, |c| c.len_utf8());
+        result.push_str(
+          &haystack[pos..m.start() + ch_len],
+        );
+        pos = m.start() + ch_len;
+      }
+    }
+    // Copy remaining text.
+    result.push_str(&haystack[pos..]);
+    Ok(result)
   }
 
   /// Find matches in a `Buffer` / `Uint8Array`.

@@ -62,18 +62,6 @@ class AhoCorasick {
   }
 
   replaceAll(haystack, replacements) {
-    if (this._wholeWords) {
-      const matches = this.findIter(haystack);
-      let result = "";
-      let last = 0;
-      for (const m of matches) {
-        result += haystack.slice(last, m.start);
-        result += replacements[m.pattern];
-        last = m.end;
-      }
-      result += haystack.slice(last);
-      return result;
-    }
     return this._inner.replaceAll(
       haystack,
       replacements,
