@@ -35,6 +35,12 @@ export declare class AhoCorasick {
    * Returns **byte offsets**.
    */
   findIterBuf(haystack: Buffer): Array<Match>
+  /**
+   * Zero-copy packed search on a `Buffer`.
+   * Returns `Uint32Array` of `[pattern, start, end]`
+   * triples with **byte offsets**.
+   */
+  _findIterPackedBuf(haystack: Buffer): Uint32Array
   /** Check whether any pattern matches in a `Buffer`. */
   isMatchBuf(haystack: Buffer): boolean
   /**
