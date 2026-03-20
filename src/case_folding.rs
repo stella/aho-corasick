@@ -260,19 +260,22 @@ impl CaseFoldingAC {
     &self,
     bytes: &'a [u8],
   ) -> PreparedBytes<'a> {
-    if !self.case_insensitive {
+    if !self.case_insensitive || bytes.is_ascii() {
+      // CS: no folding. ASCII CI: automaton handles
+      // it via ascii_case_insensitive. Single scan.
       return PreparedBytes::Direct(bytes);
     }
+    // Non-ASCII CI: need UTF-8 validation + fold.
     match std::str::from_utf8(bytes) {
-      Ok(text) if !text.is_ascii() => {
+      Ok(text) => {
         let ctx = SearchCtx::new(text);
         PreparedBytes::Folded {
           bytes: ctx.folded.into_bytes(),
           mapping: ctx.mapping,
         }
       }
-      // ASCII: automaton handles it.
-      // Non-UTF-8: best effort with automaton.
+      // Non-UTF-8: best effort with automaton
+      // (ascii_case_insensitive handles ASCII bytes).
       _ => PreparedBytes::Direct(bytes),
     }
   }
