@@ -204,5 +204,31 @@ class AhoCorasick {
   }
 }
 
-const StreamMatcher = NativeStreamMatcher;
+class StreamMatcher {
+  constructor(patterns, options) {
+    const nativeOpts = options
+      ? { ...options }
+      : undefined;
+    if (nativeOpts) {
+      delete nativeOpts.unicodeBoundaries;
+    }
+    this._inner = new NativeStreamMatcher(
+      patterns,
+      nativeOpts,
+    );
+  }
+
+  write(chunk) {
+    return this._inner.write(chunk);
+  }
+
+  flush() {
+    return this._inner.flush();
+  }
+
+  reset() {
+    return this._inner.reset();
+  }
+}
+
 export { AhoCorasick, StreamMatcher };
