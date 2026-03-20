@@ -307,8 +307,10 @@ describe("unicode character offsets", () => {
 
 describe("Turkish İ (case sensitivity)", () => {
   // Uses Unicode Simple Case Folding (İ→i),
-  // NOT to_lowercase (İ→i̇). Always length-
-  // preserving, handles all scripts.
+  // NOT to_lowercase (İ→i̇). Length-preserving
+  // in character count, but İ (2 bytes) → i
+  // (1 byte) changes UTF-8 byte width. Offset
+  // mapping via SearchCtx handles this.
 
   test("İ is folded to i (simple case fold)", () => {
     const ac = new AhoCorasick(["istanbul"], {
@@ -784,6 +786,27 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     expect(
       ac2.replaceAll("test testing tested test", ["X"]),
     ).toBe("X Xing Xed X");
+  });
+
+  test("replaceAll + İ + wholeWords: byte offset correctness", () => {
+    // İ (U+0130) folds to i (U+0069): 2 bytes → 1 byte.
+    // The replace_all wholeWords path must track
+    // positions in both folded and original space.
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(
+      ac.replaceAll("İstanbul is great", ["CITY"]),
+    ).toBe("CITY is great");
+
+    // Multiple İ occurrences
+    expect(
+      ac.replaceAll(
+        "İstanbul and İstanbul",
+        ["CITY"],
+      ),
+    ).toBe("CITY and CITY");
   });
 
   test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {

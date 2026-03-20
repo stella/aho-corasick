@@ -953,7 +953,10 @@ impl AhoCorasick {
 
     let mut result =
       String::with_capacity(haystack.len());
+    // `pos` tracks position in folded search_text.
+    // `last_orig` tracks position in original haystack.
     let mut pos: usize = 0;
+    let mut last_orig: usize = 0;
     let len = search_text.len();
 
     while pos < len {
@@ -969,32 +972,42 @@ impl AhoCorasick {
         .map_or(m.end(), |c| c.orig_pos(m.end()));
 
       if is_whole_word(&haystack, os, oe) {
-        result.push_str(&haystack[pos..os]);
+        result.push_str(&haystack[last_orig..os]);
         result.push_str(
           &replacements[m.pattern().as_usize()],
         );
         pos = m.end();
+        last_orig = oe;
       } else if let Some((pat, _, end)) =
         self.find_whole_word_at(search_text, m.start())
       {
-        let fos = ctx.as_ref()
-          .map_or(m.start(), |c| c.orig_pos(m.start()));
-        result.push_str(&haystack[pos..fos]);
+        let foe = ctx.as_ref()
+          .map_or(end, |c| c.orig_pos(end));
+        result.push_str(&haystack[last_orig..os]);
         result.push_str(&replacements[pat as usize]);
         pos = end;
+        last_orig = foe;
       } else {
         // No whole-word match here; advance one
-        // char, copying it to result.
-        let ch_len = haystack[m.start()..]
+        // char in both spaces.
+        let orig_start = os;
+        let ch_len = haystack[orig_start..]
           .chars()
           .next()
           .map_or(1, |c| c.len_utf8());
-        result.push_str(&haystack[pos..m.start() + ch_len]);
-        pos = m.start() + ch_len;
+        result.push_str(
+          &haystack[last_orig..orig_start + ch_len],
+        );
+        let folded_ch_len = search_text[m.start()..]
+          .chars()
+          .next()
+          .map_or(1, |c| c.len_utf8());
+        pos = m.start() + folded_ch_len;
+        last_orig = orig_start + ch_len;
       }
     }
-    // Copy remaining text.
-    result.push_str(&haystack[pos..]);
+    // Copy remaining original text.
+    result.push_str(&haystack[last_orig..]);
     Ok(result)
   }
 
