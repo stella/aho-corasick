@@ -286,9 +286,10 @@ fn simple_case_fold(ch: char) -> char {
 }
 
 /// Apply simple case fold to an entire string.
-/// Always length-preserving in bytes (each char
-/// maps to exactly one char with same UTF-8 width
-/// for the simple fold mapping).
+/// Maps each character to exactly one character
+/// (never expands), but may change UTF-8 byte
+/// length (e.g., İ: 2 bytes → i: 1 byte).
+/// Use `SearchCtx` to handle byte-offset mapping.
 fn simple_fold_string(s: &str) -> String {
   s.chars().map(simple_case_fold).collect()
 }
@@ -473,30 +474,48 @@ impl AhoCorasick {
       }
       return self.inner.is_match(&haystack);
     }
-    // With wholeWords: find the first match that
-    // passes the boundary check, same algorithm
-    // as find_iter_packed but short-circuit on
-    // first hit.
+    // With wholeWords: search folded text, check
+    // boundaries on original.
+    let ctx = if self.case_insensitive {
+      Some(SearchCtx::new(&haystack))
+    } else {
+      None
+    };
+    let search_text = ctx
+      .as_ref()
+      .map_or_else(
+        || haystack.as_str(),
+        |c| c.folded.as_str(),
+      );
     let mut pos: usize = 0;
-    let len = haystack.len();
+    let len = search_text.len();
     while pos < len {
-      let input = Input::new(&haystack).range(pos..);
+      let input =
+        Input::new(search_text).range(pos..);
       let Some(m) = self.inner.find(input) else {
         return false;
       };
-      if is_whole_word(&haystack, m.start(), m.end()) {
+      let os = ctx.as_ref()
+        .map_or(m.start(), |c| c.orig_pos(m.start()));
+      let oe = ctx.as_ref()
+        .map_or(m.end(), |c| c.orig_pos(m.end()));
+      if is_whole_word(&haystack, os, oe) {
         return true;
       }
-      // Rejected: try fallback at this position.
       if self
-        .find_whole_word_at(&haystack, m.start())
-        .is_some()
+        .find_whole_word_at(search_text, m.start())
+        .is_some_and(|(_, s, e)| {
+          let ws = ctx.as_ref()
+            .map_or(s, |c| c.orig_pos(s));
+          let we = ctx.as_ref()
+            .map_or(e, |c| c.orig_pos(e));
+          is_whole_word(&haystack, ws, we)
+        })
       {
         return true;
       }
-      // Advance past rejected position.
       pos = m.start()
-        + haystack[m.start()..]
+        + search_text[m.start()..]
           .chars()
           .next()
           .map_or(1, |c| c.len_utf8());
@@ -781,30 +800,43 @@ impl AhoCorasick {
     haystack: String,
   ) -> Uint32Array {
     let ov = self.overlapping_ac();
-
     let ww = self.whole_words;
+
+    // Case-insensitive: search on folded text.
+    let ctx = if self.case_insensitive {
+      Some(SearchCtx::new(&haystack))
+    } else {
+      None
+    };
+    let search_text = ctx
+      .as_ref()
+      .map_or(haystack.as_str(), |c| c.folded.as_str());
 
     if haystack.is_ascii() {
       let mut packed = Vec::new();
-      for m in ov.find_overlapping_iter(&haystack) {
-        if ww
-          && !is_whole_word(&haystack, m.start(), m.end())
-        {
+      for m in ov.find_overlapping_iter(search_text) {
+        let os = ctx.as_ref()
+          .map_or(m.start(), |c| c.orig_pos(m.start()));
+        let oe = ctx.as_ref()
+          .map_or(m.end(), |c| c.orig_pos(m.end()));
+        if ww && !is_whole_word(&haystack, os, oe) {
           continue;
         }
         packed.push(m.pattern().as_u32());
-        packed.push(m.start() as u32);
-        packed.push(m.end() as u32);
+        packed.push(os as u32);
+        packed.push(oe as u32);
       }
       return Uint32Array::new(packed);
     }
 
-    // Non-ASCII overlapping: filter at byte level
-    // first, then convert remaining to UTF-16.
     let raw: Vec<_> = ov
-      .find_overlapping_iter(&haystack)
+      .find_overlapping_iter(search_text)
       .filter(|m| {
-        !ww || is_whole_word(&haystack, m.start(), m.end())
+        let os = ctx.as_ref()
+          .map_or(m.start(), |c| c.orig_pos(m.start()));
+        let oe = ctx.as_ref()
+          .map_or(m.end(), |c| c.orig_pos(m.end()));
+        !ww || is_whole_word(&haystack, os, oe)
       })
       .collect();
 
@@ -813,11 +845,16 @@ impl AhoCorasick {
     }
 
     // Collect unique byte offsets for translation.
+    // Map back to original positions first.
     let mut offsets: Vec<usize> =
       Vec::with_capacity(raw.len() * 2);
     for m in &raw {
-      offsets.push(m.start());
-      offsets.push(m.end());
+      let os = ctx.as_ref()
+        .map_or(m.start(), |c| c.orig_pos(m.start()));
+      let oe = ctx.as_ref()
+        .map_or(m.end(), |c| c.orig_pos(m.end()));
+      offsets.push(os);
+      offsets.push(oe);
     }
     offsets.sort_unstable();
     offsets.dedup();
@@ -854,9 +891,13 @@ impl AhoCorasick {
 
     let mut packed = Vec::with_capacity(raw.len() * 3);
     for m in &raw {
+      let os = ctx.as_ref()
+        .map_or(m.start(), |c| c.orig_pos(m.start()));
+      let oe = ctx.as_ref()
+        .map_or(m.end(), |c| c.orig_pos(m.end()));
       packed.push(m.pattern().as_u32());
-      packed.push(lookup(m.start()));
-      packed.push(lookup(m.end()));
+      packed.push(lookup(os));
+      packed.push(lookup(oe));
     }
     Uint32Array::new(packed)
   }
@@ -878,34 +919,67 @@ impl AhoCorasick {
       )));
     }
 
+    // Case-insensitive: search on folded text,
+    // replace in original text using mapped offsets.
+    let ctx = if self.case_insensitive {
+      Some(SearchCtx::new(&haystack))
+    } else {
+      None
+    };
+    let search_text = ctx
+      .as_ref()
+      .map_or(haystack.as_str(), |c| c.folded.as_str());
+
     if !self.whole_words {
-      let refs: Vec<&str> =
-        replacements.iter().map(|s| s.as_str()).collect();
-      return Ok(self.inner.replace_all(&haystack, &refs));
+      // Build result by finding matches on folded
+      // text and replacing spans in the original.
+      let mut result =
+        String::with_capacity(haystack.len());
+      let mut last = 0usize;
+      for m in self.inner.find_iter(search_text) {
+        let os = ctx.as_ref()
+          .map_or(m.start(), |c| c.orig_pos(m.start()));
+        let oe = ctx.as_ref()
+          .map_or(m.end(), |c| c.orig_pos(m.end()));
+        result.push_str(&haystack[last..os]);
+        result.push_str(
+          &replacements[m.pattern().as_usize()],
+        );
+        last = oe;
+      }
+      result.push_str(&haystack[last..]);
+      return Ok(result);
     }
 
-    // wholeWords: same single-pass + fallback as
-    // findIter, but builds the result string
-    // directly in Rust instead of packing offsets.
-    let mut result = String::with_capacity(haystack.len());
+    let mut result =
+      String::with_capacity(haystack.len());
     let mut pos: usize = 0;
-    let len = haystack.len();
+    let len = search_text.len();
 
     while pos < len {
-      let input = Input::new(&haystack).range(pos..);
+      let input =
+        Input::new(search_text).range(pos..);
       let Some(m) = self.inner.find(input) else {
         break;
       };
 
-      if is_whole_word(&haystack, m.start(), m.end()) {
-        result.push_str(&haystack[pos..m.start()]);
-        result
-          .push_str(&replacements[m.pattern().as_usize()]);
+      let os = ctx.as_ref()
+        .map_or(m.start(), |c| c.orig_pos(m.start()));
+      let oe = ctx.as_ref()
+        .map_or(m.end(), |c| c.orig_pos(m.end()));
+
+      if is_whole_word(&haystack, os, oe) {
+        result.push_str(&haystack[pos..os]);
+        result.push_str(
+          &replacements[m.pattern().as_usize()],
+        );
         pos = m.end();
       } else if let Some((pat, _, end)) =
-        self.find_whole_word_at(&haystack, m.start())
+        self.find_whole_word_at(search_text, m.start())
       {
-        result.push_str(&haystack[pos..m.start()]);
+        let fos = ctx.as_ref()
+          .map_or(m.start(), |c| c.orig_pos(m.start()));
+        result.push_str(&haystack[pos..fos]);
         result.push_str(&replacements[pat as usize]);
         pos = end;
       } else {
