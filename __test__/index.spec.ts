@@ -306,19 +306,17 @@ describe("unicode character offsets", () => {
 // ─── Turkish İ problem ────────────────────────
 
 describe("Turkish İ (case sensitivity)", () => {
-  // The Rust aho-corasick crate only supports
-  // ASCII case folding. This is a known and
-  // documented limitation. These tests verify
-  // the ACTUAL behavior, not aspirational behavior.
+  // Uses Unicode Simple Case Folding (İ→i),
+  // NOT to_lowercase (İ→i̇). Always length-
+  // preserving, handles all scripts.
 
-  test("İ is not folded to i (ASCII-only)", () => {
+  test("İ is folded to i (simple case fold)", () => {
     const ac = new AhoCorasick(["istanbul"], {
       caseInsensitive: true,
     });
-    // Turkish İstanbul starts with İ (U+0130),
-    // not ASCII I
-    expect(ac.isMatch("İstanbul")).toBe(false);
-    // ASCII Istanbul matches
+    // Turkish İstanbul: İ (U+0130) folds to i
+    expect(ac.isMatch("İstanbul")).toBe(true);
+    // ASCII Istanbul also matches
     expect(ac.isMatch("Istanbul")).toBe(true);
     expect(ac.isMatch("ISTANBUL")).toBe(true);
   });

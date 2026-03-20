@@ -222,18 +222,146 @@ fn build_automaton(
   case_insensitive: bool,
   dfa: bool,
 ) -> std::result::Result<RawAhoCorasick, Error> {
+  // For case-insensitive: apply simple case fold to
+  // patterns. Search text is also folded (SearchCtx).
+  let effective_patterns: Vec<String> =
+    if case_insensitive {
+      patterns
+        .iter()
+        .map(|p| simple_fold_string(p))
+        .collect()
+    } else {
+      patterns.to_vec()
+    };
   let mut builder = AhoCorasickBuilder::new();
-  builder
-    .match_kind(match_kind)
-    .ascii_case_insensitive(case_insensitive);
+  builder.match_kind(match_kind);
   if dfa {
     builder.kind(Some(AhoCorasickKind::DFA));
   }
-  builder.build(patterns).map_err(|e| {
-    Error::from_reason(format!(
-      "Failed to build automaton: {e}"
-    ))
-  })
+  builder
+    .build(&effective_patterns)
+    .map_err(|e| {
+      Error::from_reason(format!(
+        "Failed to build automaton: {e}"
+      ))
+    })
+}
+
+// ─── Unicode Simple Case Folding ─────────────
+//
+// Uses Unicode Simple Case Folding (CaseFolding.txt
+// type S/C) instead of `to_lowercase()`. Simple
+// folding maps each char to exactly ONE char (never
+// changes string length), so byte offsets between
+// folded and original text stay in sync.
+//
+// Key differences from to_lowercase():
+//   İ (U+0130) → i (U+0069), NOT i̇
+//   ẞ (U+1E9E) → ß (U+00DF), NOT ss
+//
+// Two tiers for performance:
+// 1. ASCII: to_ascii_lowercase (no allocation check)
+// 2. Non-ASCII: per-char simple fold (always
+//    length-preserving, so PosMapping::Identity)
+
+/// Unicode Simple Case Fold (CaseFolding.txt S/C)
+/// plus Turkic İ→i. Always returns exactly one
+/// character — never expands to multiple.
+///
+/// Uses `unicode-case-mapping` (Unicode 16.0) for
+/// the 1,515 standard S/C mappings. İ (U+0130) is
+/// added as a special case: Unicode classifies it
+/// as status T (Turkic-only) and F (full: İ→i̇),
+/// but NOT S/C. We fold İ→i unconditionally because
+/// legal documents span jurisdictions and treating
+/// İ as case-equivalent to i prevents misses.
+#[inline]
+fn simple_case_fold(ch: char) -> char {
+  match ch {
+    '\u{0130}' => 'i', // İ → i (Turkic, not in S/C)
+    _ => unicode_case_mapping::case_folded(ch)
+      .and_then(|n| char::from_u32(n.get()))
+      .unwrap_or(ch),
+  }
+}
+
+/// Apply simple case fold to an entire string.
+/// Always length-preserving in bytes (each char
+/// maps to exactly one char with same UTF-8 width
+/// for the simple fold mapping).
+fn simple_fold_string(s: &str) -> String {
+  s.chars().map(simple_case_fold).collect()
+}
+
+/// Folded search text with optional byte offset
+/// mapping for the rare case where simple case
+/// fold changes UTF-8 byte length (İ 2→1 byte).
+enum PosMapping {
+  /// Byte positions identical (common case).
+  Identity,
+  /// folded_byte_pos → original_byte_pos.
+  Mapped(Vec<usize>),
+}
+
+struct SearchCtx {
+  folded: String,
+  mapping: PosMapping,
+}
+
+impl SearchCtx {
+  fn new(haystack: &str) -> Self {
+    if haystack.is_ascii() {
+      return Self {
+        folded: haystack.to_ascii_lowercase(),
+        mapping: PosMapping::Identity,
+      };
+    }
+
+    let folded = simple_fold_string(haystack);
+    if folded.len() == haystack.len() {
+      // Same byte length: positions are 1:1.
+      // This covers 99.9%+ of non-ASCII text
+      // (Czech, German, Polish, Hungarian, etc.)
+      return Self {
+        folded,
+        mapping: PosMapping::Identity,
+      };
+    }
+
+    // Rare: byte length changed (e.g., İ 2→1).
+    // Build per-byte mapping.
+    Self::build_mapped(haystack)
+  }
+
+  fn build_mapped(original: &str) -> Self {
+    let mut folded =
+      String::with_capacity(original.len());
+    let mut mapping: Vec<usize> =
+      Vec::with_capacity(original.len() + 1);
+
+    for (orig_pos, ch) in original.char_indices() {
+      let folded_ch = simple_case_fold(ch);
+      let before = folded.len();
+      folded.push(folded_ch);
+      for _ in before..folded.len() {
+        mapping.push(orig_pos);
+      }
+    }
+    mapping.push(original.len());
+
+    Self {
+      folded,
+      mapping: PosMapping::Mapped(mapping),
+    }
+  }
+
+  #[inline]
+  fn orig_pos(&self, folded_pos: usize) -> usize {
+    match &self.mapping {
+      PosMapping::Identity => folded_pos,
+      PosMapping::Mapped(m) => m[folded_pos],
+    }
+  }
 }
 
 // ─── AhoCorasick ──────────────────────────────
@@ -339,6 +467,10 @@ impl AhoCorasick {
   #[napi]
   pub fn is_match(&self, haystack: String) -> bool {
     if !self.whole_words {
+      if self.case_insensitive {
+        let ctx = SearchCtx::new(&haystack);
+        return self.inner.is_match(&ctx.folded);
+      }
       return self.inner.is_match(&haystack);
     }
     // With wholeWords: find the first match that
@@ -383,79 +515,104 @@ impl AhoCorasick {
     haystack: String,
   ) -> Uint32Array {
     if !self.whole_words {
-      // No wholeWords: standard fast path.
       return self.find_iter_simple(&haystack);
     }
 
-    // wholeWords: single-pass with targeted
-    // fallback. Use manual `find()` loop so we
-    // can retry at rejected positions.
+    let ctx = if self.case_insensitive {
+      Some(SearchCtx::new(&haystack))
+    } else {
+      None
+    };
+    let search_text = ctx
+      .as_ref()
+      .map_or_else(|| haystack.clone(), |c| c.folded.clone());
+
     let mut packed = Vec::new();
     let mut pos: usize = 0;
-    let len = haystack.len();
+    let len = search_text.len();
     let is_ascii = haystack.is_ascii();
-
-    // For non-ASCII offset tracking.
     let bytes = haystack.as_bytes();
     let mut last_byte: usize = 0;
     let mut last_utf16: u32 = 0;
 
     while pos < len {
-      let input = Input::new(&haystack).range(pos..);
+      let input =
+        Input::new(&search_text).range(pos..);
       let Some(m) = self.inner.find(input) else {
         break;
       };
 
-      if is_whole_word(&haystack, m.start(), m.end()) {
-        // Fast path: accepted by wholeWords.
+      let os = ctx.as_ref()
+        .map_or(m.start(), |c| c.orig_pos(m.start()));
+      let oe = ctx.as_ref()
+        .map_or(m.end(), |c| c.orig_pos(m.end()));
+
+      if is_whole_word(&haystack, os, oe)
+      {
         if is_ascii {
           packed.push(m.pattern().as_u32());
-          packed.push(m.start() as u32);
-          packed.push(m.end() as u32);
+          packed.push(os as u32);
+          packed.push(oe as u32);
         } else {
           last_utf16 += byte_span_utf16_len(
-            &bytes[last_byte..m.start()],
+            &bytes[last_byte..os],
           );
           let s = last_utf16;
-          last_byte = m.start();
-          last_utf16 +=
-            byte_span_utf16_len(&bytes[last_byte..m.end()]);
+          last_byte = os;
+          last_utf16 += byte_span_utf16_len(
+            &bytes[last_byte..oe],
+          );
           let e = last_utf16;
-          last_byte = m.end();
+          last_byte = oe;
           packed.push(m.pattern().as_u32());
           packed.push(s);
           packed.push(e);
         }
         pos = m.end();
       } else {
-        // Rejected: targeted anchored fallback
-        // at this position only.
         if let Some((pat, start, end)) =
-          self.find_whole_word_at(&haystack, m.start())
+          self.find_whole_word_at(
+            &search_text,
+            m.start(),
+          )
         {
+          let fos = ctx.as_ref()
+            .map_or(start, |c| c.orig_pos(start));
+          let foe = ctx.as_ref()
+            .map_or(end, |c| c.orig_pos(end));
+
+          if !is_whole_word(&haystack, fos, foe) {
+            pos = m.start()
+              + search_text[m.start()..]
+                .chars()
+                .next()
+                .map_or(1, |c| c.len_utf8());
+            continue;
+          }
+
           if is_ascii {
             packed.push(pat);
-            packed.push(start as u32);
-            packed.push(end as u32);
+            packed.push(fos as u32);
+            packed.push(foe as u32);
           } else {
-            last_utf16 +=
-              byte_span_utf16_len(&bytes[last_byte..start]);
+            last_utf16 += byte_span_utf16_len(
+              &bytes[last_byte..fos],
+            );
             let s = last_utf16;
-            last_byte = start;
-            last_utf16 +=
-              byte_span_utf16_len(&bytes[last_byte..end]);
+            last_byte = fos;
+            last_utf16 += byte_span_utf16_len(
+              &bytes[last_byte..foe],
+            );
             let e = last_utf16;
-            last_byte = end;
+            last_byte = foe;
             packed.push(pat);
             packed.push(s);
             packed.push(e);
           }
           pos = end;
         } else {
-          // No whole-word match at this position.
-          // Advance by one character.
           pos = m.start()
-            + haystack[m.start()..]
+            + search_text[m.start()..]
               .chars()
               .next()
               .map_or(1, |c| c.len_utf8());
@@ -470,12 +627,52 @@ impl AhoCorasick {
     &self,
     haystack: &str,
   ) -> Uint32Array {
+    if !self.case_insensitive {
+      // Case-sensitive: search the original directly.
+      if haystack.is_ascii() {
+        let mut packed = Vec::new();
+        for m in self.inner.find_iter(haystack) {
+          packed.push(m.pattern().as_u32());
+          packed.push(m.start() as u32);
+          packed.push(m.end() as u32);
+        }
+        return Uint32Array::new(packed);
+      }
+
+      let bytes = haystack.as_bytes();
+      let mut packed = Vec::new();
+      let mut last_byte: usize = 0;
+      let mut last_utf16: u32 = 0;
+      for m in self.inner.find_iter(haystack) {
+        last_utf16 += byte_span_utf16_len(
+          &bytes[last_byte..m.start()],
+        );
+        let start = last_utf16;
+        last_byte = m.start();
+        last_utf16 += byte_span_utf16_len(
+          &bytes[last_byte..m.end()],
+        );
+        let end = last_utf16;
+        last_byte = m.end();
+        packed.push(m.pattern().as_u32());
+        packed.push(start);
+        packed.push(end);
+      }
+      return Uint32Array::new(packed);
+    }
+
+    // Case-insensitive: search on folded text,
+    // map positions back via SearchCtx.
+    let ctx = SearchCtx::new(haystack);
+
     if haystack.is_ascii() {
       let mut packed = Vec::new();
-      for m in self.inner.find_iter(haystack) {
+      for m in self.inner.find_iter(&ctx.folded) {
+        let os = ctx.orig_pos(m.start());
+        let oe = ctx.orig_pos(m.end());
         packed.push(m.pattern().as_u32());
-        packed.push(m.start() as u32);
-        packed.push(m.end() as u32);
+        packed.push(os as u32);
+        packed.push(oe as u32);
       }
       return Uint32Array::new(packed);
     }
@@ -485,16 +682,21 @@ impl AhoCorasick {
     let mut last_byte: usize = 0;
     let mut last_utf16: u32 = 0;
 
-    for m in self.inner.find_iter(haystack) {
-      last_utf16 +=
-        byte_span_utf16_len(&bytes[last_byte..m.start()]);
-      let start = last_utf16;
-      last_byte = m.start();
+    for m in self.inner.find_iter(&ctx.folded) {
+      let os = ctx.orig_pos(m.start());
+      let oe = ctx.orig_pos(m.end());
 
-      last_utf16 +=
-        byte_span_utf16_len(&bytes[last_byte..m.end()]);
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..os],
+      );
+      let start = last_utf16;
+      last_byte = os;
+
+      last_utf16 += byte_span_utf16_len(
+        &bytes[last_byte..oe],
+      );
       let end = last_utf16;
-      last_byte = m.end();
+      last_byte = oe;
 
       packed.push(m.pattern().as_u32());
       packed.push(start);
