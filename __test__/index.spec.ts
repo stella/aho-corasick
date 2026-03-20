@@ -1448,3 +1448,187 @@ describe("StreamMatcher", () => {
     // would collect from each write().
   });
 });
+
+// ─── Structural: case-insensitive on ALL APIs ─
+
+describe("structural: case-insensitive on ALL APIs", () => {
+  // ASCII CI tests: automaton handles natively
+  // (zero overhead, no allocation)
+
+  describe("ASCII case-insensitive", () => {
+    const ac = new AhoCorasick(["hello", "world"], {
+      caseInsensitive: true,
+    });
+
+    test("isMatch: ASCII CI", () => {
+      expect(ac.isMatch("HELLO")).toBe(true);
+      expect(ac.isMatch("Hello")).toBe(true);
+      expect(ac.isMatch("xyz")).toBe(false);
+    });
+
+    test("findIter: ASCII CI", () => {
+      const matches = ac.findIter("HELLO World");
+      expect(matches).toHaveLength(2);
+      expect(matches[0]!.text).toBe("HELLO");
+      expect(matches[1]!.text).toBe("World");
+    });
+
+    test("replaceAll: ASCII CI", () => {
+      expect(
+        ac.replaceAll("HELLO World", ["hi", "earth"]),
+      ).toBe("hi earth");
+    });
+
+    test("findIterBuf: ASCII CI", () => {
+      const buf = Buffer.from("HELLO World");
+      const matches = ac.findIterBuf(buf);
+      expect(matches).toHaveLength(2);
+      expect(matches[0]!.start).toBe(0);
+      expect(matches[0]!.end).toBe(5);
+      expect(matches[1]!.start).toBe(6);
+      expect(matches[1]!.end).toBe(11);
+    });
+
+    test("_findIterPackedBuf: ASCII CI", () => {
+      const buf = Buffer.from("HELLO World");
+      // Access through the wrapper's internal
+      // @ts-expect-error - accessing internal
+      const packed = ac._inner._findIterPackedBuf(buf);
+      expect(packed.length).toBe(6); // 2 matches * 3
+    });
+
+    test("isMatchBuf: ASCII CI", () => {
+      expect(
+        ac.isMatchBuf(Buffer.from("HELLO")),
+      ).toBe(true);
+      expect(
+        ac.isMatchBuf(Buffer.from("xyz")),
+      ).toBe(false);
+    });
+
+    test("findInChunk: ASCII CI", () => {
+      // @ts-expect-error - accessing internal
+      const matches = ac._inner.findInChunk(
+        Buffer.from("HELLO World"),
+      );
+      expect(matches).toHaveLength(2);
+    });
+  });
+
+  // Non-ASCII CI tests (İ): SearchCtx path
+
+  describe("non-ASCII (İ) case-insensitive", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+    });
+
+    test("isMatch: İ CI", () => {
+      expect(ac.isMatch("İstanbul")).toBe(true);
+      expect(ac.isMatch("ISTANBUL")).toBe(true);
+    });
+
+    test("findIter: İ CI", () => {
+      const text = "Visit İstanbul today";
+      const matches = ac.findIter(text);
+      expect(matches).toHaveLength(1);
+      expect(matches[0]!.text).toBe("İstanbul");
+    });
+
+    test("replaceAll: İ CI", () => {
+      expect(
+        ac.replaceAll("Visit İstanbul today", ["CITY"]),
+      ).toBe("Visit CITY today");
+    });
+
+    test("findIterBuf: İ CI", () => {
+      const buf = Buffer.from("İstanbul");
+      const matches = ac.findIterBuf(buf);
+      expect(matches).toHaveLength(1);
+      // İ is 2 bytes, so "istanbul" = 9 bytes total
+      expect(matches[0]!.start).toBe(0);
+      expect(matches[0]!.end).toBe(9);
+    });
+
+    test("isMatchBuf: İ CI", () => {
+      expect(
+        ac.isMatchBuf(Buffer.from("İstanbul")),
+      ).toBe(true);
+      expect(
+        ac.isMatchBuf(Buffer.from("xyz")),
+      ).toBe(false);
+    });
+
+    test("findInChunk: İ CI", () => {
+      // @ts-expect-error - accessing internal
+      const matches = ac._inner.findInChunk(
+        Buffer.from("İstanbul"),
+      );
+      expect(matches).toHaveLength(1);
+    });
+  });
+
+  // StreamMatcher CI tests
+
+  describe("StreamMatcher case-insensitive", () => {
+    test("single chunk: ASCII CI", () => {
+      const sm = new StreamMatcher(["hello"], {
+        caseInsensitive: true,
+      });
+      const matches = sm.write(Buffer.from("HELLO"));
+      sm.flush();
+      expect(matches).toHaveLength(1);
+      expect(matches[0]!.start).toBe(0);
+      expect(matches[0]!.end).toBe(5);
+    });
+
+    test("cross-chunk: ASCII CI", () => {
+      const sm = new StreamMatcher(["hello"], {
+        caseInsensitive: true,
+      });
+      const m1 = sm.write(Buffer.from("HEL"));
+      const m2 = sm.write(Buffer.from("LO"));
+      sm.flush();
+      const all = [...m1, ...m2];
+      expect(all).toHaveLength(1);
+      expect(all[0]!.start).toBe(0);
+      expect(all[0]!.end).toBe(5);
+    });
+
+    test("single-byte patterns: ASCII CI", () => {
+      const sm = new StreamMatcher(["a", "b"], {
+        caseInsensitive: true,
+      });
+      const m1 = sm.write(Buffer.from("xA"));
+      const m2 = sm.write(Buffer.from("Bx"));
+      sm.flush();
+      const all = [...m1, ...m2];
+      expect(all).toHaveLength(2);
+    });
+
+    test("single chunk: İ CI", () => {
+      const sm = new StreamMatcher(["istanbul"], {
+        caseInsensitive: true,
+      });
+      const matches = sm.write(
+        Buffer.from("İstanbul"),
+      );
+      sm.flush();
+      expect(matches).toHaveLength(1);
+    });
+
+    test("cross-chunk: İ CI", () => {
+      const sm = new StreamMatcher(["istanbul"], {
+        caseInsensitive: true,
+      });
+      // İ is 2 bytes (0xC4 0xB0), split after it
+      const buf = Buffer.from("İstanbul");
+      const first = buf.subarray(0, 4);
+      const second = buf.subarray(4);
+      const m1 = sm.write(first);
+      const m2 = sm.write(second);
+      sm.flush();
+      const all = [...m1, ...m2];
+      expect(all).toHaveLength(1);
+    });
+  });
+});
