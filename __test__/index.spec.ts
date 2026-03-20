@@ -323,6 +323,57 @@ describe("Turkish İ (case sensitivity)", () => {
     expect(ac.isMatch("ISTANBUL")).toBe(true);
   });
 
+  test("replaceAll with İ + caseInsensitive", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+    });
+    // İ (2 bytes) → i (1 byte): offset mapping must
+    // correctly slice the original haystack.
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
+      .toBe("Visit CITY today");
+    expect(ac.replaceAll("İstanbul is great", ["CITY"]))
+      .toBe("CITY is great");
+    expect(ac.replaceAll("Go to İstanbul", ["CITY"]))
+      .toBe("Go to CITY");
+  });
+
+  test("replaceAll with İ + caseInsensitive + wholeWords", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
+      .toBe("Visit CITY today");
+    // Not a whole word — should NOT replace
+    expect(ac.replaceAll("xİstanbulx", ["CITY"]))
+      .toBe("xİstanbulx");
+  });
+
+  test("findIter with İ returns correct offsets", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+    });
+    const text = "Visit İstanbul today";
+    const matches = ac.findIter(text);
+    expect(matches).toHaveLength(1);
+    // İstanbul starts at JS index 6, ends at 14
+    // (İ is 1 UTF-16 unit, same as i)
+    expect(matches[0]!.start).toBe(6);
+    expect(matches[0]!.end).toBe(14);
+    expect(text.slice(matches[0]!.start, matches[0]!.end))
+      .toBe("İstanbul");
+  });
+
+  test("isMatch with İ + wholeWords", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(ac.isMatch("İstanbul")).toBe(true);
+    expect(ac.isMatch("Visit İstanbul today")).toBe(true);
+    expect(ac.isMatch("xİstanbulx")).toBe(false);
+  });
+
   test("İ as a literal pattern works", () => {
     const ac = new AhoCorasick(["İstanbul"]);
     expect(ac.isMatch("İstanbul")).toBe(true);
