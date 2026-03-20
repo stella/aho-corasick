@@ -31,12 +31,25 @@ export type Options = {
   /**
    * Only match whole words. Uses Unicode
    * `is_alphanumeric()` for boundary detection
-   * (covers all scripts). CJK characters are
-   * always treated as word boundaries.
+   * by default (covers all scripts). Set
+   * `unicodeBoundaries: false` for ASCII-only.
    * @default false
    */
   wholeWords?: boolean;
+  /**
+   * Use Unicode word boundaries for `wholeWords`.
+   * When `true` (default), `is_alphanumeric()` is
+   * used (covers all scripts). When `false`, only
+   * `[a-zA-Z0-9_]` are word characters.
+   * @default true
+   */
+  unicodeBoundaries?: boolean;
 };
+
+/** A named pattern entry. */
+export type PatternEntry =
+  | string
+  | { pattern: string; name?: string };
 
 /** A single match result (string methods). */
 export type Match = {
@@ -50,6 +63,8 @@ export type Match = {
   /** The matched text
    *  (`haystack.slice(start, end)`). */
   text: string;
+  /** Pattern name (if provided). */
+  name?: string;
 };
 
 /**
@@ -86,7 +101,10 @@ export type ByteMatch = {
  * ```
  */
 export declare class AhoCorasick {
-  constructor(patterns: string[], options?: Options);
+  constructor(
+    patterns: PatternEntry[],
+    options?: Options,
+  );
 
   /** Number of patterns in the automaton. */
   get patternCount(): number;
