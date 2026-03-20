@@ -259,10 +259,12 @@ fn build_automaton(
 //   İ (U+0130) → i (U+0069), NOT i̇
 //   ẞ (U+1E9E) → ß (U+00DF), NOT ss
 //
-// Two tiers for performance:
+// Three tiers for performance:
 // 1. ASCII: to_ascii_lowercase (no allocation check)
-// 2. Non-ASCII: per-char simple fold (always
-//    length-preserving, so PosMapping::Identity)
+// 2. Non-ASCII, same byte length (99.9%+ of cases):
+//    per-char simple fold, PosMapping::Identity
+// 3. Byte-length change (İ: 2 bytes → 1 byte):
+//    per-byte offset mapping via PosMapping::Mapped
 
 /// Unicode Simple Case Fold (CaseFolding.txt S/C)
 /// plus Turkic İ→i. Always returns exactly one
@@ -1019,6 +1021,21 @@ impl AhoCorasick {
     haystack: Buffer,
   ) -> Vec<Match> {
     let bytes: &[u8] = haystack.as_ref();
+    if self.case_insensitive {
+      // Fold the input and map positions back.
+      if let Ok(text) = std::str::from_utf8(bytes) {
+        let ctx = SearchCtx::new(text);
+        return self
+          .inner
+          .find_iter(ctx.folded.as_bytes())
+          .map(|m| Match {
+            pattern: m.pattern().as_u32(),
+            start: ctx.orig_pos(m.start()) as u32,
+            end: ctx.orig_pos(m.end()) as u32,
+          })
+          .collect();
+      }
+    }
     self
       .inner
       .find_iter(bytes)
@@ -1040,6 +1057,21 @@ impl AhoCorasick {
   ) -> Uint32Array {
     let bytes: &[u8] = haystack.as_ref();
     let mut packed = Vec::new();
+    if self.case_insensitive {
+      if let Ok(text) = std::str::from_utf8(bytes) {
+        let ctx = SearchCtx::new(text);
+        for m in self.inner.find_iter(
+          ctx.folded.as_bytes(),
+        ) {
+          packed.push(m.pattern().as_u32());
+          packed
+            .push(ctx.orig_pos(m.start()) as u32);
+          packed
+            .push(ctx.orig_pos(m.end()) as u32);
+        }
+        return Uint32Array::new(packed);
+      }
+    }
     for m in self.inner.find_iter(bytes) {
       packed.push(m.pattern().as_u32());
       packed.push(m.start() as u32);
@@ -1052,6 +1084,14 @@ impl AhoCorasick {
   #[napi]
   pub fn is_match_buf(&self, haystack: Buffer) -> bool {
     let bytes: &[u8] = haystack.as_ref();
+    if self.case_insensitive {
+      if let Ok(text) = std::str::from_utf8(bytes) {
+        let ctx = SearchCtx::new(text);
+        return self
+          .inner
+          .is_match(ctx.folded.as_bytes());
+      }
+    }
     self.inner.is_match(bytes)
   }
 
@@ -1060,6 +1100,20 @@ impl AhoCorasick {
   #[napi]
   pub fn find_in_chunk(&self, chunk: Buffer) -> Vec<Match> {
     let bytes: &[u8] = chunk.as_ref();
+    if self.case_insensitive {
+      if let Ok(text) = std::str::from_utf8(bytes) {
+        let ctx = SearchCtx::new(text);
+        return self
+          .inner
+          .find_iter(ctx.folded.as_bytes())
+          .map(|m| Match {
+            pattern: m.pattern().as_u32(),
+            start: ctx.orig_pos(m.start()) as u32,
+            end: ctx.orig_pos(m.end()) as u32,
+          })
+          .collect();
+      }
+    }
     self
       .inner
       .find_iter(bytes)
