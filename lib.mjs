@@ -111,8 +111,12 @@ class AhoCorasick {
     const nativeOpts = options
       ? { ...options }
       : undefined;
-    if (this._jsWholeWords && nativeOpts) {
-      nativeOpts.wholeWords = false;
+    if (nativeOpts) {
+      // JS-only option — don't leak to native
+      delete nativeOpts.unicodeBoundaries;
+      if (this._jsWholeWords) {
+        nativeOpts.wholeWords = false;
+      }
     }
 
     this._inner = new NativeAhoCorasick(
@@ -166,6 +170,12 @@ class AhoCorasick {
   }
 
   replaceAll(haystack, replacements) {
+    if (replacements.length !== this.patternCount) {
+      throw new Error(
+        `Expected ${this.patternCount} ` +
+          `replacements, got ${replacements.length}`,
+      );
+    }
     if (!this._jsWholeWords) {
       return this._inner.replaceAll(
         haystack,

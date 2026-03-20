@@ -34,6 +34,10 @@ function unpack(packed, haystack, names) {
 
 // ── Word boundary helpers ─────────────────────
 
+function isWordCharUnicode(ch) {
+  return /[\p{L}\p{N}_]/u.test(ch);
+}
+
 function isWordCharAscii(ch) {
   return /[a-zA-Z0-9_]/.test(ch);
 }
@@ -41,7 +45,7 @@ function isWordCharAscii(ch) {
 function checkBoundary(haystack, pos, ascii) {
   const isWc = ascii
     ? isWordCharAscii
-    : (ch) => /[\p{L}\p{N}_]/u.test(ch);
+    : isWordCharUnicode;
   const before =
     pos > 0 && isWc(haystack[pos - 1]);
   const after =
@@ -105,8 +109,11 @@ class AhoCorasick {
     const nativeOpts = options
       ? { ...options }
       : undefined;
-    if (this._jsWholeWords && nativeOpts) {
-      nativeOpts.wholeWords = false;
+    if (nativeOpts) {
+      delete nativeOpts.unicodeBoundaries;
+      if (this._jsWholeWords) {
+        nativeOpts.wholeWords = false;
+      }
     }
 
     this._inner = new NativeAhoCorasick(
@@ -159,6 +166,12 @@ class AhoCorasick {
   }
 
   replaceAll(haystack, replacements) {
+    if (replacements.length !== this.patternCount) {
+      throw new Error(
+        `Expected ${this.patternCount} ` +
+          `replacements, got ${replacements.length}`,
+      );
+    }
     if (!this._jsWholeWords) {
       return this._inner.replaceAll(
         haystack,
