@@ -306,21 +306,72 @@ describe("unicode character offsets", () => {
 // ─── Turkish İ problem ────────────────────────
 
 describe("Turkish İ (case sensitivity)", () => {
-  // The Rust aho-corasick crate only supports
-  // ASCII case folding. This is a known and
-  // documented limitation. These tests verify
-  // the ACTUAL behavior, not aspirational behavior.
+  // Uses Unicode Simple Case Folding (İ→i),
+  // NOT to_lowercase (İ→i̇). Length-preserving
+  // in character count, but İ (2 bytes) → i
+  // (1 byte) changes UTF-8 byte width. Offset
+  // mapping via SearchCtx handles this.
 
-  test("İ is not folded to i (ASCII-only)", () => {
+  test("İ is folded to i (simple case fold)", () => {
     const ac = new AhoCorasick(["istanbul"], {
       caseInsensitive: true,
     });
-    // Turkish İstanbul starts with İ (U+0130),
-    // not ASCII I
-    expect(ac.isMatch("İstanbul")).toBe(false);
-    // ASCII Istanbul matches
+    // Turkish İstanbul: İ (U+0130) folds to i
+    expect(ac.isMatch("İstanbul")).toBe(true);
+    // ASCII Istanbul also matches
     expect(ac.isMatch("Istanbul")).toBe(true);
     expect(ac.isMatch("ISTANBUL")).toBe(true);
+  });
+
+  test("replaceAll with İ + caseInsensitive", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+    });
+    // İ (2 bytes) → i (1 byte): offset mapping must
+    // correctly slice the original haystack.
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
+      .toBe("Visit CITY today");
+    expect(ac.replaceAll("İstanbul is great", ["CITY"]))
+      .toBe("CITY is great");
+    expect(ac.replaceAll("Go to İstanbul", ["CITY"]))
+      .toBe("Go to CITY");
+  });
+
+  test("replaceAll with İ + caseInsensitive + wholeWords", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
+      .toBe("Visit CITY today");
+    // Not a whole word — should NOT replace
+    expect(ac.replaceAll("xİstanbulx", ["CITY"]))
+      .toBe("xİstanbulx");
+  });
+
+  test("findIter with İ returns correct offsets", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+    });
+    const text = "Visit İstanbul today";
+    const matches = ac.findIter(text);
+    expect(matches).toHaveLength(1);
+    // İstanbul starts at JS index 6, ends at 14
+    // (İ is 1 UTF-16 unit, same as i)
+    expect(matches[0]!.start).toBe(6);
+    expect(matches[0]!.end).toBe(14);
+    expect(text.slice(matches[0]!.start, matches[0]!.end))
+      .toBe("İstanbul");
+  });
+
+  test("isMatch with İ + wholeWords", () => {
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(ac.isMatch("İstanbul")).toBe(true);
+    expect(ac.isMatch("Visit İstanbul today")).toBe(true);
+    expect(ac.isMatch("xİstanbulx")).toBe(false);
   });
 
   test("İ as a literal pattern works", () => {
@@ -786,6 +837,27 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     expect(
       ac2.replaceAll("test testing tested test", ["X"]),
     ).toBe("X Xing Xed X");
+  });
+
+  test("replaceAll + İ + wholeWords: byte offset correctness", () => {
+    // İ (U+0130) folds to i (U+0069): 2 bytes → 1 byte.
+    // The replace_all wholeWords path must track
+    // positions in both folded and original space.
+    const ac = new AhoCorasick(["istanbul"], {
+      caseInsensitive: true,
+      wholeWords: true,
+    });
+    expect(
+      ac.replaceAll("İstanbul is great", ["CITY"]),
+    ).toBe("CITY is great");
+
+    // Multiple İ occurrences
+    expect(
+      ac.replaceAll(
+        "İstanbul and İstanbul",
+        ["CITY"],
+      ),
+    ).toBe("CITY and CITY");
   });
 
   test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {

@@ -10,6 +10,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 aho-corasick = "1"
+unicode-case-mapping = "1"
 napi = { version = "3", default-features = false, features = [
   "napi9",
   "serde-json",
