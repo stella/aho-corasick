@@ -83,12 +83,10 @@
     "oxlint": "^1.56.0"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "0.2.0",
     "@stll/aho-corasick-darwin-x64": "0.2.0",
-    "@stll/aho-corasick-linux-arm64-gnu": "0.2.0",
+    "@stll/aho-corasick-darwin-arm64": "0.2.0",
     "@stll/aho-corasick-linux-x64-gnu": "0.2.0",
-    "@stll/aho-corasick-linux-x64-musl": "0.2.0",
-    "@stll/aho-corasick-win32-x64-msvc": "0.2.0"
+    "@stll/aho-corasick-linux-arm64-gnu": "0.2.0"
   },
   "napi": {
     "binaryName": "aho-corasick",
