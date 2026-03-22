@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick-linux-x64-gnu",
-  "version": "0.1.2",
+  "version": "0.2.0",
   "os": ["linux"],
   "cpu": ["x64"],
   "main": "aho-corasick.linux-x64-gnu.node",
