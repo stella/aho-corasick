@@ -141,6 +141,8 @@ function unpack(
   const len = packed.length;
   // eslint-disable-next-line unicorn/no-new-array
   const matches = new Array<Match>(len / 3);
+  // SAFETY: Loop increments by 3 and terminates at packed.length.
+  // Indices i, i+1, i+2 are always in bounds.
   for (let i = 0, j = 0; i < len; i += 3, j++) {
     const idx = packed[i]!;
     const start = packed[i + 1]!;
@@ -177,9 +179,9 @@ function checkBoundary(
     ? isWordCharAscii
     : isWordCharUnicode;
   const before =
-    pos > 0 && isWc(haystack[pos - 1]!);
+    pos > 0 && isWc(haystack.charAt(pos - 1));
   const after =
-    pos < haystack.length && isWc(haystack[pos]!);
+    pos < haystack.length && isWc(haystack.charAt(pos));
   return before !== after;
 }
 
