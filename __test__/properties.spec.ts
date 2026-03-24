@@ -12,7 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 
-import { AhoCorasick } from "../dist/lib";
+import { AhoCorasick } from "../src/lib";
 
 // Limit runs to keep it under 30s
 const PARAMS = { numRuns: 200 };
