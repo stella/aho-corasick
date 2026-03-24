@@ -4,18 +4,20 @@
 
 // SAFETY: NAPI-RS auto-generated browser WASM loader
 // exports the native module; cast to NativeBinding
-// for the createApi factory.
+// for initBinding.
 import native from "../aho-corasick.wasi-browser.js";
 
 import {
-  createApi,
+  initBinding,
   type NativeBinding,
 } from "./core";
 
-const { AhoCorasick, StreamMatcher } =
-  createApi(native as unknown as NativeBinding);
+initBinding(native as unknown as NativeBinding);
 
-export { AhoCorasick, StreamMatcher };
+export {
+  AhoCorasick,
+  StreamMatcher,
+} from "./core";
 
 export type {
   ByteMatch,

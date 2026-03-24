@@ -4,21 +4,23 @@
 import { createRequire } from "node:module";
 
 import {
-  createApi,
+  initBinding,
   type NativeBinding,
 } from "./core";
 
 const require = createRequire(import.meta.url);
 // SAFETY: NAPI-RS auto-generated loader returns the
 // native binding object; its shape is validated by
-// usage in createApi.
+// usage in the core classes.
 const native =
   require("../index.js") as NativeBinding;
 
-const { AhoCorasick, StreamMatcher } =
-  createApi(native);
+initBinding(native);
 
-export { AhoCorasick, StreamMatcher };
+export {
+  AhoCorasick,
+  StreamMatcher,
+} from "./core";
 
 export type {
   ByteMatch,

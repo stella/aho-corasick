@@ -1,6 +1,6 @@
-/* Shared core: types, helpers, and a factory that
- * builds AhoCorasick + StreamMatcher from any
- * native binding (NAPI-RS or WASM). */
+/* Shared core: types, helpers, and classes that
+ * use a late-bound native backend (NAPI-RS or WASM).
+ * Call initBinding() before constructing classes. */
 
 // ── Native binding types ────────────────────────
 
@@ -19,16 +19,12 @@ type NativeAhoCorasickInstance = {
   patternCount: number;
   isMatch(haystack: string): boolean;
   _findIterPacked(haystack: string): Uint32Array;
-  _findOverlappingIterPacked(
-    haystack: string,
-  ): Uint32Array;
+  _findOverlappingIterPacked(haystack: string): Uint32Array;
   replaceAll(
     haystack: string,
     replacements: string[],
   ): string;
-  findIterBuf(
-    haystack: Buffer | Uint8Array,
-  ): ByteMatch[];
+  findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
 };
 
@@ -36,6 +32,16 @@ type NativeStreamMatcherInstance = {
   write(chunk: Buffer | Uint8Array): ByteMatch[];
   flush(): ByteMatch[];
   reset(): void;
+};
+
+// ── Late-bound native binding ───────────────────
+
+let binding: NativeBinding;
+
+/** Set the native backend. Must be called once
+ *  before any class constructor. */
+export const initBinding = (b: NativeBinding) => {
+  binding = b;
 };
 
 // ── Public types ────────────────────────────────
@@ -173,7 +179,8 @@ function checkBoundary(
   const before =
     pos > 0 && isWc(haystack.charAt(pos - 1));
   const after =
-    pos < haystack.length && isWc(haystack.charAt(pos));
+    pos < haystack.length &&
+    isWc(haystack.charAt(pos));
   return before !== after;
 }
 
@@ -191,7 +198,9 @@ function filterWholeWords(
 
 // ── Pattern normalization ───────────────────────
 
-function normalizePatterns(patterns: PatternEntry[]): {
+function normalizePatterns(
+  patterns: PatternEntry[],
+): {
   strings: string[];
   names: (string | undefined)[] | null;
 } {
@@ -226,251 +235,217 @@ function normalizePatterns(patterns: PatternEntry[]): {
   return { strings, names: hasNames ? names : null };
 }
 
-// ── Factory ─────────────────────────────────────
+// ── Classes ─────────────────────────────────────
 
 /**
- * Create the public API classes bound to a specific
- * native backend (NAPI-RS or WASM).
+ * Aho-Corasick automaton for multi-pattern string
+ * searching.
+ *
+ * @throws {Error} If the automaton cannot be built
+ *   (e.g. patterns exceed internal size limits).
+ *
+ * @example
+ * ```ts
+ * const ac = new AhoCorasick(["foo", "bar"]);
+ * ac.findIter("foo bar");
+ * // [
+ * //   { pattern: 0, start: 0, end: 3,
+ * //     text: "foo" },
+ * //   { pattern: 1, start: 4, end: 7,
+ * //     text: "bar" },
+ * // ]
+ * ```
  */
-export const createApi = (native: NativeBinding) => {
-  const NativeAC = native.AhoCorasick;
-  const NativeSM = native.StreamMatcher;
+export class AhoCorasick {
+  private _inner: NativeAhoCorasickInstance;
+  private _names: (string | undefined)[] | null;
+  private _jsWholeWords: boolean;
 
-  /**
-   * Aho-Corasick automaton for multi-pattern string
-   * searching.
-   *
-   * @throws {Error} If the automaton cannot be built
-   *   (e.g. patterns exceed internal size limits).
-   *
-   * @example
-   * ```ts
-   * const ac = new AhoCorasick(["foo", "bar"]);
-   * ac.findIter("foo bar");
-   * // [
-   * //   { pattern: 0, start: 0, end: 3,
-   * //     text: "foo" },
-   * //   { pattern: 1, start: 4, end: 7,
-   * //     text: "bar" },
-   * // ]
-   * ```
-   */
-  class AhoCorasick {
-    private _inner: NativeAhoCorasickInstance;
-    private _names: (string | undefined)[] | null;
-    private _jsWholeWords: boolean;
+  constructor(
+    patterns: PatternEntry[],
+    options?: Options,
+  ) {
+    const { strings, names } =
+      normalizePatterns(patterns);
+    this._names = names;
 
-    constructor(
-      patterns: PatternEntry[],
-      options?: Options,
-    ) {
-      const { strings, names } =
-        normalizePatterns(patterns);
-      this._names = names;
+    const unicodeWb =
+      options?.unicodeBoundaries ?? true;
+    this._jsWholeWords =
+      !unicodeWb && (options?.wholeWords ?? false);
 
-      // When unicodeBoundaries is false, handle
-      // wholeWords in JS with ASCII boundary checks
-      // instead of the native Unicode implementation.
-      const unicodeWb =
-        options?.unicodeBoundaries ?? true;
-      this._jsWholeWords =
-        !unicodeWb && (options?.wholeWords ?? false);
-
-      const nativeOpts:
-        | Record<string, unknown>
-        | undefined = options
-        ? { ...options }
-        : undefined;
-      if (nativeOpts) {
-        // JS-only option; don't leak to native
-        delete nativeOpts.unicodeBoundaries;
-        if (this._jsWholeWords) {
-          nativeOpts.wholeWords = false;
-        }
-      }
-
-      this._inner = new NativeAC(
-        strings,
-        nativeOpts,
-      );
-    }
-
-    /** Number of patterns in the automaton. */
-    get patternCount(): number {
-      return this._inner.patternCount;
-    }
-
-    /** Returns `true` if any pattern matches. */
-    isMatch(haystack: string): boolean {
-      if (!this._jsWholeWords) {
-        return this._inner.isMatch(haystack);
-      }
-      // Fallback: get matches and check boundaries
-      return this.findIter(haystack).length > 0;
-    }
-
-    /** Find all non-overlapping matches. */
-    findIter(haystack: string): Match[] {
-      let matches = unpack(
-        this._inner._findIterPacked(haystack),
-        haystack,
-        this._names,
-      );
+    const nativeOpts:
+      | Record<string, unknown>
+      | undefined = options
+      ? { ...options }
+      : undefined;
+    if (nativeOpts) {
+      delete nativeOpts.unicodeBoundaries;
       if (this._jsWholeWords) {
-        matches = filterWholeWords(
-          matches,
-          haystack,
-          true,
-        );
+        nativeOpts.wholeWords = false;
       }
-      return matches;
     }
 
-    /** Find all overlapping matches. */
-    findOverlappingIter(haystack: string): Match[] {
-      let matches = unpack(
-        this._inner._findOverlappingIterPacked(
-          haystack,
-        ),
+    this._inner = new binding.AhoCorasick(
+      strings,
+      nativeOpts,
+    );
+  }
+
+  /** Number of patterns in the automaton. */
+  get patternCount(): number {
+    return this._inner.patternCount;
+  }
+
+  /** Returns `true` if any pattern matches. */
+  isMatch(haystack: string): boolean {
+    if (!this._jsWholeWords) {
+      return this._inner.isMatch(haystack);
+    }
+    return this.findIter(haystack).length > 0;
+  }
+
+  /** Find all non-overlapping matches. */
+  findIter(haystack: string): Match[] {
+    let matches = unpack(
+      this._inner._findIterPacked(haystack),
+      haystack,
+      this._names,
+    );
+    if (this._jsWholeWords) {
+      matches = filterWholeWords(
+        matches,
         haystack,
-        this._names,
+        true,
       );
-      if (this._jsWholeWords) {
-        matches = filterWholeWords(
-          matches,
-          haystack,
-          true,
-        );
-      }
-      return matches;
     }
+    return matches;
+  }
 
-    /**
-     * Replace all non-overlapping matches.
-     * `replacements[i]` replaces pattern `i`.
-     *
-     * @throws {Error} If `replacements.length` does
-     *   not equal `patternCount`.
-     */
-    replaceAll(
-      haystack: string,
-      replacements: string[],
-    ): string {
-      if (replacements.length !== this.patternCount) {
-        throw new Error(
-          `Expected ${this.patternCount} ` +
-            `replacements, got ${replacements.length}`,
-        );
-      }
-      if (!this._jsWholeWords) {
-        return this._inner.replaceAll(
-          haystack,
-          replacements,
-        );
-      }
-      // JS-side replace for ASCII boundary mode
-      const matches = this.findIter(haystack);
-      let result = "";
-      let last = 0;
-      for (const m of matches) {
-        result += haystack.slice(last, m.start);
-        result += replacements[m.pattern];
-        last = m.end;
-      }
-      result += haystack.slice(last);
-      return result;
+  /** Find all overlapping matches. */
+  findOverlappingIter(haystack: string): Match[] {
+    let matches = unpack(
+      this._inner._findOverlappingIterPacked(
+        haystack,
+      ),
+      haystack,
+      this._names,
+    );
+    if (this._jsWholeWords) {
+      matches = filterWholeWords(
+        matches,
+        haystack,
+        true,
+      );
     }
-
-    /**
-     * Find matches in a `Buffer` / `Uint8Array`.
-     * Returns **byte offsets** (not UTF-16).
-     *
-     * Note: `wholeWords` has no effect on Buffer
-     * methods. Use string methods for whole-word
-     * filtering.
-     */
-    findIterBuf(
-      haystack: Buffer | Uint8Array,
-    ): ByteMatch[] {
-      return this._inner.findIterBuf(haystack);
-    }
-
-    /**
-     * Check whether any pattern matches in a
-     * `Buffer` / `Uint8Array`.
-     *
-     * Note: `wholeWords` has no effect on Buffer
-     * methods. Use string methods for whole-word
-     * filtering.
-     */
-    isMatchBuf(
-      haystack: Buffer | Uint8Array,
-    ): boolean {
-      return this._inner.isMatchBuf(haystack);
-    }
+    return matches;
   }
 
   /**
-   * Streaming matcher that handles chunk boundaries.
+   * Replace all non-overlapping matches.
+   * `replacements[i]` replaces pattern `i`.
    *
-   * Feed `Buffer` / `Uint8Array` chunks via
-   * `write()` and collect
-   * matches. Offsets are **global byte offsets**
-   * across all chunks written since construction or
-   * last `reset()`.
-   *
-   * @example
-   * ```ts
-   * const sm = new StreamMatcher(["needle"]);
-   * for await (const chunk of stream) {
-   *   for (const m of sm.write(chunk)) {
-   *     console.log(`Pattern ${m.pattern} at`
-   *       + ` byte ${m.start}..${m.end}`);
-   *   }
-   * }
-   * sm.flush(); // finalize stream state
-   * ```
+   * @throws {Error} If `replacements.length` does
+   *   not equal `patternCount`.
    */
-  class StreamMatcher {
-    private _inner: NativeStreamMatcherInstance;
-
-    constructor(
-      patterns: string[],
-      options?: Options,
-    ) {
-      const nativeOpts:
-        | Record<string, unknown>
-        | undefined = options
-        ? { ...options }
-        : undefined;
-      if (nativeOpts) {
-        delete nativeOpts.unicodeBoundaries;
-      }
-      this._inner = new NativeSM(
-        patterns,
-        nativeOpts,
+  replaceAll(
+    haystack: string,
+    replacements: string[],
+  ): string {
+    if (replacements.length !== this.patternCount) {
+      throw new Error(
+        `Expected ${this.patternCount} ` +
+          `replacements, got ${replacements.length}`,
       );
     }
-
-    /**
-     * Feed a chunk, get matches with global byte
-     * offsets.
-     */
-    write(chunk: Buffer | Uint8Array): ByteMatch[] {
-      return this._inner.write(chunk);
+    if (!this._jsWholeWords) {
+      return this._inner.replaceAll(
+        haystack,
+        replacements,
+      );
     }
-
-    /** Flush remaining state. */
-    flush(): ByteMatch[] {
-      return this._inner.flush();
+    const matches = this.findIter(haystack);
+    let result = "";
+    let last = 0;
+    for (const m of matches) {
+      result += haystack.slice(last, m.start);
+      result += replacements[m.pattern];
+      last = m.end;
     }
-
-    /** Reset for reuse. */
-    reset(): void {
-      return this._inner.reset();
-    }
+    result += haystack.slice(last);
+    return result;
   }
 
-  return { AhoCorasick, StreamMatcher };
-};
+  /**
+   * Find matches in a `Buffer` / `Uint8Array`.
+   * Returns **byte offsets** (not UTF-16).
+   */
+  findIterBuf(
+    haystack: Buffer | Uint8Array,
+  ): ByteMatch[] {
+    return this._inner.findIterBuf(haystack);
+  }
 
+  /**
+   * Check whether any pattern matches in a
+   * `Buffer` / `Uint8Array`.
+   */
+  isMatchBuf(
+    haystack: Buffer | Uint8Array,
+  ): boolean {
+    return this._inner.isMatchBuf(haystack);
+  }
+}
+
+/**
+ * Streaming matcher that handles chunk boundaries.
+ *
+ * @example
+ * ```ts
+ * const sm = new StreamMatcher(["needle"]);
+ * for await (const chunk of stream) {
+ *   for (const m of sm.write(chunk)) {
+ *     console.log(`Pattern ${m.pattern} at`
+ *       + ` byte ${m.start}..${m.end}`);
+ *   }
+ * }
+ * sm.flush();
+ * ```
+ */
+export class StreamMatcher {
+  private _inner: NativeStreamMatcherInstance;
+
+  constructor(
+    patterns: string[],
+    options?: Options,
+  ) {
+    const nativeOpts:
+      | Record<string, unknown>
+      | undefined = options
+      ? { ...options }
+      : undefined;
+    if (nativeOpts) {
+      delete nativeOpts.unicodeBoundaries;
+    }
+    this._inner = new binding.StreamMatcher(
+      patterns,
+      nativeOpts,
+    );
+  }
+
+  /** Feed a chunk, get matches with global byte
+   *  offsets. */
+  write(chunk: Buffer | Uint8Array): ByteMatch[] {
+    return this._inner.write(chunk);
+  }
+
+  /** Flush remaining state. */
+  flush(): ByteMatch[] {
+    return this._inner.flush();
+  }
+
+  /** Reset for reuse. */
+  reset(): void {
+    return this._inner.reset();
+  }
+}
