@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { AhoCorasick, StreamMatcher } from "../lib";
+import { AhoCorasick, StreamMatcher } from "../dist/lib";
 
 // Helper: extract matched substring from haystack
 const extract = (
