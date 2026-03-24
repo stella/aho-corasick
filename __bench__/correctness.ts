@@ -51,12 +51,8 @@ const runAll = (
   // modern-ahocorasick
   try {
     const ac = new ModernAC(patterns);
-    const ms = ac.search(haystack) as [
-      number,
-      string[],
-    ][];
-    const flat: { text: string; start: number }[] =
-      [];
+    const ms = ac.search(haystack) as [number, string[]][];
+    const flat: { text: string; start: number }[] = [];
     for (const [endIdx, keywords] of ms) {
       for (const kw of keywords) {
         flat.push({
@@ -80,12 +76,8 @@ const runAll = (
   // ahocorasick (BrunoRB)
   try {
     const ac = new BrunoAC(patterns);
-    const ms = ac.search(haystack) as [
-      number,
-      string[],
-    ][];
-    const flat: { text: string; start: number }[] =
-      [];
+    const ms = ac.search(haystack) as [number, string[]][];
+    const flat: { text: string; start: number }[] = [];
     for (const [endIdx, keywords] of ms) {
       for (const kw of keywords) {
         flat.push({
@@ -109,8 +101,7 @@ const runAll = (
   // @monyone/aho-corasick
   try {
     const ac = new MonYoneAC(patterns);
-    const flat: { text: string; start: number }[] =
-      [];
+    const flat: { text: string; start: number }[] = [];
     for (const m of ac.matchInText(haystack)) {
       flat.push({
         text: (m as { keyword: string }).keyword,
@@ -205,9 +196,7 @@ const printResults = (
 
 console.log("=".repeat(62));
 console.log(" CORRECTNESS CROSS-CHECK");
-console.log(
-  " All libraries, same inputs, side by side",
-);
+console.log(" All libraries, same inputs, side by side");
 console.log("=".repeat(62));
 
 // Emoji offsets
@@ -242,10 +231,7 @@ printResults(
 
 printResults(
   'Turkish dotless ı: ["ılık","ilık"]',
-  runAll(
-    ["ılık", "ilık"],
-    "ılık su ve ilık çay",
-  ),
+  runAll(["ılık", "ilık"], "ılık su ve ilık çay"),
 );
 
 printResults(
@@ -278,10 +264,7 @@ printResults(
 
 printResults(
   'Japanese mixed: ["東京","tokyo","裁判所"]',
-  runAll(
-    ["東京", "tokyo", "裁判所"],
-    "東京tokyoの裁判所",
-  ),
+  runAll(["東京", "tokyo", "裁判所"], "東京tokyoの裁判所"),
 );
 
 // Czech diacritics
@@ -309,10 +292,7 @@ printResults(
 
 printResults(
   'Overlapping prefixes: ["ab","abc","abcd","abcde"]',
-  runAll(
-    ["ab", "abc", "abcd", "abcde"],
-    "abcde",
-  ),
+  runAll(["ab", "abc", "abcd", "abcde"], "abcde"),
 );
 
 printResults(

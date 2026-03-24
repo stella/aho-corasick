@@ -300,8 +300,7 @@ impl AhoCorasick {
     let mut pos: usize = 0;
     let len = search_text.len();
     while pos < len {
-      let Some(m) =
-        self.search.find_at(&prep, pos..len)
+      let Some(m) = self.search.find_at(&prep, pos..len)
       else {
         return false;
       };
@@ -357,8 +356,7 @@ impl AhoCorasick {
     let mut last_utf16: u32 = 0;
 
     while pos < len {
-      let Some(m) =
-        self.search.find_at(&prep, pos..len)
+      let Some(m) = self.search.find_at(&prep, pos..len)
       else {
         break;
       };
@@ -372,14 +370,12 @@ impl AhoCorasick {
           packed.push(os as u32);
           packed.push(oe as u32);
         } else {
-          last_utf16 += byte_span_utf16_len(
-            &bytes[last_byte..os],
-          );
+          last_utf16 +=
+            byte_span_utf16_len(&bytes[last_byte..os]);
           let s = last_utf16;
           last_byte = os;
-          last_utf16 += byte_span_utf16_len(
-            &bytes[last_byte..oe],
-          );
+          last_utf16 +=
+            byte_span_utf16_len(&bytes[last_byte..oe]);
           let e = last_utf16;
           last_byte = oe;
           packed.push(m.pattern().as_u32());
@@ -388,9 +384,8 @@ impl AhoCorasick {
         }
         pos = m.end();
       } else {
-        if let Some((pat, _, end)) = self
-          .search
-          .find_whole_word_at(
+        if let Some((pat, _, end)) =
+          self.search.find_whole_word_at(
             &prep,
             m.start(),
             &haystack,
@@ -414,14 +409,12 @@ impl AhoCorasick {
             packed.push(fos as u32);
             packed.push(foe as u32);
           } else {
-            last_utf16 += byte_span_utf16_len(
-              &bytes[last_byte..fos],
-            );
+            last_utf16 +=
+              byte_span_utf16_len(&bytes[last_byte..fos]);
             let s = last_utf16;
             last_byte = fos;
-            last_utf16 += byte_span_utf16_len(
-              &bytes[last_byte..foe],
-            );
+            last_utf16 +=
+              byte_span_utf16_len(&bytes[last_byte..foe]);
             let e = last_utf16;
             last_byte = foe;
             packed.push(pat);
@@ -471,15 +464,13 @@ impl AhoCorasick {
       let os = prep.orig_pos(m.start());
       let oe = prep.orig_pos(m.end());
 
-      last_utf16 += byte_span_utf16_len(
-        &bytes[last_byte..os],
-      );
+      last_utf16 +=
+        byte_span_utf16_len(&bytes[last_byte..os]);
       let start = last_utf16;
       last_byte = os;
 
-      last_utf16 += byte_span_utf16_len(
-        &bytes[last_byte..oe],
-      );
+      last_utf16 +=
+        byte_span_utf16_len(&bytes[last_byte..oe]);
       let end = last_utf16;
       last_byte = oe;
 
@@ -556,8 +547,7 @@ impl AhoCorasick {
       utf16_idx += ch.len_utf16() as u32;
     }
     let end_byte = haystack.len();
-    while next < offsets.len()
-      && offsets[next] == end_byte
+    while next < offsets.len() && offsets[next] == end_byte
     {
       offset_map.push((end_byte, utf16_idx));
       next += 1;
@@ -613,17 +603,15 @@ impl AhoCorasick {
         let os = prep.orig_pos(m.start());
         let oe = prep.orig_pos(m.end());
         result.push_str(&haystack[last..os]);
-        result.push_str(
-          &replacements[m.pattern().as_usize()],
-        );
+        result
+          .push_str(&replacements[m.pattern().as_usize()]);
         last = oe;
       }
       result.push_str(&haystack[last..]);
       return Ok(result);
     }
 
-    let mut result =
-      String::with_capacity(haystack.len());
+    let mut result = String::with_capacity(haystack.len());
     // `pos` tracks position in search_text.
     // `last_orig` tracks position in original haystack.
     let mut pos: usize = 0;
@@ -631,8 +619,7 @@ impl AhoCorasick {
     let len = search_text.len();
 
     while pos < len {
-      let Some(m) =
-        self.search.find_at(&prep, pos..len)
+      let Some(m) = self.search.find_at(&prep, pos..len)
       else {
         break;
       };
@@ -642,14 +629,12 @@ impl AhoCorasick {
 
       if is_whole_word(&haystack, os, oe) {
         result.push_str(&haystack[last_orig..os]);
-        result.push_str(
-          &replacements[m.pattern().as_usize()],
-        );
+        result
+          .push_str(&replacements[m.pattern().as_usize()]);
         pos = m.end();
         last_orig = oe;
-      } else if let Some((pat, _, end)) = self
-        .search
-        .find_whole_word_at(
+      } else if let Some((pat, _, end)) =
+        self.search.find_whole_word_at(
           &prep,
           m.start(),
           &haystack,
@@ -735,10 +720,7 @@ impl AhoCorasick {
   /// Find matches in a single chunk. Byte offsets
   /// are relative to the chunk start.
   #[napi]
-  pub fn find_in_chunk(
-    &self,
-    chunk: Buffer,
-  ) -> Vec<Match> {
+  pub fn find_in_chunk(&self, chunk: Buffer) -> Vec<Match> {
     let bytes: &[u8] = chunk.as_ref();
     let prep = self.search.prepare_bytes(bytes);
     self
@@ -797,11 +779,8 @@ impl StreamMatcher {
       opts.case_insensitive.unwrap_or(false);
     let dfa = opts.dfa.unwrap_or(false);
 
-    let max_pattern_len = patterns
-      .iter()
-      .map(|p| p.len())
-      .max()
-      .unwrap_or(0);
+    let max_pattern_len =
+      patterns.iter().map(|p| p.len()).max().unwrap_or(0);
 
     let search = CaseFoldingAC::build(
       &patterns,
@@ -825,8 +804,7 @@ impl StreamMatcher {
     let chunk_bytes: &[u8] = chunk.as_ref();
 
     if self.max_pattern_len <= 1 {
-      let prep =
-        self.search.prepare_bytes(chunk_bytes);
+      let prep = self.search.prepare_bytes(chunk_bytes);
       let matches = self
         .search
         .find_iter_bytes(&prep)
@@ -835,8 +813,7 @@ impl StreamMatcher {
           start: (self.global_offset
             + prep.orig_pos(m.start()))
             as u32,
-          end: (self.global_offset
-            + prep.orig_pos(m.end()))
+          end: (self.global_offset + prep.orig_pos(m.end()))
             as u32,
         })
         .collect();
@@ -845,14 +822,12 @@ impl StreamMatcher {
     }
 
     let overlap_len = self.overlap_buf.len();
-    let mut combined = Vec::with_capacity(
-      overlap_len + chunk_bytes.len(),
-    );
+    let mut combined =
+      Vec::with_capacity(overlap_len + chunk_bytes.len());
     combined.extend_from_slice(&self.overlap_buf);
     combined.extend_from_slice(chunk_bytes);
 
-    let search_offset =
-      self.global_offset - overlap_len;
+    let search_offset = self.global_offset - overlap_len;
     let prep = self.search.prepare_bytes(&combined);
 
     let mut matches = Vec::new();
@@ -870,8 +845,8 @@ impl StreamMatcher {
     }
 
     // Align overlap cut to UTF-8 char boundary
-    let overlap_size = (self.max_pattern_len - 1)
-      .min(combined.len());
+    let overlap_size =
+      (self.max_pattern_len - 1).min(combined.len());
     let mut cut = combined.len() - overlap_size;
     while cut < combined.len()
       && (combined[cut] & 0xC0) == 0x80

@@ -6,18 +6,11 @@
 // exports the native module; cast to NativeBinding
 // for initBinding.
 import native from "../aho-corasick.wasi-browser.js";
-
-import {
-  initBinding,
-  type NativeBinding,
-} from "./core";
+import { initBinding, type NativeBinding } from "./core";
 
 initBinding(native as unknown as NativeBinding);
 
-export {
-  AhoCorasick,
-  StreamMatcher,
-} from "./core";
+export { AhoCorasick, StreamMatcher } from "./core";
 
 export type {
   ByteMatch,
