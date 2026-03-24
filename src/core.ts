@@ -228,18 +228,11 @@ function normalizePatterns(patterns: PatternEntry[]): {
 
 // ── Factory ─────────────────────────────────────
 
-export type AhoCorasickApi = {
-  AhoCorasick: typeof AhoCorasick;
-  StreamMatcher: typeof StreamMatcher;
-};
-
 /**
  * Create the public API classes bound to a specific
  * native backend (NAPI-RS or WASM).
  */
-export const createApi = (
-  native: NativeBinding,
-): AhoCorasickApi => {
+export const createApi = (native: NativeBinding) => {
   const NativeAC = native.AhoCorasick;
   const NativeSM = native.StreamMatcher;
 
@@ -484,6 +477,7 @@ export const createApi = (
 // Re-export class types for consumer convenience.
 // These are extracted from the return type of
 // createApi so they stay in sync automatically.
+export type AhoCorasickApi = ReturnType<typeof createApi>;
 /** AhoCorasick class type (from createApi). */
 export type AhoCorasick = InstanceType<
   AhoCorasickApi["AhoCorasick"]
