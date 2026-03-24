@@ -45,8 +45,7 @@ function isWordCharAscii(ch) {
 
 function checkBoundary(haystack, pos, ascii) {
   const isWc = ascii ? isWordCharAscii : isWordCharUnicode;
-  const before =
-    pos > 0 && isWc(haystack[pos - 1]);
+  const before = pos > 0 && isWc(haystack[pos - 1]);
   const after =
     pos < haystack.length && isWc(haystack[pos]);
   return before !== after;
@@ -96,21 +95,17 @@ function normalizePatterns(patterns) {
 
 class AhoCorasick {
   constructor(patterns, options) {
-    const { strings, names } =
-      normalizePatterns(patterns);
+    const { strings, names } = normalizePatterns(patterns);
     this._names = names;
 
     // When unicodeBoundaries is false, handle
     // wholeWords in JS with ASCII boundary checks
     // instead of the native Unicode implementation.
-    const unicodeWb =
-      options?.unicodeBoundaries ?? true;
+    const unicodeWb = options?.unicodeBoundaries ?? true;
     this._jsWholeWords =
       !unicodeWb && (options?.wholeWords ?? false);
 
-    const nativeOpts = options
-      ? { ...options }
-      : undefined;
+    const nativeOpts = options ? { ...options } : undefined;
     if (nativeOpts) {
       // JS-only option — don't leak to native
       delete nativeOpts.unicodeBoundaries;
@@ -144,11 +139,7 @@ class AhoCorasick {
       this._names,
     );
     if (this._jsWholeWords) {
-      matches = filterWholeWords(
-        matches,
-        haystack,
-        true,
-      );
+      matches = filterWholeWords(matches, haystack, true);
     }
     return matches;
   }
@@ -160,11 +151,7 @@ class AhoCorasick {
       this._names,
     );
     if (this._jsWholeWords) {
-      matches = filterWholeWords(
-        matches,
-        haystack,
-        true,
-      );
+      matches = filterWholeWords(matches, haystack, true);
     }
     return matches;
   }
@@ -177,10 +164,7 @@ class AhoCorasick {
       );
     }
     if (!this._jsWholeWords) {
-      return this._inner.replaceAll(
-        haystack,
-        replacements,
-      );
+      return this._inner.replaceAll(haystack, replacements);
     }
     // JS-side replace for ASCII boundary mode
     const matches = this.findIter(haystack);
@@ -206,9 +190,7 @@ class AhoCorasick {
 
 class StreamMatcher {
   constructor(patterns, options) {
-    const nativeOpts = options
-      ? { ...options }
-      : undefined;
+    const nativeOpts = options ? { ...options } : undefined;
     if (nativeOpts) {
       delete nativeOpts.unicodeBoundaries;
     }

@@ -329,12 +329,15 @@ describe("Turkish İ (case sensitivity)", () => {
     });
     // İ (2 bytes) → i (1 byte): offset mapping must
     // correctly slice the original haystack.
-    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
-      .toBe("Visit CITY today");
-    expect(ac.replaceAll("İstanbul is great", ["CITY"]))
-      .toBe("CITY is great");
-    expect(ac.replaceAll("Go to İstanbul", ["CITY"]))
-      .toBe("Go to CITY");
+    expect(
+      ac.replaceAll("Visit İstanbul today", ["CITY"]),
+    ).toBe("Visit CITY today");
+    expect(
+      ac.replaceAll("İstanbul is great", ["CITY"]),
+    ).toBe("CITY is great");
+    expect(ac.replaceAll("Go to İstanbul", ["CITY"])).toBe(
+      "Go to CITY",
+    );
   });
 
   test("replaceAll with İ + caseInsensitive + wholeWords", () => {
@@ -342,11 +345,13 @@ describe("Turkish İ (case sensitivity)", () => {
       caseInsensitive: true,
       wholeWords: true,
     });
-    expect(ac.replaceAll("Visit İstanbul today", ["CITY"]))
-      .toBe("Visit CITY today");
+    expect(
+      ac.replaceAll("Visit İstanbul today", ["CITY"]),
+    ).toBe("Visit CITY today");
     // Not a whole word — should NOT replace
-    expect(ac.replaceAll("xİstanbulx", ["CITY"]))
-      .toBe("xİstanbulx");
+    expect(ac.replaceAll("xİstanbulx", ["CITY"])).toBe(
+      "xİstanbulx",
+    );
   });
 
   test("findIter with İ returns correct offsets", () => {
@@ -360,8 +365,9 @@ describe("Turkish İ (case sensitivity)", () => {
     // (İ is 1 UTF-16 unit, same as i)
     expect(matches[0]!.start).toBe(6);
     expect(matches[0]!.end).toBe(14);
-    expect(text.slice(matches[0]!.start, matches[0]!.end))
-      .toBe("İstanbul");
+    expect(
+      text.slice(matches[0]!.start, matches[0]!.end),
+    ).toBe("İstanbul");
   });
 
   test("isMatch with İ + wholeWords", () => {
@@ -853,10 +859,7 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
 
     // Multiple İ occurrences
     expect(
-      ac.replaceAll(
-        "İstanbul and İstanbul",
-        ["CITY"],
-      ),
+      ac.replaceAll("İstanbul and İstanbul", ["CITY"]),
     ).toBe("CITY and CITY");
   });
 
@@ -1498,12 +1501,10 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("isMatchBuf: ASCII CI", () => {
-      expect(
-        ac.isMatchBuf(Buffer.from("HELLO")),
-      ).toBe(true);
-      expect(
-        ac.isMatchBuf(Buffer.from("xyz")),
-      ).toBe(false);
+      expect(ac.isMatchBuf(Buffer.from("HELLO"))).toBe(
+        true,
+      );
+      expect(ac.isMatchBuf(Buffer.from("xyz"))).toBe(false);
     });
 
     test("findInChunk: ASCII CI", () => {
@@ -1550,12 +1551,10 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("isMatchBuf: İ CI", () => {
-      expect(
-        ac.isMatchBuf(Buffer.from("İstanbul")),
-      ).toBe(true);
-      expect(
-        ac.isMatchBuf(Buffer.from("xyz")),
-      ).toBe(false);
+      expect(ac.isMatchBuf(Buffer.from("İstanbul"))).toBe(
+        true,
+      );
+      expect(ac.isMatchBuf(Buffer.from("xyz"))).toBe(false);
     });
 
     test("findInChunk: İ CI", () => {
@@ -1609,9 +1608,7 @@ describe("structural: case-insensitive on ALL APIs", () => {
       const sm = new StreamMatcher(["istanbul"], {
         caseInsensitive: true,
       });
-      const matches = sm.write(
-        Buffer.from("İstanbul"),
-      );
+      const matches = sm.write(Buffer.from("İstanbul"));
       sm.flush();
       expect(matches).toHaveLength(1);
     });

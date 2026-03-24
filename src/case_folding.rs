@@ -95,8 +95,7 @@ impl SearchCtx {
   }
 
   fn build_mapped(original: &str) -> Self {
-    let mut folded =
-      String::with_capacity(original.len());
+    let mut folded = String::with_capacity(original.len());
     let mut mapping: Vec<usize> =
       Vec::with_capacity(original.len() + 1);
 
@@ -215,18 +214,14 @@ impl CaseFoldingAC {
     if dfa {
       builder.kind(Some(AhoCorasickKind::DFA));
     }
-    let raw = builder
-      .build(&effective_patterns)
-      .map_err(|e| {
+    let raw =
+      builder.build(&effective_patterns).map_err(|e| {
         napi::Error::from_reason(format!(
           "Failed to build automaton: {e}"
         ))
       })?;
-    let max_pattern_byte_len = patterns
-      .iter()
-      .map(|p| p.len())
-      .max()
-      .unwrap_or(0);
+    let max_pattern_byte_len =
+      patterns.iter().map(|p| p.len()).max().unwrap_or(0);
     Ok(Self {
       raw,
       overlapping: OnceLock::new(),
@@ -337,7 +332,8 @@ impl CaseFoldingAC {
       Input::new(prep.search_text()).range(start..);
 
     let mut best: Option<(u32, usize, usize)> = None;
-    let mut state = aho_corasick::automaton::OverlappingState::start();
+    let mut state =
+      aho_corasick::automaton::OverlappingState::start();
 
     loop {
       ov.find_overlapping(input.clone(), &mut state);
@@ -345,9 +341,7 @@ impl CaseFoldingAC {
         break;
       };
 
-      if m.end()
-        > start + self.max_pattern_byte_len
-      {
+      if m.end() > start + self.max_pattern_byte_len {
         break;
       }
 
@@ -366,9 +360,7 @@ impl CaseFoldingAC {
               m.end(),
             ));
           }
-          Some((_, _, prev_end))
-            if m.end() > prev_end =>
-          {
+          Some((_, _, prev_end)) if m.end() > prev_end => {
             best = Some((
               m.pattern().as_u32(),
               m.start(),

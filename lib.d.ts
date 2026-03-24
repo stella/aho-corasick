@@ -101,10 +101,7 @@ export type ByteMatch = {
  * ```
  */
 export declare class AhoCorasick {
-  constructor(
-    patterns: PatternEntry[],
-    options?: Options,
-  );
+  constructor(patterns: PatternEntry[], options?: Options);
 
   /** Number of patterns in the automaton. */
   get patternCount(): number;

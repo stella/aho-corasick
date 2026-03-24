@@ -204,16 +204,16 @@ compatible with `String.prototype.slice()`.
 
 ### `AhoCorasick`
 
-| Method                                | Returns       | Description                          |
-| ------------------------------------- | ------------- | ------------------------------------ |
-| `new AhoCorasick(patterns, options?)` | instance      | Build automaton                      |
-| `.findIter(haystack)`                 | `Match[]`     | Non-overlapping matches              |
-| `.findOverlappingIter(haystack)`      | `Match[]`     | All overlapping matches              |
-| `.isMatch(haystack)`                  | `boolean`     | Any pattern matches?                 |
-| `.replaceAll(haystack, replacements)` | `string`      | Replace matched patterns             |
+| Method                                | Returns       | Description                                         |
+| ------------------------------------- | ------------- | --------------------------------------------------- |
+| `new AhoCorasick(patterns, options?)` | instance      | Build automaton                                     |
+| `.findIter(haystack)`                 | `Match[]`     | Non-overlapping matches                             |
+| `.findOverlappingIter(haystack)`      | `Match[]`     | All overlapping matches                             |
+| `.isMatch(haystack)`                  | `boolean`     | Any pattern matches?                                |
+| `.replaceAll(haystack, replacements)` | `string`      | Replace matched patterns                            |
 | `.findIterBuf(haystack)`              | `ByteMatch[]` | Matches in a `Buffer` / `Uint8Array` (byte offsets) |
 | `.isMatchBuf(haystack)`               | `boolean`     | Any pattern matches in a `Buffer` / `Uint8Array`?   |
-| `.patternCount`                       | `number`      | Number of patterns                   |
+| `.patternCount`                       | `number`      | Number of patterns                                  |
 
 ### `StreamMatcher`
 

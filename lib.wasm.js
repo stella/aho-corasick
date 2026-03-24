@@ -1,8 +1,7 @@
 // @ts-nocheck
 /* WASM-only wrapper. Loads the WASI module instead
- * of the native .node binary. Same API as lib.js. */
-
-const native = require("./aho-corasick.wasi.cjs");
+ * of the native .node binary. Same API as lib.mjs. */
+import native from "./aho-corasick.wasi-browser.js";
 
 function unpack(packed, haystack) {
   const len = packed.length;
@@ -61,5 +60,5 @@ class AhoCorasick {
   }
 }
 
-module.exports.AhoCorasick = AhoCorasick;
-module.exports.StreamMatcher = native.StreamMatcher;
+export { AhoCorasick };
+export const StreamMatcher = native.StreamMatcher;
