@@ -21,10 +21,7 @@ import {
 const CORPUS = join(__dirname, "corpus");
 const load = (name: string): string => {
   try {
-    return readFileSync(
-      join(CORPUS, name),
-      "utf-8",
-    );
+    return readFileSync(join(CORPUS, name), "utf-8");
   } catch {
     return "";
   }
@@ -50,9 +47,7 @@ const N = 5;
 
 console.log("=".repeat(62));
 console.log(" SPEED BENCHMARKS");
-console.log(
-  " Canterbury Large Corpus (academic)",
-);
+console.log(" Canterbury Large Corpus (academic)");
 console.log("=".repeat(62));
 
 const scenarios = [
@@ -88,11 +83,7 @@ for (const s of scenarios) {
   for (const lib of libs) {
     const ac = lib.build(s.patterns);
     times.push(
-      bench(
-        lib.name,
-        () => lib.search(ac, s.haystack),
-        N,
-      ),
+      bench(lib.name, () => lib.search(ac, s.haystack), N),
     );
   }
   printSpeedups(times);

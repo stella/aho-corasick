@@ -37,9 +37,7 @@ describe("property: text field", () => {
         const ac = new AhoCorasick(pats);
         const matches = ac.findIter(hay);
         for (const m of matches) {
-          expect(hay.slice(m.start, m.end)).toBe(
-            m.text,
-          );
+          expect(hay.slice(m.start, m.end)).toBe(m.text);
         }
       }),
       PARAMS,
@@ -90,9 +88,7 @@ describe("property: non-overlapping", () => {
         const ac = new AhoCorasick(pats);
         const matches = ac.findIter(hay);
         for (let i = 1; i < matches.length; i++) {
-          expect(
-            matches[i]!.start,
-          ).toBeGreaterThanOrEqual(
+          expect(matches[i]!.start).toBeGreaterThanOrEqual(
             matches[i - 1]!.end,
           );
         }
@@ -111,9 +107,9 @@ describe("property: monotonic offsets", () => {
         const ac = new AhoCorasick(pats);
         const matches = ac.findIter(hay);
         for (let i = 1; i < matches.length; i++) {
-          expect(
-            matches[i]!.start,
-          ).toBeGreaterThan(matches[i - 1]!.start);
+          expect(matches[i]!.start).toBeGreaterThan(
+            matches[i - 1]!.start,
+          );
         }
       }),
       PARAMS,
@@ -136,8 +132,7 @@ describe("property: monotonic offsets", () => {
 
 // ─── Property 4: wholeWords contract ──────────
 
-const isWordChar = (ch: string) =>
-  /\p{L}|\p{N}/u.test(ch);
+const isWordChar = (ch: string) => /\p{L}|\p{N}/u.test(ch);
 
 describe("property: wholeWords boundaries", () => {
   test("every wholeWords match is at word boundaries", () => {
@@ -260,7 +255,7 @@ function oracleWholeWords(
   filtered.sort((a, b) =>
     a.start !== b.start
       ? a.start - b.start
-      : (b.end - b.start) - (a.end - a.start),
+      : b.end - b.start - (a.end - a.start),
   );
 
   // Step 4: greedily select non-overlapping
@@ -290,15 +285,9 @@ describe("property: oracle vs findIter", () => {
 
         // Same positions and text
         for (let i = 0; i < real.length; i++) {
-          expect(real[i]!.start).toBe(
-            oracle[i]!.start,
-          );
-          expect(real[i]!.end).toBe(
-            oracle[i]!.end,
-          );
-          expect(real[i]!.text).toBe(
-            oracle[i]!.text,
-          );
+          expect(real[i]!.start).toBe(oracle[i]!.start);
+          expect(real[i]!.end).toBe(oracle[i]!.end);
+          expect(real[i]!.text).toBe(oracle[i]!.text);
         }
       }),
       PARAMS,
@@ -326,9 +315,7 @@ describe("property: oracle vs findIter", () => {
           wholeWords: true,
         });
         const matches = ac.findIter(hay);
-        const repls = pats.map(
-          (_, i) => `[${i}]`,
-        );
+        const repls = pats.map((_, i) => `[${i}]`);
         const result = ac.replaceAll(hay, repls);
 
         // Manually build expected from findIter
@@ -388,8 +375,7 @@ describe("property: wholeWords finds isolated patterns", () => {
           // present.
           const targetFound = matches.some(
             (m) =>
-              m.start === 4 &&
-              m.end >= 4 + target.length,
+              m.start === 4 && m.end >= 4 + target.length,
           );
           expect(targetFound).toBe(true);
         },
@@ -427,12 +413,8 @@ describe("property: findIter oracle (no wholeWords)", () => {
 
         expect(real.length).toBe(oracle.length);
         for (let i = 0; i < real.length; i++) {
-          expect(real[i]!.start).toBe(
-            oracle[i]!.start,
-          );
-          expect(real[i]!.text).toBe(
-            oracle[i]!.text,
-          );
+          expect(real[i]!.start).toBe(oracle[i]!.start);
+          expect(real[i]!.text).toBe(oracle[i]!.text);
         }
       }),
       PARAMS,
@@ -481,17 +463,13 @@ describe("property: StreamMatcher oracle", () => {
           minLength: 0,
           maxLength: 500,
           unit: fc.constantFrom(
-            ..."abcdefghijklmnopqrstuvwxyz .,-".split(
-              "",
-            ),
+            ..."abcdefghijklmnopqrstuvwxyz .,-".split(""),
           ),
         }),
         // Chunk size 1-50
         fc.integer({ min: 1, max: 50 }),
         (pats, hay, chunkSize) => {
-          const {
-            StreamMatcher,
-          } = require("../lib");
+          const { StreamMatcher } = require("../lib");
 
           // Oracle: findIter on full string
           const ac = new AhoCorasick(pats);
@@ -505,15 +483,8 @@ describe("property: StreamMatcher oracle", () => {
             text: string;
           }[] = [];
 
-          for (
-            let i = 0;
-            i < buf.length;
-            i += chunkSize
-          ) {
-            const chunk = buf.subarray(
-              i,
-              i + chunkSize,
-            );
+          for (let i = 0; i < buf.length; i += chunkSize) {
+            const chunk = buf.subarray(i, i + chunkSize);
             for (const m of sm.write(chunk)) {
               streamMatches.push({
                 pattern: m.pattern,
@@ -532,14 +503,10 @@ describe("property: StreamMatcher oracle", () => {
           // stream uses byte offsets, findIter
           // uses UTF-16, but for ASCII they're
           // identical).
-          for (
-            let i = 0;
-            i < streamMatches.length;
-            i++
-          ) {
-            expect(
-              streamMatches[i]!.text,
-            ).toBe(oracleMatches[i]!.text);
+          for (let i = 0; i < streamMatches.length; i++) {
+            expect(streamMatches[i]!.text).toBe(
+              oracleMatches[i]!.text,
+            );
           }
         },
       ),

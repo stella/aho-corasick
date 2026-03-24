@@ -173,14 +173,10 @@ function checkBoundary(
   pos: number,
   ascii: boolean,
 ): boolean {
-  const isWc = ascii
-    ? isWordCharAscii
-    : isWordCharUnicode;
-  const before =
-    pos > 0 && isWc(haystack.charAt(pos - 1));
+  const isWc = ascii ? isWordCharAscii : isWordCharUnicode;
+  const before = pos > 0 && isWc(haystack.charAt(pos - 1));
   const after =
-    pos < haystack.length &&
-    isWc(haystack.charAt(pos));
+    pos < haystack.length && isWc(haystack.charAt(pos));
   return before !== after;
 }
 
@@ -198,9 +194,7 @@ function filterWholeWords(
 
 // ── Pattern normalization ───────────────────────
 
-function normalizePatterns(
-  patterns: PatternEntry[],
-): {
+function normalizePatterns(patterns: PatternEntry[]): {
   strings: string[];
   names: (string | undefined)[] | null;
 } {
@@ -261,24 +255,16 @@ export class AhoCorasick {
   private _names: (string | undefined)[] | null;
   private _jsWholeWords: boolean;
 
-  constructor(
-    patterns: PatternEntry[],
-    options?: Options,
-  ) {
-    const { strings, names } =
-      normalizePatterns(patterns);
+  constructor(patterns: PatternEntry[], options?: Options) {
+    const { strings, names } = normalizePatterns(patterns);
     this._names = names;
 
-    const unicodeWb =
-      options?.unicodeBoundaries ?? true;
+    const unicodeWb = options?.unicodeBoundaries ?? true;
     this._jsWholeWords =
       !unicodeWb && (options?.wholeWords ?? false);
 
-    const nativeOpts:
-      | Record<string, unknown>
-      | undefined = options
-      ? { ...options }
-      : undefined;
+    const nativeOpts: Record<string, unknown> | undefined =
+      options ? { ...options } : undefined;
     if (nativeOpts) {
       delete nativeOpts.unicodeBoundaries;
       if (this._jsWholeWords) {
@@ -313,11 +299,7 @@ export class AhoCorasick {
       this._names,
     );
     if (this._jsWholeWords) {
-      matches = filterWholeWords(
-        matches,
-        haystack,
-        true,
-      );
+      matches = filterWholeWords(matches, haystack, true);
     }
     return matches;
   }
@@ -325,18 +307,12 @@ export class AhoCorasick {
   /** Find all overlapping matches. */
   findOverlappingIter(haystack: string): Match[] {
     let matches = unpack(
-      this._inner._findOverlappingIterPacked(
-        haystack,
-      ),
+      this._inner._findOverlappingIterPacked(haystack),
       haystack,
       this._names,
     );
     if (this._jsWholeWords) {
-      matches = filterWholeWords(
-        matches,
-        haystack,
-        true,
-      );
+      matches = filterWholeWords(matches, haystack, true);
     }
     return matches;
   }
@@ -359,10 +335,7 @@ export class AhoCorasick {
       );
     }
     if (!this._jsWholeWords) {
-      return this._inner.replaceAll(
-        haystack,
-        replacements,
-      );
+      return this._inner.replaceAll(haystack, replacements);
     }
     const matches = this.findIter(haystack);
     let result = "";
@@ -380,9 +353,7 @@ export class AhoCorasick {
    * Find matches in a `Buffer` / `Uint8Array`.
    * Returns **byte offsets** (not UTF-16).
    */
-  findIterBuf(
-    haystack: Buffer | Uint8Array,
-  ): ByteMatch[] {
+  findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[] {
     return this._inner.findIterBuf(haystack);
   }
 
@@ -390,9 +361,7 @@ export class AhoCorasick {
    * Check whether any pattern matches in a
    * `Buffer` / `Uint8Array`.
    */
-  isMatchBuf(
-    haystack: Buffer | Uint8Array,
-  ): boolean {
+  isMatchBuf(haystack: Buffer | Uint8Array): boolean {
     return this._inner.isMatchBuf(haystack);
   }
 }
@@ -415,15 +384,9 @@ export class AhoCorasick {
 export class StreamMatcher {
   private _inner: NativeStreamMatcherInstance;
 
-  constructor(
-    patterns: string[],
-    options?: Options,
-  ) {
-    const nativeOpts:
-      | Record<string, unknown>
-      | undefined = options
-      ? { ...options }
-      : undefined;
+  constructor(patterns: string[], options?: Options) {
+    const nativeOpts: Record<string, unknown> | undefined =
+      options ? { ...options } : undefined;
     if (nativeOpts) {
       delete nativeOpts.unicodeBoundaries;
     }
