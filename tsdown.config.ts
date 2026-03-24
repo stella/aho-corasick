@@ -1,11 +1,11 @@
 import { defineConfig } from "tsdown";
 
 export default defineConfig({
-  entry: ["src/lib.ts"],
-  format: ["esm", "cjs"],
+  entry: ["src/index.ts", "src/wasm.ts"],
+  format: ["esm"],
   dts: { resolve: true, autoAddExts: true },
   clean: true,
   sourcemap: true,
-  external: [/\.\/index\.js/, /\.\.\/index\.js/],
+  external: [/index\.js/, /aho-corasick\.wasi/],
   hash: false,
 });
