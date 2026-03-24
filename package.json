@@ -19,33 +19,27 @@
     "type": "git",
     "url": "https://github.com/stella/aho-corasick"
   },
+  "type": "module",
   "files": [
     "dist",
-    "lib.wasm.js",
     "index.js",
     "aho-corasick.wasi.cjs",
     "aho-corasick.wasi-browser.js",
-    "browser.js",
     "wasi-worker.mjs",
     "wasi-worker-browser.mjs"
   ],
-  "main": "dist/lib.js",
-  "module": "dist/lib.mjs",
-  "browser": {
-    "./dist/lib.mjs": "./lib.wasm.js",
-    "./dist/lib.js": "./lib.wasm.js"
-  },
-  "types": "dist/lib.d.ts",
+  "module": "dist/index.js",
+  "types": "dist/index.d.ts",
   "exports": {
     ".": {
-      "import": {
-        "types": "./dist/lib.d.mts",
-        "default": "./dist/lib.mjs"
-      },
-      "require": {
-        "types": "./dist/lib.d.ts",
-        "default": "./dist/lib.js"
-      }
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "default": "./dist/index.js"
+    },
+    "./browser": {
+      "types": "./dist/wasm.d.ts",
+      "import": "./dist/wasm.js",
+      "default": "./dist/wasm.js"
     }
   },
   "scripts": {

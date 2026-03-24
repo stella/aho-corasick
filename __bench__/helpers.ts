@@ -9,7 +9,7 @@ import BrunoAC from "ahocorasick";
 // @ts-expect-error — no type declarations
 import ModernAC from "modern-ahocorasick";
 
-import { AhoCorasick } from "../src/lib";
+import { AhoCorasick } from "../src/index";
 
 // ─── Adapter type ─────────────────────────────
 
