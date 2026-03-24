@@ -6,9 +6,6 @@ export default defineConfig({
   dts: { resolve: true, autoAddExts: true },
   clean: true,
   sourcemap: true,
-  external: [
-    /\.\.\/index\.js/,
-    /\.\.\/aho-corasick\.wasi\.cjs/,
-  ],
+  external: [/index\.js/, /aho-corasick\.wasi/],
   hash: false,
 });

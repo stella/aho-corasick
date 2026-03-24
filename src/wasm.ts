@@ -1,22 +1,19 @@
-/* WASM/browser entry point — loads the WASI module
- * instead of the native .node binary. Same API as
- * the main entry point. */
+/* Browser/WASM entry point — loads the NAPI-RS
+ * browser WASM binding and re-exports the
+ * public API through the shared core. */
 
-import { createRequire } from "node:module";
+// SAFETY: NAPI-RS auto-generated browser WASM loader
+// exports the native module; cast to NativeBinding
+// for the createApi factory.
+import native from "../aho-corasick.wasi-browser.js";
 
 import {
   createApi,
   type NativeBinding,
 } from "./core";
 
-const require = createRequire(import.meta.url);
-// SAFETY: NAPI-RS auto-generated WASI loader
-// returns the same binding shape as the native one.
-const native =
-  require("../aho-corasick.wasi.cjs") as NativeBinding;
-
 const { AhoCorasick, StreamMatcher } =
-  createApi(native);
+  createApi(native as unknown as NativeBinding);
 
 export { AhoCorasick, StreamMatcher };
 
