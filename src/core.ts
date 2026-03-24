@@ -474,15 +474,3 @@ export const createApi = (native: NativeBinding) => {
   return { AhoCorasick, StreamMatcher };
 };
 
-// Re-export class types for consumer convenience.
-// These are extracted from the return type of
-// createApi so they stay in sync automatically.
-export type AhoCorasickApi = ReturnType<typeof createApi>;
-/** AhoCorasick class type (from createApi). */
-export type AhoCorasick = InstanceType<
-  AhoCorasickApi["AhoCorasick"]
->;
-/** StreamMatcher class type (from createApi). */
-export type StreamMatcher = InstanceType<
-  AhoCorasickApi["StreamMatcher"]
->;
