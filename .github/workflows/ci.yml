@@ -148,6 +148,8 @@ jobs:
             use-cross: true
           - target: x86_64-pc-windows-msvc
             os: windows-latest
+          - target: wasm32-wasip1-threads
+            os: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
 
@@ -168,7 +170,9 @@ jobs:
       - run: bun install --frozen-lockfile
 
       - name: Build (native)
-        if: ${{ !matrix.settings.use-cross }}
+        if: >-
+          !matrix.settings.use-cross
+          && matrix.settings.target != 'wasm32-wasip1-threads'
         run: >
           bun run build
           --target ${{ matrix.settings.target }}
@@ -180,10 +184,16 @@ jobs:
           --target ${{ matrix.settings.target }}
           --use-napi-cross
 
+      - name: Build (WASM)
+        if: matrix.settings.target == 'wasm32-wasip1-threads'
+        run: bun run build:wasm
+
       - uses: actions/upload-artifact@v7
         with:
           name: bindings-${{ matrix.settings.target }}
-          path: "*.node"
+          path: |
+            *.node
+            *.wasm
           if-no-files-found: error
 
   # ── Test (after build, push only) ─────────────
@@ -210,8 +220,10 @@ jobs:
           ls -R artifacts/
           for dir in artifacts/bindings-*; do
             cp "$dir"/*.node . 2>/dev/null || true
+            cp "$dir"/*.wasm . 2>/dev/null || true
           done
           ls -la *.node 2>/dev/null || echo "No .node files"
+          ls -la *.wasm 2>/dev/null || echo "No .wasm files"
 
       - run: bun test
 

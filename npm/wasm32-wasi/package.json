@@ -1,12 +1,16 @@
 {
-  "name": "@stll/aho-corasick-darwin-arm64",
+  "name": "@stll/aho-corasick-wasm32-wasi",
   "version": "0.3.3",
   "cpu": [
-    "arm64"
+    "wasm32"
   ],
-  "main": "aho-corasick.darwin-arm64.node",
+  "main": "aho-corasick.wasi.cjs",
   "files": [
-    "aho-corasick.darwin-arm64.node"
+    "aho-corasick.wasm32-wasi.wasm",
+    "aho-corasick.wasi.cjs",
+    "aho-corasick.wasi-browser.js",
+    "wasi-worker.mjs",
+    "wasi-worker-browser.mjs"
   ],
   "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
   "keywords": [
@@ -20,7 +24,7 @@
   "homepage": "https://github.com/stella/aho-corasick#readme",
   "license": "MIT",
   "engines": {
-    "node": ">= 18"
+    "node": ">=14.0.0"
   },
   "repository": {
     "type": "git",
@@ -29,7 +33,8 @@
   "bugs": {
     "url": "https://github.com/stella/aho-corasick/issues"
   },
-  "os": [
-    "darwin"
-  ]
+  "browser": "aho-corasick.wasi-browser.js",
+  "dependencies": {
+    "@napi-rs/wasm-runtime": "^1.1.1"
+  }
 }
