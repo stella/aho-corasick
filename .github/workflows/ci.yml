@@ -194,6 +194,7 @@ jobs:
           path: |
             *.node
             *.wasm
+            !*.debug.wasm
           if-no-files-found: error
 
   # ── Test (after build, push only) ─────────────

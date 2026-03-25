@@ -33,22 +33,19 @@ the publish job pushes all packages to npm.
 # Prerequisites: Rust toolchain, Bun
 bun install
 bun run build       # native module (.node)
-bun run build:wasm  # WASM module (.wasm)
+bun run build:wasm  # WASM module (.wasm, uses --platform)
 bun run build:js    # TypeScript -> dist/
 bun test            # run tests
 bun run lint        # oxlint
 bun run format      # oxfmt + rustfmt
 ```
 
-To test the WASM build locally, copy the artifacts into
-the sub-package:
+To test the WASM build locally, use `napi artifacts` to
+place build outputs into the correct sub-packages:
 
 ```bash
-cp aho-corasick.wasm npm/wasm32-wasi/aho-corasick.wasm32-wasi.wasm
-cp aho-corasick.wasi.cjs npm/wasm32-wasi/
-cp aho-corasick.wasi-browser.js npm/wasm32-wasi/
-cp wasi-worker.mjs npm/wasm32-wasi/
-cp wasi-worker-browser.mjs npm/wasm32-wasi/
+bun run build:wasm
+bun x @napi-rs/cli artifacts
 ```
 
 ## Pull requests
