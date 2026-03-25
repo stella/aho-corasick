@@ -10,15 +10,42 @@ All contributors must sign the
 You will be prompted automatically when you open
 a pull request.
 
+## Architecture
+
+The package uses a two-layer publishing model:
+
+- **Umbrella package** (`@stll/aho-corasick`): ships
+  `dist/` (JS/TS) and `index.js` (napi native loader).
+  Platform-specific binaries are installed via
+  `optionalDependencies`.
+- **Sub-packages** (`npm/*/`): one per target platform.
+  Native sub-packages contain a `.node` binary; the
+  `wasm32-wasi` sub-package contains the `.wasm` binary
+  plus JS glue files and depends on `@napi-rs/wasm-runtime`.
+
+CI builds each target in parallel, `napi artifacts` copies
+binaries into the corresponding `npm/` sub-package, and
+the publish job pushes all packages to npm.
+
 ## Development setup
 
 ```bash
 # Prerequisites: Rust toolchain, Bun
 bun install
-bun run build       # native module
+bun run build       # native module (.node)
+bun run build:wasm  # WASM module (.wasm, uses --platform)
+bun run build:js    # TypeScript -> dist/
 bun test            # run tests
 bun run lint        # oxlint
 bun run format      # oxfmt + rustfmt
+```
+
+To test the WASM build locally, use `napi artifacts` to
+place build outputs into the correct sub-packages:
+
+```bash
+bun run build:wasm
+bun x @napi-rs/cli artifacts
 ```
 
 ## Pull requests

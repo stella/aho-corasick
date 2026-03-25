@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
   "keywords": [
     "aho-corasick",
@@ -21,11 +21,7 @@
   },
   "files": [
     "dist",
-    "index.js",
-    "aho-corasick.wasi.cjs",
-    "aho-corasick.wasi-browser.js",
-    "wasi-worker.mjs",
-    "wasi-worker-browser.mjs"
+    "index.js"
   ],
   "type": "module",
   "module": "dist/index.js",
@@ -44,7 +40,7 @@
   "scripts": {
     "build": "napi build --platform --release",
     "build:debug": "napi build --platform",
-    "build:wasm": "napi build --target wasm32-wasip1-threads --release",
+    "build:wasm": "napi build --platform --target wasm32-wasip1-threads --release",
     "artifacts": "napi artifacts",
     "universal": "napi universal",
     "build:js": "tsdown",
@@ -61,9 +57,6 @@
     "bench:install": "cd __bench__ && bun install",
     "bench:download": "bash __bench__/download-corpus.sh"
   },
-  "dependencies": {
-    "@napi-rs/wasm-runtime": "^1.1.1"
-  },
   "devDependencies": {
     "@emnapi/core": "^1.9.0",
     "@emnapi/runtime": "^1.9.0",
@@ -78,10 +71,11 @@
     "tsdown": "^0.12.4"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "0.3.0",
-    "@stll/aho-corasick-darwin-x64": "0.3.0",
-    "@stll/aho-corasick-linux-arm64-gnu": "0.3.0",
-    "@stll/aho-corasick-linux-x64-gnu": "0.3.0"
+    "@stll/aho-corasick-darwin-arm64": "0.3.3",
+    "@stll/aho-corasick-darwin-x64": "0.3.3",
+    "@stll/aho-corasick-linux-arm64-gnu": "0.3.3",
+    "@stll/aho-corasick-linux-x64-gnu": "0.3.3",
+    "@stll/aho-corasick-wasm32-wasi": "0.3.3"
   },
   "napi": {
     "binaryName": "aho-corasick",
