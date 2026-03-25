@@ -12,7 +12,7 @@
 import { describe, expect, test } from "bun:test";
 import fc from "fast-check";
 
-import { AhoCorasick } from "../src/index";
+import { AhoCorasick, StreamMatcher } from "../src/index";
 
 // Limit runs to keep it under 30s
 const PARAMS = { numRuns: 200 };
@@ -469,7 +469,6 @@ describe("property: StreamMatcher oracle", () => {
         // Chunk size 1-50
         fc.integer({ min: 1, max: 50 }),
         (pats, hay, chunkSize) => {
-          const { StreamMatcher } = require("../lib");
 
           // Oracle: findIter on full string
           const ac = new AhoCorasick(pats);
