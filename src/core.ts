@@ -139,12 +139,19 @@ function unpack(
   const len = packed.length;
   // eslint-disable-next-line unicorn/no-new-array
   const matches = new Array<Match>(len / 3);
-  // SAFETY: Loop increments by 3 and terminates at packed.length.
-  // Indices i, i+1, i+2 are always in bounds.
   for (let i = 0, j = 0; i < len; i += 3, j++) {
-    const idx = packed[i]!;
-    const start = packed[i + 1]!;
-    const end = packed[i + 2]!;
+    const idx = packed[i];
+    const start = packed[i + 1];
+    const end = packed[i + 2];
+    if (
+      idx === undefined ||
+      start === undefined ||
+      end === undefined
+    ) {
+      throw new Error(
+        `Malformed packed matches at offset ${String(i)}`,
+      );
+    }
     const m: Match = {
       pattern: idx,
       start,
