@@ -3,6 +3,7 @@
  * through the shared core. */
 
 import native from "@stll/aho-corasick-wasm32-wasi";
+
 import { initBinding, type NativeBinding } from "./core";
 
 initBinding(native as unknown as NativeBinding);

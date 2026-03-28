@@ -469,7 +469,6 @@ describe("property: StreamMatcher oracle", () => {
         // Chunk size 1-50
         fc.integer({ min: 1, max: 50 }),
         (pats, hay, chunkSize) => {
-
           // Oracle: findIter on full string
           const ac = new AhoCorasick(pats);
           const oracleMatches = ac.findIter(hay);

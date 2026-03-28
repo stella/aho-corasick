@@ -41,5 +41,8 @@ __bench__/bun.lock
 .turbo
 .cache
 
+# WASM sub-package build output
+wasm/dist/
+
 # Lock files (text-based bun.lock is committed)
 bun.lockb
