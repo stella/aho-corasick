@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "0.0.1",
+  "version": "0.0.2",
   "publishConfig": {
     "access": "restricted"
   },
@@ -32,10 +32,6 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.ts",
-      "browser": {
-        "types": "./dist/wasm.d.ts",
-        "import": "./dist/wasm.js"
-      },
       "import": "./dist/index.js",
       "default": "./dist/index.js"
     }
@@ -74,11 +70,11 @@
     "tsdown": "^0.12.4"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "0.0.1",
-    "@stll/aho-corasick-darwin-x64": "0.0.1",
-    "@stll/aho-corasick-linux-arm64-gnu": "0.0.1",
-    "@stll/aho-corasick-linux-x64-gnu": "0.0.1",
-    "@stll/aho-corasick-wasm32-wasi": "0.0.1"
+    "@stll/aho-corasick-darwin-x64": "0.0.2",
+    "@stll/aho-corasick-darwin-arm64": "0.0.2",
+    "@stll/aho-corasick-linux-x64-gnu": "0.0.2",
+    "@stll/aho-corasick-linux-arm64-gnu": "0.0.2",
+    "@stll/aho-corasick-wasm32-wasi": "0.0.2"
   },
   "napi": {
     "binaryName": "aho-corasick",
