@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "0.0.2",
+  "version": "0.1.3",
   "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
   "keywords": [
     "aho-corasick",
