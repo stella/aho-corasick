@@ -19,6 +19,8 @@ export default defineConfig([
     clean: true,
     sourcemap: true,
     hash: false,
-    deps: { neverBundle: [/aho-corasick\.wasi/] },
+    deps: {
+      neverBundle: ["@stll/aho-corasick-wasm32-wasi"],
+    },
   },
 ]);
