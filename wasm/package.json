@@ -35,6 +35,6 @@
     "access": "restricted"
   },
   "dependencies": {
-    "@stll/aho-corasick-wasm32-wasi": "0.0.2"
+    "@napi-rs/wasm-runtime": "^1.1.1"
   }
 }

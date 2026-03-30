@@ -1,8 +1,8 @@
-/* Browser/WASM entry point — loads the WASM binding
- * from the sub-package and re-exports the public API
- * through the shared core. */
+/* Browser/WASM entry point -- loads the WASM binding
+ * from the generated browser glue and re-exports the
+ * public API through the shared core. */
 
-import native from "@stll/aho-corasick-wasm32-wasi";
+import native from "../aho-corasick.wasi-browser.js";
 
 import { initBinding, type NativeBinding } from "./core";
 

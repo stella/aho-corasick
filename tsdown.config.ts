@@ -19,8 +19,22 @@ export default defineConfig([
     clean: true,
     sourcemap: true,
     hash: false,
-    deps: {
-      neverBundle: ["@stll/aho-corasick-wasm32-wasi"],
-    },
+    deps: { neverBundle: [/^@napi-rs\/wasm-runtime$/] },
+    copy: [
+      {
+        from: "aho-corasick.wasm32-wasi.wasm",
+        to: "wasm/dist",
+      },
+    ],
+  },
+  {
+    entry: ["wasi-worker-browser.mjs"],
+    outDir: "wasm/dist",
+    format: ["esm"],
+    dts: false,
+    clean: false,
+    sourcemap: true,
+    hash: false,
+    deps: { neverBundle: [/^@napi-rs\/wasm-runtime$/] },
   },
 ]);
