@@ -186,6 +186,23 @@ than the best pure-JS alternative; in browsers
 where native modules are unavailable, it is the
 fastest option.
 
+#### Using with Vite
+
+Vite's dependency pre-bundler rewrites
+`import.meta.url`, which breaks the relative
+`.wasm` path emitted by the napi-rs loader. Import
+the bundled plugin so the package is excluded from
+pre-bundling:
+
+```ts
+// vite.config.ts
+import stllWasm from "@stll/aho-corasick-wasm/vite";
+
+export default {
+  plugins: [stllWasm()],
+};
+```
+
 All match counts verified equal across libraries.
 Match offsets are UTF-16 code unit indices,
 compatible with `String.prototype.slice()`.
