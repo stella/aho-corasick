@@ -19,11 +19,11 @@
         "vite": "^7.0.0",
       },
       "optionalDependencies": {
-        "@stll/aho-corasick-darwin-arm64": "0.0.2",
-        "@stll/aho-corasick-darwin-x64": "0.0.2",
-        "@stll/aho-corasick-linux-arm64-gnu": "0.0.2",
-        "@stll/aho-corasick-linux-x64-gnu": "0.0.2",
-        "@stll/aho-corasick-wasm32-wasi": "0.0.2",
+        "@stll/aho-corasick-darwin-arm64": "0.1.4",
+        "@stll/aho-corasick-darwin-x64": "0.1.4",
+        "@stll/aho-corasick-linux-arm64-gnu": "0.1.4",
+        "@stll/aho-corasick-linux-x64-gnu": "0.1.4",
+        "@stll/aho-corasick-wasm32-wasi": "0.1.4",
       },
     },
   },
@@ -425,16 +425,6 @@
     "@rollup/rollup-win32-x64-gnu": ["@rollup/rollup-win32-x64-gnu@4.60.1", "", { "os": "win32", "cpu": "x64" }, "sha512-k+600V9Zl1CM7eZxJgMyTUzmrmhB/0XZnF4pRypKAlAgxmedUA+1v9R+XOFv56W4SlHEzfeMtzujLJD22Uz5zg=="],
 
     "@rollup/rollup-win32-x64-msvc": ["@rollup/rollup-win32-x64-msvc@4.60.1", "", { "os": "win32", "cpu": "x64" }, "sha512-lWMnixq/QzxyhTV6NjQJ4SFo1J6PvOX8vUx5Wb4bBPsEb+8xZ89Bz6kOXpfXj9ak9AHTQVQzlgzBEc1SyM27xQ=="],
-
-    "@stll/aho-corasick-darwin-arm64": ["@stll/aho-corasick-darwin-arm64@0.0.2", "", { "os": "darwin", "cpu": "arm64" }, "sha512-7kXe1dYrl9UL7yxphbosfS+Cikluf2zkhOjQAwBY4PPAesmoibCREhAnRXu25uhsWzjZLxdRhyn5yWMXt9zGQw=="],
-
-    "@stll/aho-corasick-darwin-x64": ["@stll/aho-corasick-darwin-x64@0.0.2", "", { "os": "darwin", "cpu": "x64" }, "sha512-QVL9rRiFVhfULzzQHVoicR3hF7JHfQ0dArW3l8xOE+viE1QSkQxEKPYXeXWAvbHTPMLgh+wvtK13gYkv7x+mfQ=="],
-
-    "@stll/aho-corasick-linux-arm64-gnu": ["@stll/aho-corasick-linux-arm64-gnu@0.0.2", "", { "os": "linux", "cpu": "arm64" }, "sha512-D6EE+xZ0hSyVvM9sTSVMI3hQSRmCGaY+9QUQfm5NoRQ0dWIqK3CQRfxMGZav8bzINmCy3EZpraBSHcpbiHv3gg=="],
-
-    "@stll/aho-corasick-linux-x64-gnu": ["@stll/aho-corasick-linux-x64-gnu@0.0.2", "", { "os": "linux", "cpu": "x64" }, "sha512-KgK52jXMMojGo/hO4J1HChdTEqS9qTvbTSBPPEA3aqmL7ri5xdLbdv1YSFqjDkwtAFtz+cLvlk9VMfDgjmTHEw=="],
-
-    "@stll/aho-corasick-wasm32-wasi": ["@stll/aho-corasick-wasm32-wasi@0.0.2", "", { "dependencies": { "@napi-rs/wasm-runtime": "^1.1.1" } }, "sha512-oz2nUAcaANu8Z1fP1obqiGCcAVk10ind1MztwAsf424RAVgxR/bJLSBoQm04g8fR/jnaM+/R6TP0QO08FxYfIg=="],
 
     "@tybys/wasm-util": ["@tybys/wasm-util@0.10.1", "", { "dependencies": { "tslib": "^2.4.0" } }, "sha512-9tTaPJLSiejZKx+Bmog4uSubteqTvFrVrURwkmHixBo0G4seD0zUxp98E1DzUBJxLQ3NPwXrGKDiVjwx/DpPsg=="],
 

@@ -8,6 +8,30 @@ The format is based on
 and this project adheres to
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.4] - 2026-04-07
+
+### Fixed
+
+- Fixed the Node.js package entrypoint so ESM
+  imports load the native binding correctly under
+  Node 18+.
+- Added a dedicated Node.js smoke test in CI to
+  catch package-loading regressions before release.
+- Synchronized package metadata across the umbrella
+  package and native/WASI sub-packages.
+
+### Changed
+
+- Clarified the package split: `@stll/aho-corasick`
+  is the Node.js / Bun package and
+  `@stll/aho-corasick-wasm` is the browser/WASM
+  package.
+- Updated public documentation to describe the
+  actual platform support matrix and current
+  case-folding behavior.
+- Refreshed the SBOM and third-party notices to
+  match the current package metadata.
+
 ## [0.1.2] - 2026-03-16
 
 ### Fixed
@@ -75,6 +99,7 @@ and this project adheres to
   (glibc x64/arm64, musl x64), and Windows (x64).
 - ESM + CJS dual exports.
 
+[0.1.4]: https://github.com/stella/aho-corasick/compare/v0.1.2...v0.1.4
 [0.1.2]: https://github.com/stella/aho-corasick/compare/v0.1.1...v0.1.2
 [0.1.1]: https://github.com/stella/aho-corasick/compare/v0.1.0...v0.1.1
 [0.1.0]: https://github.com/stella/aho-corasick/releases/tag/v0.1.0

@@ -23,7 +23,6 @@
     "dist",
     "index.js"
   ],
-  "type": "module",
   "module": "dist/index.mjs",
   "types": "dist/index.d.mts",
   "exports": {
@@ -46,6 +45,7 @@
     "prepublishOnly": "napi prepublish -t npm && tsdown",
     "test": "bun test __test__/index.spec.ts",
     "test:props": "bun test __test__/properties.spec.ts",
+    "test:node-smoke": "node --input-type=module -e \"import('./dist/index.mjs').then(({ AhoCorasick }) => { const ac = new AhoCorasick(['foo', 'bar']); const matches = ac.findIter('foo bar'); if (!ac.isMatch('foo bar') || matches.length !== 2 || matches[0]?.text !== 'foo' || matches[1]?.text !== 'bar') throw new Error('Node smoke test failed'); }).catch((err) => { console.error(err); process.exit(1); })\"",
     "format": "oxfmt . && rustfmt src/lib.rs",
     "lint": "oxlint .",
     "bench": "bun __bench__/speed.ts",
@@ -71,11 +71,11 @@
     "vite": "^7.0.0"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "0.0.2",
-    "@stll/aho-corasick-darwin-x64": "0.0.2",
-    "@stll/aho-corasick-linux-arm64-gnu": "0.0.2",
-    "@stll/aho-corasick-linux-x64-gnu": "0.0.2",
-    "@stll/aho-corasick-wasm32-wasi": "0.0.2"
+    "@stll/aho-corasick-darwin-arm64": "0.1.4",
+    "@stll/aho-corasick-darwin-x64": "0.1.4",
+    "@stll/aho-corasick-linux-arm64-gnu": "0.1.4",
+    "@stll/aho-corasick-linux-x64-gnu": "0.1.4",
+    "@stll/aho-corasick-wasm32-wasi": "0.1.4"
   },
   "napi": {
     "binaryName": "aho-corasick",

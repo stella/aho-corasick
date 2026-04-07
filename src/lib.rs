@@ -383,52 +383,50 @@ impl AhoCorasick {
           packed.push(e);
         }
         pos = m.end();
-      } else {
-        if let Some((pat, _, end)) =
-          self.search.find_whole_word_at(
-            &prep,
-            m.start(),
-            &haystack,
-            |p| prep.orig_pos(p),
-          )
-        {
-          let fos = prep.orig_pos(m.start());
-          let foe = prep.orig_pos(end);
+      } else if let Some((pat, _, end)) =
+        self.search.find_whole_word_at(
+          &prep,
+          m.start(),
+          &haystack,
+          |p| prep.orig_pos(p),
+        )
+      {
+        let fos = prep.orig_pos(m.start());
+        let foe = prep.orig_pos(end);
 
-          if !is_whole_word(&haystack, fos, foe) {
-            pos = m.start()
-              + search_text[m.start()..]
-                .chars()
-                .next()
-                .map_or(1, |c| c.len_utf8());
-            continue;
-          }
-
-          if is_ascii {
-            packed.push(pat);
-            packed.push(fos as u32);
-            packed.push(foe as u32);
-          } else {
-            last_utf16 +=
-              byte_span_utf16_len(&bytes[last_byte..fos]);
-            let s = last_utf16;
-            last_byte = fos;
-            last_utf16 +=
-              byte_span_utf16_len(&bytes[last_byte..foe]);
-            let e = last_utf16;
-            last_byte = foe;
-            packed.push(pat);
-            packed.push(s);
-            packed.push(e);
-          }
-          pos = end;
-        } else {
+        if !is_whole_word(&haystack, fos, foe) {
           pos = m.start()
             + search_text[m.start()..]
               .chars()
               .next()
               .map_or(1, |c| c.len_utf8());
+          continue;
         }
+
+        if is_ascii {
+          packed.push(pat);
+          packed.push(fos as u32);
+          packed.push(foe as u32);
+        } else {
+          last_utf16 +=
+            byte_span_utf16_len(&bytes[last_byte..fos]);
+          let s = last_utf16;
+          last_byte = fos;
+          last_utf16 +=
+            byte_span_utf16_len(&bytes[last_byte..foe]);
+          let e = last_utf16;
+          last_byte = foe;
+          packed.push(pat);
+          packed.push(s);
+          packed.push(e);
+        }
+        pos = end;
+      } else {
+        pos = m.start()
+          + search_text[m.start()..]
+            .chars()
+            .next()
+            .map_or(1, |c| c.len_utf8());
       }
     }
     Uint32Array::new(packed)
