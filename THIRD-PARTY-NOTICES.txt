@@ -1,5 +1,28 @@
-This file was generated with the generate-license-file npm package!
-https://www.npmjs.com/package/generate-license-file
+Third-Party Notices for @stll/aho-corasick
 
-This file was generated with the generate-license-file npm package!
-https://www.npmjs.com/package/generate-license-file
+This project and its published packages are built
+on the following third-party components:
+
+- aho-corasick 1.1.4
+  License: Unlicense OR MIT
+  Source: https://github.com/BurntSushi/aho-corasick
+
+- napi 3.8.3 / napi-derive 3.5.2 / napi-build 2.3.1
+  License: MIT
+  Source: https://github.com/napi-rs/napi-rs
+
+- unicode-case-mapping 1.0.0
+  License: Apache-2.0
+  Source: https://crates.io/crates/unicode-case-mapping
+
+- @napi-rs/wasm-runtime 1.1.1
+  License: MIT
+  Source: https://github.com/napi-rs/napi-rs
+
+The browser/WASM package depends on
+`@napi-rs/wasm-runtime`; the Node.js / Bun package
+ships native binaries built from the Rust
+dependencies listed above.
+
+For a machine-readable inventory of transitive
+components, see `sbom.cdx.json`.

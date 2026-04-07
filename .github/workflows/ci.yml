@@ -30,6 +30,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+      pull-requests: read
     outputs:
       rust-changed: ${{ steps.filter.outputs.rust }}
     steps:
@@ -204,6 +205,9 @@ jobs:
     steps:
       - uses: actions/checkout@v6
       - uses: oven-sh/setup-bun@v2
+      - uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
       - run: bun install --frozen-lockfile
 
       - uses: actions/download-artifact@v8
@@ -222,6 +226,9 @@ jobs:
           ls -la *.wasm 2>/dev/null || echo "No .wasm files"
 
       - run: bun test
+      - run: bun run build:js
+      - run: bun run test:node-smoke
+      - run: bun run test:cjs-smoke
 
   # ── Publish (tags only) ───────────────────────
   publish:

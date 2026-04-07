@@ -66,7 +66,10 @@ export type Options = {
    */
   matchKind?: MatchKind;
   /**
-   * Case-insensitive matching (ASCII only).
+   * Case-insensitive matching using Unicode simple
+   * case folding. Handles one-to-one folds such as
+   * `A/a`, `İ/i`, and `ẞ/ß`, but not multi-char
+   * folds such as `ß/ss`.
    * @default false
    */
   caseInsensitive?: boolean;

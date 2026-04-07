@@ -37,31 +37,30 @@ jobs:
       - name: Generate CycloneDX SBOM
         run: bunx @cyclonedx/cdxgen -o sbom.cdx.json
 
-      - name: Generate third-party license notices
-        run: >
-          bunx generate-license-file
-          --input package.json
-          --output THIRD-PARTY-NOTICES.txt
-          --overwrite
-
       - name: Upload SBOM artifact
         uses: actions/upload-artifact@v7
         with:
           name: sbom-${{ github.sha }}
           path: |
             sbom.cdx.json
-            THIRD-PARTY-NOTICES.txt
           retention-days: 365
 
-      - name: Commit SBOM and NOTICE to repo
+      - name: Commit SBOM to repo
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add sbom.cdx.json THIRD-PARTY-NOTICES.txt
+          git add sbom.cdx.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
-            git commit -m "chore: update SBOM and third-party notices [skip ci]"
-            git pull --rebase
-            git push
+            git commit -m "chore: update SBOM [skip ci]"
+            for attempt in 1 2 3; do
+              git pull --rebase --autostash origin main && \
+                git push origin HEAD:main && \
+                exit 0
+              if [ "$attempt" -eq 3 ]; then
+                exit 1
+              fi
+              sleep 2
+            done
           fi

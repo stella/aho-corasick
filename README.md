@@ -18,20 +18,36 @@ exposed to JavaScript via
 
 ## Install
 
+### Node.js / Bun
+
 ```bash
 npm install @stll/aho-corasick
 # or
 bun add @stll/aho-corasick
 ```
 
-Prebuilt binaries are available for:
+The Node.js / Bun package is ESM-first. Use
+`import` syntax in Node 18+ and Bun.
+
+Native prebuilt binaries are currently published
+for:
 
 | Platform      | Architecture |
 | ------------- | ------------ |
 | macOS         | x64, arm64   |
 | Linux (glibc) | x64, arm64   |
-| Linux (musl)  | x64          |
-| Windows       | x64          |
+
+### Browser / WASM
+
+```bash
+npm install @stll/aho-corasick-wasm
+# or
+bun add @stll/aho-corasick-wasm
+```
+
+Browser and WASM usage ships as a dedicated package.
+The root `@stll/aho-corasick` package is for Node.js
+and Bun.
 
 ## Usage
 
@@ -65,7 +81,8 @@ ac.replaceAll("foo bar", ["FOO", "BAR", "BAZ"]);
 const ac = new AhoCorasick(patterns, {
   // Match semantics (default: "leftmost-first")
   matchKind: "leftmost-longest",
-  // ASCII case-insensitive (default: false)
+  // Unicode simple case folding (default: false)
+  // One-to-one folds only; "ß" != "ss"
   caseInsensitive: true,
   // Only match whole words (default: false)
   // Unicode-aware; CJK always passes
@@ -173,8 +190,8 @@ Run locally:
 ### WASM (browser target)
 
 The same Rust code compiles to WASM via
-`wasm32-wasip1-threads`. Bundlers (Vite, Webpack)
-auto-select the WASM build for browser targets.
+`wasm32-wasip1-threads`, published separately as
+`@stll/aho-corasick-wasm`.
 
 | Haystack            | @stll WASM | @stll native | Best pure JS |
 | ------------------- | ---------- | ------------ | ------------ |
@@ -185,6 +202,12 @@ WASM is 4-8x slower than native, but 3-6x faster
 than the best pure-JS alternative; in browsers
 where native modules are unavailable, it is the
 fastest option.
+
+Use the browser package directly:
+
+```ts
+import { AhoCorasick } from "@stll/aho-corasick-wasm";
+```
 
 #### Using with Vite
 
@@ -251,6 +274,7 @@ type Options = {
   caseInsensitive?: boolean;
   wholeWords?: boolean;
   dfa?: boolean;
+  unicodeBoundaries?: boolean;
 };
 
 // Returned by string methods (findIter, etc.)
@@ -281,11 +305,10 @@ type ByteMatch = {
 
 ## Limitations
 
-- **Case insensitivity is ASCII-only.** The
-  underlying Rust crate folds `A-Z` to `a-z` but
-  does not handle Unicode case folding (Turkish
-  `İ`/`ı`, German `ß`/`ss`, etc.). This is a
-  [documented upstream limitation](https://docs.rs/aho-corasick/latest/aho_corasick/struct.AhoCorasickBuilder.html#method.ascii_case_insensitive).
+- **Case insensitivity uses Unicode simple case
+  folding.** One-to-one folds such as `İ -> i` and
+  `ẞ -> ß` are supported. Multi-character or
+  locale-specific folds such as `ß <-> ss` are not.
 - **WASM requires `SharedArrayBuffer`.** Browser
   builds need `Cross-Origin-Opener-Policy: same-origin`
   and `Cross-Origin-Embedder-Policy: require-corp`
@@ -315,8 +338,12 @@ bun install
 # Build native module (requires Rust toolchain)
 bun run build
 
-# Run tests (113 tests, including Unicode edge cases)
+# Run tests
 bun test
+
+# Verify the Node.js package entrypoint
+bun run build:js
+bun run test:node-smoke
 
 # Download benchmark corpora
 bun run bench:download
