@@ -227,6 +227,7 @@ jobs:
       - run: bun test
       - run: bun run build:js
       - run: bun run test:node-smoke
+      - run: bun run test:cjs-smoke
 
   # ── Publish (tags only) ───────────────────────
   publish:

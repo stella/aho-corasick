@@ -28,6 +28,7 @@
   "exports": {
     ".": {
       "types": "./dist/index.d.mts",
+      "require": "./dist/index-node.cjs",
       "import": "./dist/index.mjs",
       "default": "./dist/index.mjs"
     }
@@ -46,6 +47,7 @@
     "test": "bun test __test__/index.spec.ts",
     "test:props": "bun test __test__/properties.spec.ts",
     "test:node-smoke": "node --input-type=module -e \"import('./dist/index.mjs').then(({ AhoCorasick }) => { const ac = new AhoCorasick(['foo', 'bar']); const matches = ac.findIter('foo bar'); if (!ac.isMatch('foo bar') || matches.length !== 2 || matches[0]?.text !== 'foo' || matches[1]?.text !== 'bar') throw new Error('Node smoke test failed'); }).catch((err) => { console.error(err); process.exit(1); })\"",
+    "test:cjs-smoke": "node -e \"const { AhoCorasick } = require('@stll/aho-corasick'); const ac = new AhoCorasick(['foo', 'bar']); const matches = ac.findIter('foo bar'); if (!ac.isMatch('foo bar') || matches.length !== 2 || matches[0]?.text !== 'foo' || matches[1]?.text !== 'bar') throw new Error('CJS smoke test failed');\"",
     "format": "oxfmt . && rustfmt src/lib.rs",
     "lint": "oxlint .",
     "bench": "bun __bench__/speed.ts",

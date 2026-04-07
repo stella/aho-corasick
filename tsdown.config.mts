@@ -12,6 +12,16 @@ export default defineConfig([
     deps: { neverBundle: [/index\.js/] },
   },
   {
+    entry: { "index-node": "src/index-cjs.ts" },
+    outDir: "dist",
+    format: ["cjs"],
+    dts: false,
+    clean: false,
+    sourcemap: true,
+    hash: false,
+    deps: { neverBundle: [/index\.js/] },
+  },
+  {
     entry: ["src/wasm.ts"],
     outDir: "wasm/dist",
     format: ["esm"],
