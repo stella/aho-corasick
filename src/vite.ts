@@ -20,6 +20,7 @@ export function buildAhoCorasickWasmViteConfig(
   config: UserConfig = {},
 ): UserConfig {
   return {
+    ...config,
     optimizeDeps: {
       ...config.optimizeDeps,
       exclude: mergeStrings(config.optimizeDeps?.exclude, WASM_VITE_PACKAGES),
