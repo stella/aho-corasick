@@ -8,7 +8,7 @@
   "files": [
     "aho-corasick.darwin-arm64.node"
   ],
-  "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
+  "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
   "keywords": [
     "aho-corasick",
     "multi-pattern",

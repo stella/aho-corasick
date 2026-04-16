@@ -1,7 +1,7 @@
 {
   "name": "@stll/aho-corasick-wasm",
   "version": "0.1.4",
-  "description": "Aho-Corasick multi-pattern search for browsers via WebAssembly. Same API as @stll/aho-corasick.",
+  "description": "Exact many-pattern string search for browsers via WebAssembly. Same API as @stll/aho-corasick.",
   "keywords": [
     "aho-corasick",
     "multi-pattern",
@@ -29,6 +29,10 @@
     ".": {
       "types": "./dist/wasm.d.mts",
       "import": "./dist/wasm.mjs"
+    },
+    "./vite": {
+      "types": "./dist/vite.d.mts",
+      "import": "./dist/vite.mjs"
     }
   },
   "publishConfig": {
@@ -36,5 +40,13 @@
   },
   "dependencies": {
     "@napi-rs/wasm-runtime": "^1.1.3"
+  },
+  "peerDependencies": {
+    "vite": ">=5 <10"
+  },
+  "peerDependenciesMeta": {
+    "vite": {
+      "optional": true
+    }
   }
 }
