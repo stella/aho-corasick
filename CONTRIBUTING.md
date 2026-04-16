@@ -15,7 +15,7 @@ a pull request.
 The package uses a two-layer publishing model:
 
 - **Umbrella package** (`@stll/aho-corasick`): ships
-  `dist/` (JS/TS) and `index.js` (napi native loader).
+  `dist/` (JS/TS) and `index.cjs` (napi native loader).
   Platform-specific binaries are installed via
   `optionalDependencies`.
 - **Sub-packages** (`npm/*/`): one per target platform.
@@ -25,7 +25,7 @@ The package uses a two-layer publishing model:
 
 CI builds each target in parallel, `napi artifacts` copies
 binaries into the corresponding `npm/` sub-package, and
-the publish job pushes all packages to npm.
+the manual release workflow packages them for GitHub/npm.
 
 ## Development setup
 
