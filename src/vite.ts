@@ -37,8 +37,15 @@ export function buildAhoCorasickWasmViteConfig(
 export default function stllAhoCorasickWasmVite(): Plugin {
   return {
     name: "stll-aho-corasick-wasm",
-    config(config) {
-      return buildAhoCorasickWasmViteConfig(config);
+    config() {
+      return {
+        optimizeDeps: {
+          exclude: [...WASM_VITE_PACKAGES],
+        },
+        ssr: {
+          external: [...WASM_VITE_PACKAGES],
+        },
+      };
     },
   };
 }
