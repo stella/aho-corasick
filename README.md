@@ -18,8 +18,25 @@ exposed to JavaScript via
 
 ## Install
 
-Public npm publishing is not enabled yet. The planned
-package name is `@stll/aho-corasick`.
+```bash
+npm install @stll/aho-corasick
+# or
+bun add @stll/aho-corasick
+```
+
+The companion `@stll/aho-corasick-wasm` package is
+available for browser builds.
+
+GitHub releases include npm tarballs, an SBOM, and
+third-party notices.
+
+Prebuilts are available for:
+
+| Platform      | Architecture |
+| ------------- | ------------ |
+| macOS         | x64, arm64   |
+| Linux (glibc) | x64, arm64   |
+| WASM          | browser      |
 
 ## Usage
 
@@ -53,7 +70,7 @@ ac.replaceAll("foo bar", ["FOO", "BAR", "BAZ"]);
 const ac = new AhoCorasick(patterns, {
   // Match semantics (default: "leftmost-first")
   matchKind: "leftmost-longest",
-  // ASCII case-insensitive (default: false)
+  // Unicode simple case folding (default: false)
   caseInsensitive: true,
   // Only match whole words (default: false)
   // Unicode-aware; CJK always passes
@@ -127,7 +144,9 @@ for (const m of ac.findIter(text)) {
 ## Benchmarks
 
 The repository includes a checked-in benchmark harness
-for ASCII, Unicode, and WASM cases. Run it locally:
+for ASCII, Unicode, and WASM cases. The inputs are
+public and the scripts are reproducible from the
+repo. Run it locally:
 
 ```bash
 bun run bench:install
@@ -137,7 +156,20 @@ bun run bench:all
 
 The harness compares multiple JS/TS implementations on
 public corpora and verifies equal match counts across
-libraries.
+libraries. The speed suite is anchored in the
+many-pattern exact-search workloads where
+Aho-Corasick is meant to win, rather than single-call
+toy regex cases.
+
+Representative baseline from the checked-in public
+harness on this machine:
+
+| Scenario                            | `@stll/aho-corasick` | Best compared JS/TS result | Relative |
+| ----------------------------------- | -------------------- | -------------------------- | -------- |
+| `bible.txt`, `4.0 MB`, `20` terms   | `5.28 ms`            | `586.76 ms`                | `111.1x` |
+| `world192.txt`, `2.5 MB`, `20` terms| `1.72 ms`            | `121.46 ms`                | `70.6x`  |
+| `E.coli`, `4.6 MB`, `16` codons     | `7.34 ms`            | `113.75 ms`                | `15.5x`  |
+| `bible.txt`, single-pattern baseline| `2.71 ms`            | `23.48 ms`                 | `8.6x`   |
 
 <details>
 <summary>Alternatives tested</summary>
@@ -213,11 +245,11 @@ type ByteMatch = {
 
 ## Limitations
 
-- **Case insensitivity is ASCII-only.** The
-  underlying Rust crate folds `A-Z` to `a-z` but
-  does not handle Unicode case folding (Turkish
-  `İ`/`ı`, German `ß`/`ss`, etc.). This is a
-  [documented upstream limitation](https://docs.rs/aho-corasick/latest/aho_corasick/struct.AhoCorasickBuilder.html#method.ascii_case_insensitive).
+- **Case insensitivity uses Unicode simple case
+  folding, not locale-specific collation.** It
+  handles one-to-one folds like Turkish `İ -> i`
+  and `ẞ -> ß`, but it does not perform full
+  multi-character expansions such as `ß -> ss`.
 - **WASM requires `SharedArrayBuffer`.** Browser
   builds need `Cross-Origin-Opener-Policy: same-origin`
   and `Cross-Origin-Embedder-Policy: require-corp`

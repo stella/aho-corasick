@@ -17,7 +17,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/stella/aho-corasick"
+    "url": "git+https://github.com/stella/aho-corasick.git"
   },
   "files": [
     "dist"
@@ -32,9 +32,9 @@
     }
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "dependencies": {
-    "@napi-rs/wasm-runtime": "^1.1.1"
+    "@napi-rs/wasm-runtime": "^1.1.3"
   }
 }
