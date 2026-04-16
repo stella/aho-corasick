@@ -4,6 +4,11 @@
 > for Node.js and Bun. Multi-pattern string
 > searching in linear time.
 
+## Package status
+
+Public npm publishing is not enabled yet. The planned
+package name is `@stll/aho-corasick`.
+
 ## Quick start
 
 ```typescript

@@ -18,20 +18,8 @@ exposed to JavaScript via
 
 ## Install
 
-```bash
-npm install @stll/aho-corasick
-# or
-bun add @stll/aho-corasick
-```
-
-Prebuilt binaries are available for:
-
-| Platform      | Architecture |
-| ------------- | ------------ |
-| macOS         | x64, arm64   |
-| Linux (glibc) | x64, arm64   |
-| Linux (musl)  | x64          |
-| Windows       | x64          |
+Public npm publishing is not enabled yet. The planned
+package name is `@stll/aho-corasick`.
 
 ## Usage
 
@@ -138,57 +126,18 @@ for (const m of ac.findIter(text)) {
 
 ## Benchmarks
 
-Measured on Apple M3, 24 GB RAM, macOS 25.3.0,
-Bun 1.3.10. Automaton pre-built; times are
-search-only averaged over multiple runs.
+The repository includes a checked-in benchmark harness
+for ASCII, Unicode, and WASM cases. Run it locally:
 
-Corpora:
-[Canterbury Large Corpus](https://corpus.canterbury.ac.nz/)
-(ASCII),
-[Leipzig Corpora Collection](https://wortschatz.uni-leipzig.de/en/download/)
-(Unicode).
+```bash
+bun run bench:install
+bun run bench:download
+bun run bench:all
+```
 
-Run locally:
-`bun run bench:install && bun run bench:download && bun run bench:all`
-
-### ASCII (Canterbury Large Corpus)
-
-| Haystack              | Patterns       | @stll    | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
-| --------------------- | -------------- | -------- | ------------------ | ----------- | -------- | ------------ |
-| bible.txt (4.0 MB)    | 20 legal terms | **5 ms** | 444 ms             | 130 ms      | 129 ms   | 585 ms       |
-| E.coli (4.6 MB)       | 16 DNA codons  | **2 ms** | 288 ms             | 16 ms       | 135 ms   | 637 ms       |
-| world192.txt (2.5 MB) | 20 legal terms | **1 ms** | 300 ms             | 121 ms      | 71 ms    | 312 ms       |
-| bible.txt (4.0 MB)    | 1 pattern      | **1 ms** | 254 ms             | 19 ms       | 53 ms    | 420 ms       |
-
-### Unicode (Leipzig Corpora Collection)
-
-| Haystack                         | Patterns       | @stll     | modern-ahocorasick | ahocorasick | @monyone | @tanishiking |
-| -------------------------------- | -------------- | --------- | ------------------ | ----------- | -------- | ------------ |
-| Czech news 2024 (4.8 MB)         | 10 legal terms | **23 ms** | 563 ms             | 271 ms      | 94 ms    | 652 ms       |
-| Turkish news 2024 (5.4 MB)       | 10 terms       | **28 ms** | 724 ms             | 358 ms      | 158 ms   | 731 ms       |
-| Japanese newscrawl 2019 (2.4 MB) | 10 terms       | **16 ms** | 521 ms             | 411 ms      | 168 ms   | 620 ms       |
-| Chinese Wikipedia 2021 (2.0 MB)  | 10 terms       | **15 ms** | 361 ms             | 323 ms      | 94 ms    | 607 ms       |
-| German news 2024 (5.5 MB)        | 10 terms       | **13 ms** | 742 ms             | 229 ms      | 107 ms   | 846 ms       |
-
-### WASM (browser target)
-
-The same Rust code compiles to WASM via
-`wasm32-wasip1-threads`. Bundlers (Vite, Webpack)
-auto-select the WASM build for browser targets.
-
-| Haystack            | @stll WASM | @stll native | Best pure JS |
-| ------------------- | ---------- | ------------ | ------------ |
-| bible.txt (4.0 MB)  | **34 ms**  | 4 ms         | 186 ms       |
-| Czech news (4.8 MB) | **61 ms**  | 17 ms        | 208 ms       |
-
-WASM is 4-8x slower than native, but 3-6x faster
-than the best pure-JS alternative; in browsers
-where native modules are unavailable, it is the
-fastest option.
-
-All match counts verified equal across libraries.
-Match offsets are UTF-16 code unit indices,
-compatible with `String.prototype.slice()`.
+The harness compares multiple JS/TS implementations on
+public corpora and verifies equal match counts across
+libraries.
 
 <details>
 <summary>Alternatives tested</summary>
