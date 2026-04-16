@@ -10,6 +10,14 @@ Install:
   # or
   bun add @stll/aho-corasick
 
+For browser usage, use the separate
+`@stll/aho-corasick-wasm` package.
+
+If you use the browser package with Vite, import
+`@stll/aho-corasick-wasm/vite` and add the plugin
+to your Vite config so the generated WASM loader is
+not pre-bundled into broken asset URLs.
+
 ## Quick start
 
 ```typescript
