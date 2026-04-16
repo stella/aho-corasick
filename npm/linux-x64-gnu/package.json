@@ -1,0 +1,41 @@
+{
+  "name": "@stll/aho-corasick-linux-x64-gnu",
+  "version": "1.0.0-rc.1",
+  "cpu": [
+    "x64"
+  ],
+  "main": "aho-corasick.linux-x64-gnu.node",
+  "files": [
+    "aho-corasick.linux-x64-gnu.node"
+  ],
+  "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
+  "keywords": [
+    "aho-corasick",
+    "multi-pattern",
+    "napi-rs",
+    "native",
+    "rust",
+    "string-search"
+  ],
+  "homepage": "https://github.com/stella/aho-corasick#readme",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stella/aho-corasick.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stella/aho-corasick/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "os": [
+    "linux"
+  ],
+  "libc": [
+    "glibc"
+  ]
+}

@@ -1,0 +1,43 @@
+{
+  "name": "@stll/aho-corasick-wasm32-wasi",
+  "version": "1.0.0-rc.1",
+  "cpu": [
+    "wasm32"
+  ],
+  "main": "aho-corasick.wasi.cjs",
+  "files": [
+    "aho-corasick.wasm32-wasi.wasm",
+    "aho-corasick.wasi.cjs",
+    "aho-corasick.wasi-browser.js",
+    "wasi-worker.mjs",
+    "wasi-worker-browser.mjs"
+  ],
+  "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
+  "keywords": [
+    "aho-corasick",
+    "multi-pattern",
+    "napi-rs",
+    "native",
+    "rust",
+    "string-search"
+  ],
+  "homepage": "https://github.com/stella/aho-corasick#readme",
+  "license": "MIT",
+  "engines": {
+    "node": ">= 18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/stella/aho-corasick.git"
+  },
+  "bugs": {
+    "url": "https://github.com/stella/aho-corasick/issues"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "browser": "aho-corasick.wasi-browser.js",
+  "dependencies": {
+    "@napi-rs/wasm-runtime": "^1.1.3"
+  }
+}
