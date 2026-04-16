@@ -109,4 +109,4 @@ type ByteMatch = {
 - Case insensitivity uses Unicode simple case folding. It handles one-to-one folds like `İ -> i` and `ẞ -> ß`, but not locale-specific full expansions like `ß -> ss`.
 - `leftmost-first`: pattern insertion order determines which pattern wins at a position. `leftmost-longest`: longest match wins regardless of order.
 - The automaton is built once at construction and reused. Construction is O(patterns); search is O(haystack + matches).
-- Native binary for Node.js/Bun; WASM fallback for browsers. Bundlers auto-select via the `browser` field.
+- Native binary for Node.js/Bun. For browser usage, use the separate `@stll/aho-corasick-wasm` package; add `@stll/aho-corasick-wasm/vite` when using Vite.
