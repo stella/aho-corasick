@@ -13,8 +13,6 @@ npm/*/*.node
 # Root-level WASI shim files (build artifacts)
 aho-corasick.wasi.cjs
 aho-corasick.wasi-browser.js
-wasi-worker.mjs
-wasi-worker-browser.mjs
 browser.js
 
 # Env

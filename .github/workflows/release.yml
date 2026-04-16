@@ -3,7 +3,6 @@ name: Release
 env:
   NODE_VERSION: "22"
   CARGO_INCREMENTAL: 0
-  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 on:
   workflow_dispatch:
@@ -158,11 +157,11 @@ jobs:
         run: |
           ls -R artifacts/
           for dir in artifacts/bindings-*; do
-            cp "$dir"/*.node . 2>/dev/null || true
-            cp "$dir"/*.wasm . 2>/dev/null || true
-            cp "$dir"/*.cjs . 2>/dev/null || true
-            cp "$dir"/*.js . 2>/dev/null || true
-            cp "$dir"/wasi-worker*.mjs . 2>/dev/null || true
+            cp -- "$dir"/*.node . 2>/dev/null || true
+            cp -- "$dir"/*.wasm . 2>/dev/null || true
+            cp -- "$dir"/*.cjs . 2>/dev/null || true
+            cp -- "$dir"/*.js . 2>/dev/null || true
+            cp -- "$dir"/wasi-worker*.mjs . 2>/dev/null || true
           done
       - run: bun test
       - name: Property tests
