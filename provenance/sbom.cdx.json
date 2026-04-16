@@ -2015,7 +2015,13 @@
         ],
         "occurrences": [
           {
+            "location": "aho-corasick.wasi-browser.js#6"
+          },
+          {
             "location": "npm/wasm32-wasi/aho-corasick.wasi-browser.js#6"
+          },
+          {
+            "location": "aho-corasick.wasi.cjs#15"
           },
           {
             "location": "npm/wasm32-wasi/aho-corasick.wasi.cjs#15"
@@ -2027,10 +2033,16 @@
             "location": "npm/wasm32-wasi/wasi-worker.mjs#9"
           },
           {
-            "location": "wasi-worker-browser.mjs#5"
+            "location": "wasi-worker-browser.mjs#1"
           },
           {
             "location": "wasi-worker.mjs#9"
+          },
+          {
+            "location": "wasm/dist/wasi-worker-browser.mjs#1"
+          },
+          {
+            "location": "wasm/dist/wasm.mjs#1"
           }
         ]
       },
