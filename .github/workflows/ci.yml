@@ -49,6 +49,8 @@ jobs:
               - 'package.json'
               - 'bun.lock'
               - 'index.cjs'
+              - '*.wasi.cjs'
+              - '*.wasi-browser.js'
               - 'wasi-worker*.mjs'
               - 'tsdown.config.ts'
               - 'scripts/**'
