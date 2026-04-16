@@ -2374,7 +2374,7 @@
           "version": "0.1.4"
         }
       ],
-      "description": "NAPI-RS bindings to the Rust aho-corasick crate for Node.js/Bun",
+      "description": "Multi-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
       "externalReferences": [
         {
           "type": "vcs",
@@ -2382,7 +2382,7 @@
         },
         {
           "type": "vcs",
-          "url": "https://github.com/stella/aho-corasick"
+          "url": "git+https://github.com/stella/aho-corasick.git"
         }
       ],
       "group": "@stll",

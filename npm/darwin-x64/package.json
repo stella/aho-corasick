@@ -24,13 +24,13 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/stella/aho-corasick"
+    "url": "git+https://github.com/stella/aho-corasick.git"
   },
   "bugs": {
     "url": "https://github.com/stella/aho-corasick/issues"
   },
   "publishConfig": {
-    "access": "restricted"
+    "access": "public"
   },
   "os": [
     "darwin"

@@ -4,10 +4,11 @@
 > for Node.js and Bun. Multi-pattern string
 > searching in linear time.
 
-## Package status
+Install:
 
-Public npm publishing is not enabled yet. The planned
-package name is `@stll/aho-corasick`.
+  npm install @stll/aho-corasick
+  # or
+  bun add @stll/aho-corasick
 
 ## Quick start
 
@@ -40,7 +41,7 @@ Constructor: `new AhoCorasick(patterns: string[], options?: Options)`
 
 Options:
 - `matchKind`: `"leftmost-first"` (default) or `"leftmost-longest"`
-- `caseInsensitive`: `boolean` (default `false`, ASCII-only: A-Z to a-z)
+- `caseInsensitive`: `boolean` (default `false`, Unicode simple case folding; not locale-specific full collation)
 - `dfa`: `boolean` (default `false`, force DFA mode)
 - `wholeWords`: `boolean` (default `false`, Unicode-aware word boundary detection; CJK always passes)
 
@@ -97,7 +98,7 @@ type ByteMatch = {
 
 ## Important notes
 
-- Case insensitivity is ASCII-only (A-Z to a-z). Turkish İ, German ß, and other Unicode case folding is not supported.
+- Case insensitivity uses Unicode simple case folding. It handles one-to-one folds like `İ -> i` and `ẞ -> ß`, but not locale-specific full expansions like `ß -> ss`.
 - `leftmost-first`: pattern insertion order determines which pattern wins at a position. `leftmost-longest`: longest match wins regardless of order.
 - The automaton is built once at construction and reused. Construction is O(patterns); search is O(haystack + matches).
 - Native binary for Node.js/Bun; WASM fallback for browsers. Bundlers auto-select via the `browser` field.
