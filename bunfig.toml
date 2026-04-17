@@ -2,3 +2,10 @@
 # 5-day quarantine: reject package versions published
 # less than 5 days ago to mitigate supply chain attacks.
 minimumReleaseAge = 432_000
+minimumReleaseAgeExcludes = [
+  "@stll/aho-corasick-darwin-x64",
+  "@stll/aho-corasick-darwin-arm64",
+  "@stll/aho-corasick-linux-x64-gnu",
+  "@stll/aho-corasick-linux-arm64-gnu",
+  "@stll/aho-corasick-wasm32-wasi",
+]
