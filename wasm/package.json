@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick-wasm",
-  "version": "1.0.0-rc.1",
+  "version": "1.0.0",
   "description": "Exact many-pattern string search for browsers via WebAssembly. Same API as @stll/aho-corasick.",
   "keywords": [
     "aho-corasick",
