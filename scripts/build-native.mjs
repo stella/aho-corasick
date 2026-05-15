@@ -8,7 +8,11 @@ const cliPath = new URL(
 
 const result = spawnSync(
   process.execPath,
-  [fileURLToPath(cliPath), "build", ...process.argv.slice(2)],
+  [
+    fileURLToPath(cliPath),
+    "build",
+    ...process.argv.slice(2),
+  ],
   {
     stdio: "inherit",
   },

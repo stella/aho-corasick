@@ -36,7 +36,9 @@
     "index.cjs",
     "index.d.ts",
     "*.wasi.cjs",
-    "*.wasi-browser.js"
+    "*.wasi-browser.js",
+    "wasi-worker.mjs",
+    "wasi-worker-browser.mjs"
   ],
   "overrides": [
     {

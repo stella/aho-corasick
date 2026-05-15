@@ -176,15 +176,16 @@ toy regex cases.
 
 Representative baseline from the checked-in public
 harness on this machine:
+
 - runtime: Bun `1.3.12`
 - platform: macOS `26.4.1` (`Darwin arm64`)
 
-| Scenario                            | `@stll/aho-corasick` | Best compared JS/TS result | Relative |
-| ----------------------------------- | -------------------- | -------------------------- | -------- |
-| `bible.txt`, `4.0 MB`, `20` terms   | `2.27 ms`            | `69.25 ms`                 | `30.5x`  |
-| `world192.txt`, `2.5 MB`, `20` terms| `1.55 ms`            | `41.88 ms`                 | `26.9x`  |
-| `E.coli`, `4.6 MB`, `16` codons     | `0.83 ms`            | `11.00 ms`                 | `13.3x`  |
-| `bible.txt`, single-pattern baseline| `0.67 ms`            | `20.10 ms`                 | `29.9x`  |
+| Scenario                             | `@stll/aho-corasick` | Best compared JS/TS result | Relative |
+| ------------------------------------ | -------------------- | -------------------------- | -------- |
+| `bible.txt`, `4.0 MB`, `20` terms    | `2.27 ms`            | `69.25 ms`                 | `30.5x`  |
+| `world192.txt`, `2.5 MB`, `20` terms | `1.55 ms`            | `41.88 ms`                 | `26.9x`  |
+| `E.coli`, `4.6 MB`, `16` codons      | `0.83 ms`            | `11.00 ms`                 | `13.3x`  |
+| `bible.txt`, single-pattern baseline | `0.67 ms`            | `20.10 ms`                 | `29.9x`  |
 
 <details>
 <summary>Alternatives tested</summary>
