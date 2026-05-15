@@ -35,8 +35,11 @@ describe("stllAhoCorasickWasmVite", () => {
     const plugin = stllAhoCorasickWasmVite();
 
     expect(plugin.name).toBe("stll-aho-corasick-wasm");
-    expect(plugin.config?.({ optimizeDeps: { exclude: ["existing-package"] } }))
-      .toEqual({
+    expect(
+      plugin.config?.({
+        optimizeDeps: { exclude: ["existing-package"] },
+      }),
+    ).toEqual({
       optimizeDeps: {
         exclude: [...WASM_VITE_PACKAGES],
       },
@@ -59,9 +62,13 @@ const bytes = await fetch(__wasmUrl).then((res) => res.arrayBuffer())
       "@stll/aho-corasick-wasm",
     );
 
-    expect(transformed).toContain("const view = new Uint8Array(bytes)");
+    expect(transformed).toContain(
+      "const view = new Uint8Array(bytes)",
+    );
     expect(transformed).toContain("view[0] !== 0x00");
-    expect(transformed).toContain("@stll/aho-corasick-wasm/vite");
+    expect(transformed).toContain(
+      "@stll/aho-corasick-wasm/vite",
+    );
   });
 
   test("warns when napi-rs loader format changes", () => {

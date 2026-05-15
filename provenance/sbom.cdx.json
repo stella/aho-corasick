@@ -2047,9 +2047,7 @@
       ],
       "purl": "pkg:npm/vite@8.0.8",
       "scope": "required",
-      "tags": [
-        "web"
-      ],
+      "tags": ["web"],
       "type": "library",
       "version": "8.0.8"
     }
@@ -2062,9 +2060,7 @@
   ],
   "dependencies": [
     {
-      "dependsOn": [
-        "pkg:cargo/memchr@2.8.0"
-      ],
+      "dependsOn": ["pkg:cargo/memchr@2.8.0"],
       "ref": "pkg:cargo/aho-corasick@1.1.4"
     },
     {
@@ -2093,9 +2089,7 @@
       "ref": "pkg:cargo/ctor-proc-macro@0.0.7"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/dtor-proc-macro@0.0.6"
-      ],
+      "dependsOn": ["pkg:cargo/dtor-proc-macro@0.0.6"],
       "ref": "pkg:cargo/dtor@0.1.1"
     },
     {
@@ -2222,9 +2216,7 @@
       "ref": "pkg:cargo/napi-derive-backend@5.0.2"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/libloading@0.9.0"
-      ],
+      "dependsOn": ["pkg:cargo/libloading@0.9.0"],
       "ref": "pkg:cargo/napi-sys@3.2.1"
     },
     {
@@ -2236,15 +2228,11 @@
       "ref": "pkg:cargo/pin-project-lite@0.2.17"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/unicode-ident@1.0.24"
-      ],
+      "dependsOn": ["pkg:cargo/unicode-ident@1.0.24"],
       "ref": "pkg:cargo/proc-macro2@1.0.106"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/proc-macro2@1.0.106"
-      ],
+      "dependsOn": ["pkg:cargo/proc-macro2@1.0.106"],
       "ref": "pkg:cargo/quote@1.0.45"
     },
     {
@@ -2256,15 +2244,11 @@
       "ref": "pkg:cargo/semver@1.0.27"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/serde_core@1.0.228"
-      ],
+      "dependsOn": ["pkg:cargo/serde_core@1.0.228"],
       "ref": "pkg:cargo/serde@1.0.228"
     },
     {
-      "dependsOn": [
-        "pkg:cargo/serde_derive@1.0.228"
-      ],
+      "dependsOn": ["pkg:cargo/serde_derive@1.0.228"],
       "ref": "pkg:cargo/serde_core@1.0.228"
     },
     {

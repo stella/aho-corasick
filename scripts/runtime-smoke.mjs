@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 
-import { AhoCorasick, StreamMatcher } from "../dist/index.mjs";
+import {
+  AhoCorasick,
+  StreamMatcher,
+} from "../dist/index.mjs";
 
 const haystack = "foo bar baz";
 const matcher = new AhoCorasick(["foo", "bar", "baz"]);
@@ -20,7 +23,9 @@ assert.equal(
 
 const stream = new StreamMatcher(["needle"]);
 assert.equal(stream.write(Buffer.from("nee")).length, 0);
-const streamMatches = stream.write(Buffer.from("dle haystack"));
+const streamMatches = stream.write(
+  Buffer.from("dle haystack"),
+);
 assert.equal(streamMatches.length, 1);
 assert.equal(streamMatches[0]?.pattern, 0);
 assert.equal(stream.flush().length, 0);
