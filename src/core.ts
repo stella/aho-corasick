@@ -24,6 +24,9 @@ type NativeAhoCorasickInstance = {
     haystack: string,
     replacements: string[],
   ): string;
+  _findIterPackedBuf(
+    haystack: Buffer | Uint8Array,
+  ): Uint32Array;
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
 };
@@ -161,6 +164,32 @@ function unpack(
     if (names && names[idx] !== undefined)
       m.name = names[idx];
     matches[j] = m;
+  }
+  return matches;
+}
+
+/** Unpack a buffer-mode packed result. Offsets are
+ *  bytes (the buffer path does not translate to
+ *  UTF-16 code units), and `ByteMatch` has no
+ *  `text` field. */
+function unpackBuf(packed: Uint32Array): ByteMatch[] {
+  const len = packed.length;
+  // eslint-disable-next-line unicorn/no-new-array
+  const matches = new Array<ByteMatch>(len / 3);
+  for (let i = 0, j = 0; i < len; i += 3, j++) {
+    const idx = packed[i];
+    const start = packed[i + 1];
+    const end = packed[i + 2];
+    if (
+      idx === undefined ||
+      start === undefined ||
+      end === undefined
+    ) {
+      throw new Error(
+        `Malformed packed matches at offset ${String(i)}`,
+      );
+    }
+    matches[j] = { pattern: idx, start, end };
   }
   return matches;
 }
@@ -361,7 +390,9 @@ export class AhoCorasick {
    * Returns **byte offsets** (not UTF-16).
    */
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[] {
-    return this._inner.findIterBuf(haystack);
+    return unpackBuf(
+      this._inner._findIterPackedBuf(haystack),
+    );
   }
 
   /**
