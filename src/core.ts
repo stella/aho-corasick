@@ -140,8 +140,13 @@ function unpack(
   names: (string | undefined)[] | null,
 ): Match[] {
   const len = packed.length;
+  // `Math.floor` is defensive: if the native side
+  // ever returned a length that is not a multiple of
+  // 3, `new Array(non-integer)` would throw a cryptic
+  // `RangeError` before the per-triple guard could
+  // surface a descriptive error.
   // eslint-disable-next-line unicorn/no-new-array
-  const matches = new Array<Match>(len / 3);
+  const matches = new Array<Match>(Math.floor(len / 3));
   for (let i = 0, j = 0; i < len; i += 3, j++) {
     const idx = packed[i];
     const start = packed[i + 1];
@@ -174,8 +179,13 @@ function unpack(
  *  `text` field. */
 function unpackBuf(packed: Uint32Array): ByteMatch[] {
   const len = packed.length;
+  // `Math.floor` is defensive: if the native side
+  // ever returned a length that is not a multiple of
+  // 3, `new Array(non-integer)` would throw a cryptic
+  // `RangeError` before the per-triple guard could
+  // surface a descriptive error.
   // eslint-disable-next-line unicorn/no-new-array
-  const matches = new Array<ByteMatch>(len / 3);
+  const matches = new Array<ByteMatch>(Math.floor(len / 3));
   for (let i = 0, j = 0; i < len; i += 3, j++) {
     const idx = packed[i];
     const start = packed[i + 1];
