@@ -1362,6 +1362,44 @@ describe("findIterBuf", () => {
     const matches = ac.findIterBuf(buf);
     expect(matches).toHaveLength(1);
   });
+
+  test("agrees with findIter on ASCII (byte == UTF-16)", () => {
+    const ac = new AhoCorasick(["the", "and", "or"]);
+    const text = "the cat and the dog or the bird";
+    const str = ac.findIter(text);
+    const buf = ac.findIterBuf(Buffer.from(text));
+
+    expect(buf).toHaveLength(str.length);
+    for (const [i, b] of buf.entries()) {
+      expect(b.pattern).toBe(str[i]!.pattern);
+      expect(b.start).toBe(str[i]!.start);
+      expect(b.end).toBe(str[i]!.end);
+    }
+  });
+
+  test("handles large match counts via packed transport", () => {
+    // Stresses the packed Uint32Array path: must
+    // unpack thousands of matches without losing
+    // any. Mismatch here indicates a transport bug.
+    const ac = new AhoCorasick(["the"]);
+    const text = "the ".repeat(10000);
+    const matches = ac.findIterBuf(Buffer.from(text));
+    expect(matches).toHaveLength(10000);
+    expect(matches[0]).toEqual({
+      pattern: 0,
+      start: 0,
+      end: 3,
+    });
+    const last = matches.at(-1)!;
+    expect(last.pattern).toBe(0);
+    expect(last.end - last.start).toBe(3);
+  });
+
+  test("returns empty array when there are no matches", () => {
+    const ac = new AhoCorasick(["needle"]);
+    const matches = ac.findIterBuf(Buffer.from("haystack"));
+    expect(matches).toEqual([]);
+  });
 });
 
 describe("isMatchBuf", () => {

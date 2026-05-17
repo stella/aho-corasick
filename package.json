@@ -58,7 +58,8 @@
     "bench:speed": "bun __bench__/speed.ts",
     "bench:unicode": "bun __bench__/unicode.ts",
     "bench:correctness": "bun __bench__/correctness.ts",
-    "bench:all": "bun __bench__/speed.ts && bun __bench__/unicode.ts && bun __bench__/correctness.ts",
+    "bench:buf": "bun __bench__/buf-vs-string.ts",
+    "bench:all": "bun __bench__/speed.ts && bun __bench__/unicode.ts && bun __bench__/correctness.ts && bun __bench__/buf-vs-string.ts",
     "bench:install": "cd __bench__ && bun install",
     "bench:download": "bash __bench__/download-corpus.sh"
   },
