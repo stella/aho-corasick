@@ -24,6 +24,9 @@ type NativeAhoCorasickInstance = {
     haystack: string,
     replacements: string[],
   ): string;
+  _findIterPackedBuf(
+    haystack: Buffer | Uint8Array,
+  ): Uint32Array;
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
 };
@@ -137,8 +140,13 @@ function unpack(
   names: (string | undefined)[] | null,
 ): Match[] {
   const len = packed.length;
+  // `Math.floor` is defensive: if the native side
+  // ever returned a length that is not a multiple of
+  // 3, `new Array(non-integer)` would throw a cryptic
+  // `RangeError` before the per-triple guard could
+  // surface a descriptive error.
   // eslint-disable-next-line unicorn/no-new-array
-  const matches = new Array<Match>(len / 3);
+  const matches = new Array<Match>(Math.floor(len / 3));
   for (let i = 0, j = 0; i < len; i += 3, j++) {
     const idx = packed[i];
     const start = packed[i + 1];
@@ -161,6 +169,37 @@ function unpack(
     if (names && names[idx] !== undefined)
       m.name = names[idx];
     matches[j] = m;
+  }
+  return matches;
+}
+
+/** Unpack a buffer-mode packed result. Offsets are
+ *  bytes (the buffer path does not translate to
+ *  UTF-16 code units), and `ByteMatch` has no
+ *  `text` field. */
+function unpackBuf(packed: Uint32Array): ByteMatch[] {
+  const len = packed.length;
+  // `Math.floor` is defensive: if the native side
+  // ever returned a length that is not a multiple of
+  // 3, `new Array(non-integer)` would throw a cryptic
+  // `RangeError` before the per-triple guard could
+  // surface a descriptive error.
+  // eslint-disable-next-line unicorn/no-new-array
+  const matches = new Array<ByteMatch>(Math.floor(len / 3));
+  for (let i = 0, j = 0; i < len; i += 3, j++) {
+    const idx = packed[i];
+    const start = packed[i + 1];
+    const end = packed[i + 2];
+    if (
+      idx === undefined ||
+      start === undefined ||
+      end === undefined
+    ) {
+      throw new Error(
+        `Malformed packed matches at offset ${String(i)}`,
+      );
+    }
+    matches[j] = { pattern: idx, start, end };
   }
   return matches;
 }
@@ -361,7 +400,9 @@ export class AhoCorasick {
    * Returns **byte offsets** (not UTF-16).
    */
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[] {
-    return this._inner.findIterBuf(haystack);
+    return unpackBuf(
+      this._inner._findIterPackedBuf(haystack),
+    );
   }
 
   /**
