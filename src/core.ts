@@ -240,10 +240,14 @@ function filterWholeWords(
 
 // ── Pattern normalization ───────────────────────
 
-function normalizePatterns(patterns: PatternEntry[]): {
+function normalizePatterns(patterns: readonly unknown[]): {
   strings: string[];
   names: (string | undefined)[] | null;
 } {
+  if (!Array.isArray(patterns)) {
+    throw new TypeError("Patterns must be an array");
+  }
+
   const strings: string[] = [];
   const names: (string | undefined)[] = [];
   let hasNames = false;
@@ -252,24 +256,33 @@ function normalizePatterns(patterns: PatternEntry[]): {
     if (typeof p === "string") {
       strings.push(p);
       names.push(undefined);
-    } else if (
-      typeof p === "object" &&
-      p !== null &&
-      "pattern" in p
+      continue;
+    }
+
+    if (
+      typeof p !== "object" ||
+      p === null ||
+      !("pattern" in p) ||
+      typeof p.pattern !== "string"
     ) {
-      strings.push(p.pattern);
-      if (p.name !== undefined) {
-        hasNames = true;
-        names.push(p.name);
-      } else {
-        names.push(undefined);
-      }
-    } else {
       throw new TypeError(
         "Pattern must be a string or " +
           "{ pattern: string; name?: string }",
       );
     }
+
+    strings.push(p.pattern);
+    if (!("name" in p) || p.name === undefined) {
+      names.push(undefined);
+      continue;
+    }
+
+    if (typeof p.name !== "string") {
+      throw new TypeError("Pattern name must be a string");
+    }
+
+    hasNames = true;
+    names.push(p.name);
   }
 
   return { strings, names: hasNames ? names : null };
@@ -312,9 +325,9 @@ export class AhoCorasick {
     const nativeOpts: Record<string, unknown> | undefined =
       options ? { ...options } : undefined;
     if (nativeOpts) {
-      delete nativeOpts.unicodeBoundaries;
+      delete nativeOpts["unicodeBoundaries"];
       if (this._jsWholeWords) {
-        nativeOpts.wholeWords = false;
+        nativeOpts["wholeWords"] = false;
       }
     }
 
@@ -436,7 +449,7 @@ export class StreamMatcher {
     const nativeOpts: Record<string, unknown> | undefined =
       options ? { ...options } : undefined;
     if (nativeOpts) {
-      delete nativeOpts.unicodeBoundaries;
+      delete nativeOpts["unicodeBoundaries"];
     }
     this._inner = new binding.StreamMatcher(
       patterns,

@@ -178,11 +178,10 @@ const printResults = (
       r.matches.length > 5
         ? ` (+${r.matches.length - 5} more)`
         : "";
-    const marker = !allSame
-      ? r.matches.length === counts[0]
-        ? ""
-        : " \x1b[33m⚠ DIFFERS\x1b[0m"
-      : "";
+    let marker = "";
+    if (!allSame && r.matches.length !== counts.at(0)) {
+      marker = " \x1b[33m⚠ DIFFERS\x1b[0m";
+    }
     console.log(
       `    ${r.name}: ` +
         `${r.matches.length} matches` +
