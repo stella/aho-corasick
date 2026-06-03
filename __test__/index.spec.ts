@@ -84,9 +84,9 @@ describe("AhoCorasick", () => {
   });
 
   test("non-array patterns fail with a descriptive error", () => {
-    expect(() => Reflect.construct(AhoCorasick, ["foo"])).toThrow(
-      "Patterns must be an array",
-    );
+    expect(() =>
+      Reflect.construct(AhoCorasick, ["foo"]),
+    ).toThrow("Patterns must be an array");
   });
 
   test("empty haystack", () => {
