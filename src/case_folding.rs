@@ -2,8 +2,10 @@ use std::sync::OnceLock;
 
 use aho_corasick::{
   AhoCorasick as RawAhoCorasick, AhoCorasickBuilder,
-  AhoCorasickKind, Input, MatchKind as RawMatchKind,
+  AhoCorasickKind, MatchKind as RawMatchKind,
 };
+
+const ASCII_CI_BUILDER_PATTERN_LIMIT: usize = 4096;
 
 // ─── Unicode Simple Case Folding ─────────────
 //
@@ -37,6 +39,10 @@ use aho_corasick::{
 /// İ as case-equivalent to i prevents misses.
 #[inline]
 fn simple_case_fold(ch: char) -> char {
+  if ch.is_ascii() {
+    return ch.to_ascii_lowercase();
+  }
+
   match ch {
     '\u{0130}' => 'i', // İ -> i (Turkic, not in S/C)
     _ => unicode_case_mapping::case_folded(ch)
@@ -52,6 +58,28 @@ fn simple_case_fold(ch: char) -> char {
 /// Use `SearchCtx` to handle byte-offset mapping.
 fn simple_fold_string(s: &str) -> String {
   s.chars().map(simple_case_fold).collect()
+}
+
+fn effective_patterns(
+  mut patterns: Vec<String>,
+  case_insensitive: bool,
+  ascii_case_insensitive: bool,
+) -> Vec<String> {
+  if !case_insensitive {
+    return patterns;
+  }
+
+  for pattern in &mut patterns {
+    if pattern.is_ascii() {
+      if !ascii_case_insensitive {
+        pattern.make_ascii_lowercase();
+      }
+      continue;
+    }
+    *pattern = simple_fold_string(pattern);
+  }
+
+  patterns
 }
 
 /// Folded search text with optional byte offset
@@ -182,53 +210,56 @@ impl<'a> PreparedBytes<'a> {
 /// CaseFoldingAC methods.
 pub struct CaseFoldingAC {
   raw: RawAhoCorasick,
+  raw_supports_overlapping: bool,
   overlapping: OnceLock<RawAhoCorasick>,
-  patterns: Vec<String>,
+  fallback_patterns: Option<Vec<String>>,
   case_insensitive: bool,
+  ascii_case_insensitive: bool,
   dfa: bool,
-  max_pattern_byte_len: usize,
 }
 
 impl CaseFoldingAC {
   pub fn build(
-    patterns: &[String],
+    patterns: Vec<String>,
     match_kind: RawMatchKind,
     case_insensitive: bool,
     dfa: bool,
   ) -> Result<Self, napi::Error> {
-    let effective_patterns: Vec<String> =
-      if case_insensitive {
-        patterns
-          .iter()
-          .map(|p| simple_fold_string(p))
-          .collect()
-      } else {
-        patterns.to_vec()
-      };
+    let ascii_case_insensitive = case_insensitive
+      && patterns.len() <= ASCII_CI_BUILDER_PATTERN_LIMIT;
+    let effective_patterns = effective_patterns(
+      patterns,
+      case_insensitive,
+      ascii_case_insensitive,
+    );
     let mut builder = AhoCorasickBuilder::new();
     builder.match_kind(match_kind);
-    if case_insensitive {
-      // Belt: automaton handles ASCII CI natively
+    if ascii_case_insensitive {
       builder.ascii_case_insensitive(true);
     }
     if dfa {
       builder.kind(Some(AhoCorasickKind::DFA));
     }
+    let raw_supports_overlapping =
+      matches!(match_kind, RawMatchKind::Standard);
     let raw =
       builder.build(&effective_patterns).map_err(|e| {
         napi::Error::from_reason(format!(
           "Failed to build automaton: {e}"
         ))
       })?;
-    let max_pattern_byte_len =
-      patterns.iter().map(|p| p.len()).max().unwrap_or(0);
     Ok(Self {
       raw,
+      raw_supports_overlapping,
       overlapping: OnceLock::new(),
-      patterns: patterns.to_vec(),
+      fallback_patterns: if raw_supports_overlapping {
+        None
+      } else {
+        Some(effective_patterns.clone())
+      },
       case_insensitive,
+      ascii_case_insensitive,
       dfa,
-      max_pattern_byte_len,
     })
   }
 
@@ -238,7 +269,9 @@ impl CaseFoldingAC {
     &self,
     text: &'a str,
   ) -> PreparedSearch<'a> {
-    if !self.case_insensitive || text.is_ascii() {
+    if !self.case_insensitive
+      || (self.ascii_case_insensitive && text.is_ascii())
+    {
       PreparedSearch::Direct(text)
     } else {
       let ctx = SearchCtx::new(text);
@@ -255,12 +288,12 @@ impl CaseFoldingAC {
     &self,
     bytes: &'a [u8],
   ) -> PreparedBytes<'a> {
-    if !self.case_insensitive || bytes.is_ascii() {
-      // CS: no folding. ASCII CI: automaton handles
-      // it via ascii_case_insensitive. Single scan.
+    if !self.case_insensitive
+      || (self.ascii_case_insensitive && bytes.is_ascii())
+    {
       return PreparedBytes::Direct(bytes);
     }
-    // Non-ASCII CI: need UTF-8 validation + fold.
+
     match std::str::from_utf8(bytes) {
       Ok(text) => {
         let ctx = SearchCtx::new(text);
@@ -269,9 +302,13 @@ impl CaseFoldingAC {
           mapping: ctx.mapping,
         }
       }
-      // Non-UTF-8: best effort with automaton
-      // (ascii_case_insensitive handles ASCII bytes).
-      _ => PreparedBytes::Direct(bytes),
+      _ => PreparedBytes::Folded {
+        bytes: bytes
+          .iter()
+          .map(|byte| byte.to_ascii_lowercase())
+          .collect(),
+        mapping: PosMapping::Identity,
+      },
     }
   }
 
@@ -291,18 +328,6 @@ impl CaseFoldingAC {
     self.raw.find_iter(prep.search_bytes())
   }
 
-  /// Find next match from position (for wholeWords
-  /// incremental search).
-  pub fn find_at(
-    &self,
-    prep: &PreparedSearch,
-    range: std::ops::Range<usize>,
-  ) -> Option<aho_corasick::Match> {
-    self
-      .raw
-      .find(Input::new(prep.search_text()).range(range))
-  }
-
   /// Check if any match exists.
   pub fn is_match_str(
     &self,
@@ -318,62 +343,6 @@ impl CaseFoldingAC {
     self.raw.is_match(prep.search_bytes())
   }
 
-  /// Overlapping search for wholeWords: find the
-  /// longest whole-word match starting at `start`.
-  pub fn find_whole_word_at(
-    &self,
-    prep: &PreparedSearch,
-    start: usize,
-    haystack: &str,
-    orig_pos_fn: impl Fn(usize) -> usize,
-  ) -> Option<(u32, usize, usize)> {
-    let ov = self.overlapping_ac();
-    let input =
-      Input::new(prep.search_text()).range(start..);
-
-    let mut best: Option<(u32, usize, usize)> = None;
-    let mut state =
-      aho_corasick::automaton::OverlappingState::start();
-
-    loop {
-      ov.find_overlapping(input.clone(), &mut state);
-      let Some(m) = state.get_match() else {
-        break;
-      };
-
-      if m.end() > start + self.max_pattern_byte_len {
-        break;
-      }
-
-      if m.start() != start {
-        continue;
-      }
-
-      let os = orig_pos_fn(m.start());
-      let oe = orig_pos_fn(m.end());
-      if crate::is_whole_word(haystack, os, oe) {
-        match best {
-          None => {
-            best = Some((
-              m.pattern().as_u32(),
-              m.start(),
-              m.end(),
-            ));
-          }
-          Some((_, _, prev_end)) if m.end() > prev_end => {
-            best = Some((
-              m.pattern().as_u32(),
-              m.start(),
-              m.end(),
-            ));
-          }
-          _ => {}
-        }
-      }
-    }
-    best
-  }
-
   /// Overlapping search stepping (for
   /// find_overlapping_iter_packed).
   pub fn overlapping_find_iter<'a, 'h>(
@@ -386,26 +355,25 @@ impl CaseFoldingAC {
   }
 
   fn overlapping_ac(&self) -> &RawAhoCorasick {
+    if self.raw_supports_overlapping {
+      return &self.raw;
+    }
+
     self.overlapping.get_or_init(|| {
-      let effective = if self.case_insensitive {
-        self
-          .patterns
-          .iter()
-          .map(|p| simple_fold_string(p))
-          .collect::<Vec<_>>()
-      } else {
-        self.patterns.clone()
-      };
+      let patterns =
+        self.fallback_patterns.as_ref().expect(
+          "overlapping fallback requires retained patterns",
+        );
       let mut builder = AhoCorasickBuilder::new();
       builder.match_kind(RawMatchKind::Standard);
-      if self.case_insensitive {
+      if self.ascii_case_insensitive {
         builder.ascii_case_insensitive(true);
       }
       if self.dfa {
         builder.kind(Some(AhoCorasickKind::DFA));
       }
       builder
-        .build(&effective)
+        .build(patterns)
         .expect("overlapping build failed")
     })
   }

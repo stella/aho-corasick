@@ -680,6 +680,25 @@ describe("wholeWords option", () => {
     expect(found).toContain("hers");
   });
 
+  test("whole words first scan does not build a fallback automaton", () => {
+    const patterns = Array.from(
+      { length: 20_000 },
+      (_, index) => `word${index}`,
+    );
+    const ac = new AhoCorasick(patterns, {
+      wholeWords: true,
+    });
+
+    const start = performance.now();
+    const matches = ac.findIter("xword19999x word10000 done");
+    const elapsed = performance.now() - start;
+
+    expect(matches.map((match) => match.text)).toEqual([
+      "word10000",
+    ]);
+    expect(elapsed).toBeLessThan(100);
+  });
+
   test("without wholeWords (default)", () => {
     const ac = new AhoCorasick(["test"]);
 

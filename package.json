@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
   "keywords": [
     "aho-corasick",
@@ -79,11 +79,11 @@
     "vite": "^8.0.11"
   },
   "optionalDependencies": {
-    "@stll/aho-corasick-darwin-arm64": "1.0.1",
-    "@stll/aho-corasick-darwin-x64": "1.0.1",
-    "@stll/aho-corasick-linux-arm64-gnu": "1.0.1",
-    "@stll/aho-corasick-linux-x64-gnu": "1.0.1",
-    "@stll/aho-corasick-wasm32-wasi": "1.0.1"
+    "@stll/aho-corasick-darwin-arm64": "1.0.2",
+    "@stll/aho-corasick-darwin-x64": "1.0.2",
+    "@stll/aho-corasick-linux-arm64-gnu": "1.0.2",
+    "@stll/aho-corasick-linux-x64-gnu": "1.0.2",
+    "@stll/aho-corasick-wasm32-wasi": "1.0.2"
   },
   "napi": {
     "binaryName": "aho-corasick",
