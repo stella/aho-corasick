@@ -62,6 +62,13 @@ pub struct Match {
   pub end: u32,
 }
 
+#[derive(Clone, Copy)]
+struct ByteMatchCandidate {
+  pattern: u32,
+  start: usize,
+  end: usize,
+}
+
 // ─── Word boundary detection ──────────────────
 //
 // Uses Unicode `char::is_alphanumeric()` which
@@ -195,6 +202,93 @@ fn byte_span_utf16_len(bytes: &[u8]) -> u32 {
   count
 }
 
+fn pack_leftmost_longest_whole_word_matches(
+  haystack: &str,
+  candidates: Vec<ByteMatchCandidate>,
+) -> Uint32Array {
+  let selected =
+    select_leftmost_longest_whole_word_matches(candidates);
+  if selected.is_empty() {
+    return Uint32Array::new(Vec::new());
+  }
+
+  let mut packed = Vec::with_capacity(selected.len() * 3);
+  if haystack.is_ascii() {
+    for m in selected {
+      packed.push(m.pattern);
+      packed.push(m.start as u32);
+      packed.push(m.end as u32);
+    }
+    return Uint32Array::new(packed);
+  }
+
+  let bytes = haystack.as_bytes();
+  let mut last_byte = 0usize;
+  let mut last_utf16 = 0u32;
+  for m in selected {
+    last_utf16 +=
+      byte_span_utf16_len(&bytes[last_byte..m.start]);
+    let start = last_utf16;
+    last_byte = m.start;
+    last_utf16 +=
+      byte_span_utf16_len(&bytes[last_byte..m.end]);
+    let end = last_utf16;
+    last_byte = m.end;
+    packed.push(m.pattern);
+    packed.push(start);
+    packed.push(end);
+  }
+
+  Uint32Array::new(packed)
+}
+
+fn select_leftmost_longest_whole_word_matches(
+  mut candidates: Vec<ByteMatchCandidate>,
+) -> Vec<ByteMatchCandidate> {
+  if candidates.is_empty() {
+    return Vec::new();
+  }
+
+  candidates.sort_unstable_by(|a, b| {
+    a.start
+      .cmp(&b.start)
+      .then_with(|| b.end.cmp(&a.end))
+      .then_with(|| a.pattern.cmp(&b.pattern))
+  });
+
+  let mut selected = Vec::new();
+  let mut cursor = 0usize;
+  let mut i = 0usize;
+
+  while i < candidates.len() {
+    let start = candidates[i].start;
+    if start < cursor {
+      i += 1;
+      continue;
+    }
+
+    let mut best = candidates[i];
+    i += 1;
+    while i < candidates.len()
+      && candidates[i].start == start
+    {
+      let candidate = candidates[i];
+      if candidate.end > best.end
+        || (candidate.end == best.end
+          && candidate.pattern < best.pattern)
+      {
+        best = candidate;
+      }
+      i += 1;
+    }
+
+    selected.push(best);
+    cursor = best.end;
+  }
+
+  selected
+}
+
 // ─── Automaton builders ───────────────────────
 
 fn default_options() -> Options {
@@ -255,19 +349,19 @@ impl AhoCorasick {
     let whole_words = opts.whole_words.unwrap_or(false);
     let pattern_count = patterns.len() as u32;
 
-    // When wholeWords is enabled, use leftmostLongest
-    // so the longest match wins at each position.
-    // If the longest fails the boundary check, a
-    // targeted anchored fallback query finds shorter
-    // alternatives at that position only.
+    // With wholeWords, build a Standard automaton and
+    // select leftmost-longest matches after boundary
+    // filtering. This keeps construction to one
+    // automaton instead of a leftmost primary plus a
+    // lazy overlapping fallback.
     let effective_kind = if whole_words {
-      RawMatchKind::LeftmostLongest
+      RawMatchKind::Standard
     } else {
       match_kind
     };
 
     let search = CaseFoldingAC::build(
-      &patterns,
+      patterns,
       effective_kind,
       case_insensitive,
       dfa,
@@ -293,39 +387,13 @@ impl AhoCorasick {
       let prep = self.search.prepare(&haystack);
       return self.search.is_match_str(&prep);
     }
-    // With wholeWords: search prepared text, check
-    // boundaries on original.
     let prep = self.search.prepare(&haystack);
-    let search_text = prep.search_text();
-    let mut pos: usize = 0;
-    let len = search_text.len();
-    while pos < len {
-      let Some(m) = self.search.find_at(&prep, pos..len)
-      else {
-        return false;
-      };
+    for m in self.search.overlapping_find_iter(&prep) {
       let os = prep.orig_pos(m.start());
       let oe = prep.orig_pos(m.end());
       if is_whole_word(&haystack, os, oe) {
         return true;
       }
-      if self
-        .search
-        .find_whole_word_at(
-          &prep,
-          m.start(),
-          &haystack,
-          |p| prep.orig_pos(p),
-        )
-        .is_some()
-      {
-        return true;
-      }
-      pos = m.start()
-        + search_text[m.start()..]
-          .chars()
-          .next()
-          .map_or(1, |c| c.len_utf8());
     }
     false
   }
@@ -345,91 +413,22 @@ impl AhoCorasick {
     }
 
     let prep = self.search.prepare(&haystack);
-    let search_text = prep.search_text();
-
-    let mut packed = Vec::new();
-    let mut pos: usize = 0;
-    let len = search_text.len();
-    let is_ascii = haystack.is_ascii();
-    let bytes = haystack.as_bytes();
-    let mut last_byte: usize = 0;
-    let mut last_utf16: u32 = 0;
-
-    while pos < len {
-      let Some(m) = self.search.find_at(&prep, pos..len)
-      else {
-        break;
-      };
-
+    let mut candidates = Vec::new();
+    for m in self.search.overlapping_find_iter(&prep) {
       let os = prep.orig_pos(m.start());
       let oe = prep.orig_pos(m.end());
-
       if is_whole_word(&haystack, os, oe) {
-        if is_ascii {
-          packed.push(m.pattern().as_u32());
-          packed.push(os as u32);
-          packed.push(oe as u32);
-        } else {
-          last_utf16 +=
-            byte_span_utf16_len(&bytes[last_byte..os]);
-          let s = last_utf16;
-          last_byte = os;
-          last_utf16 +=
-            byte_span_utf16_len(&bytes[last_byte..oe]);
-          let e = last_utf16;
-          last_byte = oe;
-          packed.push(m.pattern().as_u32());
-          packed.push(s);
-          packed.push(e);
-        }
-        pos = m.end();
-      } else if let Some((pat, _, end)) =
-        self.search.find_whole_word_at(
-          &prep,
-          m.start(),
-          &haystack,
-          |p| prep.orig_pos(p),
-        )
-      {
-        let fos = prep.orig_pos(m.start());
-        let foe = prep.orig_pos(end);
-
-        if !is_whole_word(&haystack, fos, foe) {
-          pos = m.start()
-            + search_text[m.start()..]
-              .chars()
-              .next()
-              .map_or(1, |c| c.len_utf8());
-          continue;
-        }
-
-        if is_ascii {
-          packed.push(pat);
-          packed.push(fos as u32);
-          packed.push(foe as u32);
-        } else {
-          last_utf16 +=
-            byte_span_utf16_len(&bytes[last_byte..fos]);
-          let s = last_utf16;
-          last_byte = fos;
-          last_utf16 +=
-            byte_span_utf16_len(&bytes[last_byte..foe]);
-          let e = last_utf16;
-          last_byte = foe;
-          packed.push(pat);
-          packed.push(s);
-          packed.push(e);
-        }
-        pos = end;
-      } else {
-        pos = m.start()
-          + search_text[m.start()..]
-            .chars()
-            .next()
-            .map_or(1, |c| c.len_utf8());
+        candidates.push(ByteMatchCandidate {
+          pattern: m.pattern().as_u32(),
+          start: os,
+          end: oe,
+        });
       }
     }
-    Uint32Array::new(packed)
+
+    pack_leftmost_longest_whole_word_matches(
+      &haystack, candidates,
+    )
   }
 
   /// Standard find_iter without wholeWords.
@@ -589,7 +588,6 @@ impl AhoCorasick {
     }
 
     let prep = self.search.prepare(&haystack);
-    let search_text = prep.search_text();
 
     if !self.whole_words {
       // Build result by finding matches on prepared
@@ -609,61 +607,30 @@ impl AhoCorasick {
       return Ok(result);
     }
 
-    let mut result = String::with_capacity(haystack.len());
-    // `pos` tracks position in search_text.
-    // `last_orig` tracks position in original haystack.
-    let mut pos: usize = 0;
-    let mut last_orig: usize = 0;
-    let len = search_text.len();
-
-    while pos < len {
-      let Some(m) = self.search.find_at(&prep, pos..len)
-      else {
-        break;
-      };
-
+    let mut candidates = Vec::new();
+    for m in self.search.overlapping_find_iter(&prep) {
       let os = prep.orig_pos(m.start());
       let oe = prep.orig_pos(m.end());
-
       if is_whole_word(&haystack, os, oe) {
-        result.push_str(&haystack[last_orig..os]);
-        result
-          .push_str(&replacements[m.pattern().as_usize()]);
-        pos = m.end();
-        last_orig = oe;
-      } else if let Some((pat, _, end)) =
-        self.search.find_whole_word_at(
-          &prep,
-          m.start(),
-          &haystack,
-          |p| prep.orig_pos(p),
-        )
-      {
-        let foe = prep.orig_pos(end);
-        result.push_str(&haystack[last_orig..os]);
-        result.push_str(&replacements[pat as usize]);
-        pos = end;
-        last_orig = foe;
-      } else {
-        // No whole-word match here; advance one
-        // char in both spaces.
-        let orig_start = os;
-        let ch_len = haystack[orig_start..]
-          .chars()
-          .next()
-          .map_or(1, |c| c.len_utf8());
-        result.push_str(
-          &haystack[last_orig..orig_start + ch_len],
-        );
-        let folded_ch_len = search_text[m.start()..]
-          .chars()
-          .next()
-          .map_or(1, |c| c.len_utf8());
-        pos = m.start() + folded_ch_len;
-        last_orig = orig_start + ch_len;
+        candidates.push(ByteMatchCandidate {
+          pattern: m.pattern().as_u32(),
+          start: os,
+          end: oe,
+        });
       }
     }
-    // Copy remaining original text.
+
+    let selected =
+      select_leftmost_longest_whole_word_matches(
+        candidates,
+      );
+    let mut result = String::with_capacity(haystack.len());
+    let mut last_orig = 0usize;
+    for m in selected {
+      result.push_str(&haystack[last_orig..m.start]);
+      result.push_str(&replacements[m.pattern as usize]);
+      last_orig = m.end;
+    }
     result.push_str(&haystack[last_orig..]);
     Ok(result)
   }
@@ -781,7 +748,7 @@ impl StreamMatcher {
       patterns.iter().map(|p| p.len()).max().unwrap_or(0);
 
     let search = CaseFoldingAC::build(
-      &patterns,
+      patterns,
       match_kind,
       case_insensitive,
       dfa,
