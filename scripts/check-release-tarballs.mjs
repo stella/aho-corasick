@@ -70,10 +70,21 @@ const sourceWasm = readJson(
   repoPath("wasm", "package.json"),
 );
 const platforms = platformManifests();
-const expectedOptionalDependencies = sortObject(
-  Object.fromEntries(
-    platforms.map((manifest) => [manifest.name, version]),
+const platformPackageNames = new Set(
+  platforms.map((manifest) => manifest.name),
+);
+const sourceOptionalDependencies = Object.fromEntries(
+  Object.entries(sourceRoot.optionalDependencies ?? {}).filter(
+    ([name]) => !platformPackageNames.has(name),
   ),
+);
+const expectedOptionalDependencies = sortObject(
+  {
+    ...sourceOptionalDependencies,
+    ...Object.fromEntries(
+      platforms.map((manifest) => [manifest.name, version]),
+    ),
+  },
 );
 
 const root = packageFromTarball(rootTarball);
@@ -98,7 +109,7 @@ if (
 }
 
 const expectedAuxiliaryNames = new Set([
-  ...platforms.map((manifest) => manifest.name),
+  ...platformPackageNames,
   sourceWasm.name,
 ]);
 const seenAuxiliaryNames = new Set();
