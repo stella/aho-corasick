@@ -83,6 +83,12 @@ describe("AhoCorasick", () => {
     expect(ac.findIter("anything")).toEqual([]);
   });
 
+  test("non-array patterns fail with a descriptive error", () => {
+    expect(() =>
+      Reflect.construct(AhoCorasick, ["foo"]),
+    ).toThrow("Patterns must be an array");
+  });
+
   test("empty haystack", () => {
     const ac = new AhoCorasick(["test"]);
     expect(ac.isMatch("")).toBe(false);
