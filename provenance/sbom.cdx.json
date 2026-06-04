@@ -1573,7 +1573,7 @@
       ],
       "purl": "pkg:cargo/stella-aho-corasick@1.0.3",
       "type": "library",
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     {
       "bom-ref": "pkg:cargo/syn@2.0.117",
@@ -2194,7 +2194,7 @@
           "name": "stella-aho-corasick",
           "purl": "pkg:cargo/stella-aho-corasick@1.0.3",
           "type": "application",
-          "version": "1.0.2"
+          "version": "1.0.3"
         }
       ],
       "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -2220,7 +2220,7 @@
       "name": "aho-corasick",
       "purl": "pkg:npm/%40stll/aho-corasick@1.0.3",
       "type": "application",
-      "version": "1.0.2"
+      "version": "1.0.3"
     },
     "lifecycles": [
       {
