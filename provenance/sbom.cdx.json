@@ -1546,7 +1546,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.2",
+      "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.3",
       "evidence": {
         "identity": [
           {
@@ -1571,7 +1571,7 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick@1.0.2",
+      "purl": "pkg:cargo/stella-aho-corasick@1.0.3",
       "type": "library",
       "version": "1.0.2"
     },
@@ -1913,7 +1913,7 @@
   "compositions": [
     {
       "aggregate": "incomplete",
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.2"
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.3"
     }
   ],
   "dependencies": [
@@ -2136,7 +2136,7 @@
         "pkg:cargo/napi@3.9.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick@1.0.2"
+      "ref": "pkg:cargo/stella-aho-corasick@1.0.3"
     },
     {
       "dependsOn": [
@@ -2168,7 +2168,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:npm/@stll/aho-corasick@1.0.2"
+      "ref": "pkg:npm/@stll/aho-corasick@1.0.3"
     }
   ],
   "metadata": {
@@ -2178,10 +2178,10 @@
       }
     ],
     "component": {
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.2",
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.3",
       "components": [
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.2",
+          "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.3",
           "group": "",
           "licenses": [
             {
@@ -2192,7 +2192,7 @@
             }
           ],
           "name": "stella-aho-corasick",
-          "purl": "pkg:cargo/stella-aho-corasick@1.0.2",
+          "purl": "pkg:cargo/stella-aho-corasick@1.0.3",
           "type": "application",
           "version": "1.0.2"
         }
@@ -2218,7 +2218,7 @@
         }
       ],
       "name": "aho-corasick",
-      "purl": "pkg:npm/%40stll/aho-corasick@1.0.2",
+      "purl": "pkg:npm/%40stll/aho-corasick@1.0.3",
       "type": "application",
       "version": "1.0.2"
     },
