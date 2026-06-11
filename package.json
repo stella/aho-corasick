@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
   "keywords": [
     "aho-corasick",
