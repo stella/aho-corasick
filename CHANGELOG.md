@@ -1,18 +1,26 @@
 # Changelog
 
-## 1.0.4
-
-### Features
-
-- Windows support: publish the
-  `@stll/aho-corasick-win32-x64-msvc` native binding
-  (x86_64). The loader already resolved it; the
-  package now exists on the registry.
-
 All notable changes to this project will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
+## [1.0.4] - 2026-06-11
+
+### Changed
+
+- Build and publish win32-x64-msvc native binding (#88)
+- Bump aho-corasick to 1.0.4 (#90)
+
+## [1.0.3] - 2026-06-04
+
+### Changed
+
+- Refresh CHANGELOG.md (#79)
+- Use app token for changelog PRs (#80)
+- Standardize npm release workflow
+- Pin release workflow to npm visibility retry (#83)
+- Bump aho-corasick to 1.0.3
 
 ## [1.0.2] - 2026-06-04
 
@@ -58,6 +66,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Restore nightly provenance updater (#49)
 
+[1.0.4]: https://github.com/stella/aho-corasick/compare/v1.0.3..v1.0.4
+[1.0.3]: https://github.com/stella/aho-corasick/compare/v1.0.2..v1.0.3
 [1.0.2]: https://github.com/stella/aho-corasick/compare/v1.0.1..v1.0.2
 [1.0.1]: https://github.com/stella/aho-corasick/compare/v1.0.0..v1.0.1
 [1.0.0]: https://github.com/stella/aho-corasick/compare/v1.0.0-rc.1..v1.0.0
