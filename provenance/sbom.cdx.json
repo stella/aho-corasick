@@ -1852,7 +1852,7 @@
           "name": "Evan You"
         }
       ],
-      "bom-ref": "pkg:npm/vite@8.0.15",
+      "bom-ref": "pkg:npm/vite@8.0.16",
       "description": "Native-ESM powered web dev build tool",
       "evidence": {
         "identity": [
@@ -1901,13 +1901,13 @@
           "value": "node_modules/vite/package.json"
         }
       ],
-      "purl": "pkg:npm/vite@8.0.15",
+      "purl": "pkg:npm/vite@8.0.16",
       "scope": "required",
       "tags": [
         "web"
       ],
       "type": "library",
-      "version": "8.0.15"
+      "version": "8.0.16"
     }
   ],
   "compositions": [
@@ -2182,6 +2182,12 @@
       "components": [
         {
           "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.4",
+          "externalReferences": [
+            {
+              "type": "vcs",
+              "url": "https://github.com/stella/aho-corasick"
+            }
+          ],
           "group": "",
           "licenses": [
             {
