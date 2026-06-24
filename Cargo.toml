@@ -2,7 +2,7 @@
 name = "stella-aho-corasick"
 version = "1.0.4"
 edition = "2024"
-description = "Exact many-pattern string search for Stella packages"
+description = "Exact many-pattern string search"
 license = "MIT"
 publish = false
 repository = "https://github.com/stella/aho-corasick"
