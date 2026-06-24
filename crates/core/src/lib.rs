@@ -370,6 +370,49 @@ impl AhoCorasick {
     ))
   }
 
+  /// Like [`find_iter_packed`](Self::find_iter_packed) but emits UTF-8 byte
+  /// offsets instead of UTF-16 code-unit offsets.
+  ///
+  /// The engine produces byte offsets internally, so this skips the UTF-16
+  /// conversion `find_iter_packed` performs. It is the native unit for Rust
+  /// consumers that slice `&str` directly; UTF-16 consumers (e.g. JavaScript)
+  /// keep using [`find_iter_packed`](Self::find_iter_packed).
+  pub fn find_iter_packed_bytes(&self, haystack: &str) -> Result<Vec<u32>> {
+    let prep = self.search.prepare(haystack);
+
+    if !self.whole_words {
+      let mut packed = Vec::new();
+      for m in self.search.find_iter(&prep) {
+        packed.push(m.pattern().as_u32());
+        packed.push(u32_from_usize(prep.orig_pos(m.start())));
+        packed.push(u32_from_usize(prep.orig_pos(m.end())));
+      }
+      return Ok(packed);
+    }
+
+    let mut candidates = Vec::new();
+    for m in self.search.overlapping_find_iter(&prep)? {
+      let os = prep.orig_pos(m.start());
+      let oe = prep.orig_pos(m.end());
+      if is_whole_word(haystack, os, oe) {
+        candidates.push(ByteMatchCandidate {
+          pattern: m.pattern().as_u32(),
+          start: os,
+          end: oe,
+        });
+      }
+    }
+
+    let selected = select_leftmost_longest_whole_word_matches(candidates);
+    let mut packed = Vec::with_capacity(packed_capacity(selected.len()));
+    for m in selected {
+      packed.push(m.pattern);
+      packed.push(u32_from_usize(m.start));
+      packed.push(u32_from_usize(m.end));
+    }
+    Ok(packed)
+  }
+
   fn find_iter_simple(&self, haystack: &str) -> Vec<u32> {
     let prep = self.search.prepare(haystack);
 
@@ -487,6 +530,27 @@ impl AhoCorasick {
       packed.push(m.pattern().as_u32());
       packed.push(lookup(os));
       packed.push(lookup(oe));
+    }
+    Ok(packed)
+  }
+
+  /// Like [`find_overlapping_iter_packed`](Self::find_overlapping_iter_packed)
+  /// but emits UTF-8 byte offsets instead of UTF-16 code-unit offsets.
+  pub fn find_overlapping_iter_packed_bytes(
+    &self,
+    haystack: &str,
+  ) -> Result<Vec<u32>> {
+    let prep = self.search.prepare(haystack);
+    let mut packed = Vec::new();
+    for m in self.search.overlapping_find_iter(&prep)? {
+      let os = prep.orig_pos(m.start());
+      let oe = prep.orig_pos(m.end());
+      if self.whole_words && !is_whole_word(haystack, os, oe) {
+        continue;
+      }
+      packed.push(m.pattern().as_u32());
+      packed.push(u32_from_usize(os));
+      packed.push(u32_from_usize(oe));
     }
     Ok(packed)
   }
@@ -678,5 +742,27 @@ impl StreamMatcher {
   pub fn reset(&mut self) {
     self.overlap_buf.clear();
     self.global_offset = 0;
+  }
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::missing_assert_message)]
+mod tests {
+  use super::{AhoCorasick, Options};
+
+  #[test]
+  fn packed_bytes_emit_byte_offsets() {
+    // `ä` is 2 UTF-8 bytes but 1 UTF-16 code unit, so the units diverge.
+    let ac =
+      AhoCorasick::new(vec![String::from("b")], Options::default()).unwrap();
+
+    // Existing packed output is UTF-16: [pattern, start, end] = [0, 1, 2].
+    assert_eq!(ac.find_iter_packed("äb").unwrap(), vec![0, 1, 2]);
+    // Byte variant reports byte offsets: [0, 2, 3].
+    assert_eq!(ac.find_iter_packed_bytes("äb").unwrap(), vec![0, 2, 3]);
+    assert_eq!(
+      ac.find_overlapping_iter_packed_bytes("äb").unwrap(),
+      vec![0, 2, 3]
+    );
   }
 }
