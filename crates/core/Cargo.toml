@@ -1,0 +1,17 @@
+[package]
+name = "stella-aho-corasick-core"
+version = "1.0.4"
+edition = "2024"
+description = "Exact many-pattern string search core"
+license = "MIT"
+publish = false
+repository = "https://github.com/stella/aho-corasick"
+keywords = ["aho-corasick", "search", "text"]
+categories = ["text-processing"]
+
+[dependencies]
+aho-corasick = "1"
+unicode-case-mapping = "1"
+
+[lints]
+workspace = true

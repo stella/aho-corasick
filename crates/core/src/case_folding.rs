@@ -7,6 +7,8 @@ use aho_corasick::{
   MatchKind as RawMatchKind,
 };
 
+use crate::Error;
+
 const ASCII_CI_BUILDER_PATTERN_LIMIT: usize = 4096;
 
 // ─── Unicode Simple Case Folding ─────────────
@@ -240,7 +242,7 @@ impl CaseFoldingAC {
     match_kind: RawMatchKind,
     case_insensitive: bool,
     dfa: bool,
-  ) -> Result<Self, napi::Error> {
+  ) -> Result<Self, Error> {
     let ascii_case_insensitive =
       case_insensitive && patterns.len() <= ASCII_CI_BUILDER_PATTERN_LIMIT;
     let effective_patterns =
@@ -253,9 +255,9 @@ impl CaseFoldingAC {
     if dfa {
       builder.kind(Some(AhoCorasickKind::DFA));
     }
-    let raw = builder.build(&effective_patterns).map_err(|e| {
-      napi::Error::from_reason(format!("Failed to build automaton: {e}"))
-    })?;
+    let raw = builder
+      .build(&effective_patterns)
+      .map_err(|e| Error::BuildAutomaton(e.to_string()))?;
     let overlap = if matches!(match_kind, RawMatchKind::Standard) {
       OverlapAutomaton::Native
     } else {
@@ -345,7 +347,7 @@ impl CaseFoldingAC {
   pub(crate) fn overlapping_find_iter<'a, 'h>(
     &'a self,
     prep: &'h PreparedSearch<'h>,
-  ) -> Result<aho_corasick::FindOverlappingIter<'a, 'h>, napi::Error> {
+  ) -> Result<aho_corasick::FindOverlappingIter<'a, 'h>, Error> {
     Ok(
       self
         .overlapping_ac()?
@@ -353,7 +355,7 @@ impl CaseFoldingAC {
     )
   }
 
-  fn overlapping_ac(&self) -> Result<&RawAhoCorasick, napi::Error> {
+  fn overlapping_ac(&self) -> Result<&RawAhoCorasick, Error> {
     match &self.overlap {
       OverlapAutomaton::Native => Ok(&self.raw),
       OverlapAutomaton::Fallback {
@@ -374,11 +376,7 @@ impl CaseFoldingAC {
           builder.build(patterns).map_err(|e| e.to_string())
         })
         .as_ref()
-        .map_err(|reason| {
-          napi::Error::from_reason(format!(
-            "Failed to build overlapping automaton: {reason}"
-          ))
-        }),
+        .map_err(|reason| Error::BuildOverlappingAutomaton(reason.clone())),
     }
   }
 }
