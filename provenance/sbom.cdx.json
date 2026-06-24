@@ -1546,6 +1546,36 @@
       "version": "0.4.12"
     },
     {
+      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "Cargo.lock",
+            "confidence": 0.6,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.6,
+                "technique": "manifest-analysis",
+                "value": "Cargo.lock"
+              }
+            ]
+          }
+        ]
+      },
+      "group": "",
+      "name": "stella-aho-corasick-core",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "Cargo.lock"
+        }
+      ],
+      "purl": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+      "type": "library",
+      "version": "1.0.4"
+    },
+    {
       "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.4",
       "evidence": {
         "identity": [
@@ -2130,13 +2160,19 @@
     },
     {
       "dependsOn": [
-        "pkg:cargo/aho-corasick@1.1.4",
         "pkg:cargo/napi-build@2.3.2",
         "pkg:cargo/napi-derive@3.5.6",
         "pkg:cargo/napi@3.9.0",
-        "pkg:cargo/unicode-case-mapping@1.0.0"
+        "pkg:cargo/stella-aho-corasick-core@1.0.4"
       ],
       "ref": "pkg:cargo/stella-aho-corasick@1.0.4"
+    },
+    {
+      "dependsOn": [
+        "pkg:cargo/aho-corasick@1.1.4",
+        "pkg:cargo/unicode-case-mapping@1.0.0"
+      ],
+      "ref": "pkg:cargo/stella-aho-corasick-core@1.0.4"
     },
     {
       "dependsOn": [
@@ -2200,6 +2236,28 @@
           "name": "stella-aho-corasick",
           "purl": "pkg:cargo/stella-aho-corasick@1.0.4",
           "type": "application",
+          "version": "1.0.4"
+        },
+        {
+          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+          "externalReferences": [
+            {
+              "type": "vcs",
+              "url": "https://github.com/stella/aho-corasick"
+            }
+          ],
+          "group": "",
+          "licenses": [
+            {
+              "license": {
+                "id": "MIT",
+                "url": "https://opensource.org/licenses/MIT"
+              }
+            }
+          ],
+          "name": "stella-aho-corasick-core",
+          "purl": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+          "type": "library",
           "version": "1.0.4"
         }
       ],
