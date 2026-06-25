@@ -2,54 +2,6 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
-      "bom-ref": "pkg:cargo/aho-corasick@1.1.4",
-      "evidence": {
-        "identity": [
-          {
-            "concludedValue": "Cargo.lock",
-            "confidence": 0.6,
-            "field": "purl",
-            "methods": [
-              {
-                "confidence": 0.6,
-                "technique": "manifest-analysis",
-                "value": "Cargo.lock"
-              }
-            ]
-          }
-        ]
-      },
-      "group": "",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        },
-        {
-          "license": {
-            "id": "Unlicense"
-          }
-        }
-      ],
-      "name": "aho-corasick",
-      "properties": [
-        {
-          "name": "SrcFile",
-          "value": "Cargo.lock"
-        }
-      ],
-      "purl": "pkg:cargo/aho-corasick@1.1.4",
-      "type": "library",
-      "version": "1.1.4"
-    },
-    {
       "bom-ref": "pkg:cargo/bitflags@2.12.1",
       "evidence": {
         "identity": [
@@ -235,6 +187,54 @@
       "purl": "pkg:cargo/ctor@1.0.7",
       "type": "library",
       "version": "1.0.7"
+    },
+    {
+      "bom-ref": "pkg:cargo/daachorse@3.0.2",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "Cargo.lock",
+            "confidence": 0.6,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.6,
+                "technique": "manifest-analysis",
+                "value": "Cargo.lock"
+              }
+            ]
+          }
+        ]
+      },
+      "group": "",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "daachorse",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "Cargo.lock"
+        }
+      ],
+      "purl": "pkg:cargo/daachorse@3.0.2",
+      "type": "library",
+      "version": "3.0.2"
     },
     {
       "bom-ref": "pkg:cargo/futures-channel@0.3.32",
@@ -851,7 +851,7 @@
       "version": "2.3.2"
     },
     {
-      "bom-ref": "pkg:cargo/napi-derive-backend@5.0.4",
+      "bom-ref": "pkg:cargo/napi-derive-backend@5.0.5",
       "evidence": {
         "identity": [
           {
@@ -872,7 +872,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "0d5af30503edf933ce7377cf6d4c877a62b0f1107ea05585f1b5e430e88d5baf"
+          "content": "81b4b08f15eed7a2a20c3f4c6314013fc3ac890a3afa9892b594485299ebdb2d"
         }
       ],
       "licenses": [
@@ -889,12 +889,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/napi-derive-backend@5.0.4",
+      "purl": "pkg:cargo/napi-derive-backend@5.0.5",
       "type": "library",
-      "version": "5.0.4"
+      "version": "5.0.5"
     },
     {
-      "bom-ref": "pkg:cargo/napi-derive@3.5.6",
+      "bom-ref": "pkg:cargo/napi-derive@3.5.7",
       "evidence": {
         "identity": [
           {
@@ -915,7 +915,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "89b3f766e04667e6da0e181e2da4f85475d5a6513b7cf6a80bea184e224a5b42"
+          "content": "61d66f70256ad5aef58659966064471d0ad90e2897bc36a5a5e0389c85aabc1e"
         }
       ],
       "licenses": [
@@ -932,12 +932,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/napi-derive@3.5.6",
+      "purl": "pkg:cargo/napi-derive@3.5.7",
       "type": "library",
-      "version": "3.5.6"
+      "version": "3.5.7"
     },
     {
-      "bom-ref": "pkg:cargo/napi-sys@3.2.1",
+      "bom-ref": "pkg:cargo/napi-sys@3.2.2",
       "evidence": {
         "identity": [
           {
@@ -958,7 +958,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "8eb602b84d7c1edae45e50bbf1374696548f36ae179dfa667f577e384bb90c2b"
+          "content": "1f5bcdf71abd3a50d00b49c1c2c75251cb3c913777d6139cd37dabc093a5e400"
         }
       ],
       "licenses": [
@@ -975,12 +975,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/napi-sys@3.2.1",
+      "purl": "pkg:cargo/napi-sys@3.2.2",
       "type": "library",
-      "version": "3.2.1"
+      "version": "3.2.2"
     },
     {
-      "bom-ref": "pkg:cargo/napi@3.9.0",
+      "bom-ref": "pkg:cargo/napi@3.9.4",
       "evidence": {
         "identity": [
           {
@@ -1001,7 +1001,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "f1d395473824516f38dd1071a1a37bc57daa7be65b293ebba4ead5f7abb017a2"
+          "content": "b41bda2ac390efb5e8d22025d925ccc3f3807d8c1bea6d19b36127247c4b8f83"
         }
       ],
       "licenses": [
@@ -1018,9 +1018,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/napi@3.9.0",
+      "purl": "pkg:cargo/napi@3.9.4",
       "type": "library",
-      "version": "3.9.0"
+      "version": "3.9.4"
     },
     {
       "bom-ref": "pkg:cargo/nohash-hasher@0.2.0",
@@ -1948,12 +1948,6 @@
   ],
   "dependencies": [
     {
-      "dependsOn": [
-        "pkg:cargo/memchr@2.8.1"
-      ],
-      "ref": "pkg:cargo/aho-corasick@1.1.4"
-    },
-    {
       "dependsOn": [],
       "ref": "pkg:cargo/bitflags@2.12.1"
     },
@@ -1970,6 +1964,10 @@
     {
       "dependsOn": [],
       "ref": "pkg:cargo/ctor@1.0.7"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:cargo/daachorse@3.0.2"
     },
     {
       "dependsOn": [
@@ -2057,13 +2055,13 @@
         "pkg:cargo/ctor@1.0.7",
         "pkg:cargo/futures@0.3.32",
         "pkg:cargo/napi-build@2.3.2",
-        "pkg:cargo/napi-sys@3.2.1",
+        "pkg:cargo/napi-sys@3.2.2",
         "pkg:cargo/nohash-hasher@0.2.0",
         "pkg:cargo/rustc-hash@2.1.2",
         "pkg:cargo/serde@1.0.228",
         "pkg:cargo/serde_json@1.0.150"
       ],
-      "ref": "pkg:cargo/napi@3.9.0"
+      "ref": "pkg:cargo/napi@3.9.4"
     },
     {
       "dependsOn": [],
@@ -2073,12 +2071,12 @@
       "dependsOn": [
         "pkg:cargo/convert_case@0.11.0",
         "pkg:cargo/ctor@1.0.7",
-        "pkg:cargo/napi-derive-backend@5.0.4",
+        "pkg:cargo/napi-derive-backend@5.0.5",
         "pkg:cargo/proc-macro2@1.0.106",
         "pkg:cargo/quote@1.0.45",
         "pkg:cargo/syn@2.0.117"
       ],
-      "ref": "pkg:cargo/napi-derive@3.5.6"
+      "ref": "pkg:cargo/napi-derive@3.5.7"
     },
     {
       "dependsOn": [
@@ -2088,13 +2086,13 @@
         "pkg:cargo/semver@1.0.28",
         "pkg:cargo/syn@2.0.117"
       ],
-      "ref": "pkg:cargo/napi-derive-backend@5.0.4"
+      "ref": "pkg:cargo/napi-derive-backend@5.0.5"
     },
     {
       "dependsOn": [
         "pkg:cargo/libloading@0.9.0"
       ],
-      "ref": "pkg:cargo/napi-sys@3.2.1"
+      "ref": "pkg:cargo/napi-sys@3.2.2"
     },
     {
       "dependsOn": [],
@@ -2161,15 +2159,15 @@
     {
       "dependsOn": [
         "pkg:cargo/napi-build@2.3.2",
-        "pkg:cargo/napi-derive@3.5.6",
-        "pkg:cargo/napi@3.9.0",
+        "pkg:cargo/napi-derive@3.5.7",
+        "pkg:cargo/napi@3.9.4",
         "pkg:cargo/stella-aho-corasick-core@1.0.4"
       ],
       "ref": "pkg:cargo/stella-aho-corasick@1.0.4"
     },
     {
       "dependsOn": [
-        "pkg:cargo/aho-corasick@1.1.4",
+        "pkg:cargo/daachorse@3.0.2",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
       "ref": "pkg:cargo/stella-aho-corasick-core@1.0.4"
