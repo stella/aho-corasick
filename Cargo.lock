@@ -3,15 +3,6 @@
 version = 4
 
 [[package]]
-name = "aho-corasick"
-version = "1.1.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
-dependencies = [
- "memchr",
-]
-
-[[package]]
 name = "bitflags"
 version = "2.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -37,6 +28,12 @@ name = "ctor"
 version = "1.0.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "01334b89b69ff726750c5ce5073fc8bd860e99aa9a8fc5ca11b04730e3aee97a"
+
+[[package]]
+name = "daachorse"
+version = "3.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
 
 [[package]]
 name = "futures"
@@ -311,7 +308,7 @@ dependencies = [
 name = "stella-aho-corasick-core"
 version = "1.0.4"
 dependencies = [
- "aho-corasick",
+ "daachorse",
  "unicode-case-mapping",
 ]
 

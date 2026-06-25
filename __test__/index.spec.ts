@@ -106,6 +106,74 @@ describe("AhoCorasick", () => {
     });
     expect(ac.isMatch("a test")).toBe(true);
   });
+
+  test("prepared automaton matches direct construction", () => {
+    const patterns = [
+      { pattern: "foo", name: "first" },
+      { pattern: "foobar", name: "second" },
+    ];
+    const options = {
+      matchKind: "leftmost-longest",
+    } as const;
+    const direct = new AhoCorasick(patterns, options);
+    const prepared = AhoCorasick.fromPrepared(
+      AhoCorasick.prepare(patterns, options),
+    );
+    const text = "foo foobar";
+
+    expect(prepared.patternCount).toBe(direct.patternCount);
+    expect(prepared.findIter(text)).toEqual(
+      direct.findIter(text),
+    );
+    expect(prepared.findIter(text)[0]?.name).toBe("first");
+    expect(prepared.replaceAll(text, ["A", "B"])).toBe(
+      direct.replaceAll(text, ["A", "B"]),
+    );
+  });
+
+  test("prepared raw bytes can be loaded with names", () => {
+    const prepared = AhoCorasick.prepare(["alpha", "beta"]);
+    const ac = AhoCorasick.fromPrepared(prepared.bytes, [
+      "a",
+      "b",
+    ]);
+
+    expect(ac.findIter("alpha beta")).toEqual([
+      {
+        pattern: 0,
+        start: 0,
+        end: 5,
+        text: "alpha",
+        name: "a",
+      },
+      {
+        pattern: 1,
+        start: 6,
+        end: 10,
+        text: "beta",
+        name: "b",
+      },
+    ]);
+  });
+
+  test("prepared automaton preserves ASCII boundaries", () => {
+    const prepared = AhoCorasick.prepare(["idea"], {
+      wholeWords: true,
+      unicodeBoundaries: false,
+    });
+    const ac = AhoCorasick.fromPrepared(prepared);
+
+    expect(ac.findIter("нетidea")).toEqual([
+      { pattern: 0, start: 3, end: 7, text: "idea" },
+    ]);
+    expect(ac.findIter("xidea")).toEqual([]);
+  });
+
+  test("invalid prepared automaton fails descriptively", () => {
+    expect(() =>
+      AhoCorasick.fromPrepared(Buffer.from("nope")),
+    ).toThrow("Invalid prepared automaton");
+  });
 });
 
 // ─── Overlapping matches ──────────────────────
@@ -696,7 +764,9 @@ describe("wholeWords option", () => {
     });
 
     const start = performance.now();
-    const matches = ac.findIter("xword19999x word10000 done");
+    const matches = ac.findIter(
+      "xword19999x word10000 done",
+    );
     const elapsed = performance.now() - start;
 
     expect(matches.map((match) => match.text)).toEqual([

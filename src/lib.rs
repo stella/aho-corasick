@@ -41,6 +41,7 @@ pub struct Options {
   pub case_insensitive: Option<bool>,
   pub dfa: Option<bool>,
   pub whole_words: Option<bool>,
+  pub unicode_boundaries: Option<bool>,
 }
 
 #[napi(object)]
@@ -66,6 +67,7 @@ const fn default_options() -> Options {
     case_insensitive: None,
     dfa: None,
     whole_words: None,
+    unicode_boundaries: None,
   }
 }
 
@@ -78,7 +80,33 @@ fn resolve_options(options: Option<Options>) -> core::Options {
     case_insensitive: opts.case_insensitive.unwrap_or(false),
     dfa: opts.dfa.unwrap_or(false),
     whole_words: opts.whole_words.unwrap_or(false),
+    unicode_boundaries: opts.unicode_boundaries.unwrap_or(true),
   }
+}
+
+#[napi(js_name = "prepareAhoCorasick")]
+#[allow(clippy::needless_pass_by_value)]
+pub fn prepare_aho_corasick(
+  patterns: Vec<String>,
+  options: Option<Options>,
+) -> Result<Buffer> {
+  panic::catch_unwind(|| {
+    core::AhoCorasick::prepare(patterns, resolve_options(options))
+      .map(Buffer::from)
+      .map_err(|error| core_to_napi_error(&error))
+  })
+  .unwrap_or_else(|e| Err(panic_to_napi_error(e.as_ref())))
+}
+
+#[napi(js_name = "ahoCorasickFromPrepared")]
+#[allow(clippy::needless_pass_by_value)]
+pub fn aho_corasick_from_prepared(bytes: Buffer) -> Result<AhoCorasick> {
+  panic::catch_unwind(|| {
+    core::AhoCorasick::from_prepared(bytes.as_ref())
+      .map(|inner| AhoCorasick { inner })
+      .map_err(|error| core_to_napi_error(&error))
+  })
+  .unwrap_or_else(|e| Err(panic_to_napi_error(e.as_ref())))
 }
 
 #[napi]
@@ -108,6 +136,15 @@ impl AhoCorasick {
   #[must_use]
   pub const fn pattern_count(&self) -> u32 {
     self.inner.pattern_count()
+  }
+
+  #[napi(js_name = "toPrepared")]
+  pub fn to_prepared(&self) -> Result<Buffer> {
+    self
+      .inner
+      .to_prepared()
+      .map(Buffer::from)
+      .map_err(|error| core_to_napi_error(&error))
   }
 
   #[napi]

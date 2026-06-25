@@ -22,4 +22,5 @@ export type {
   NativeBinding,
   Options,
   PatternEntry,
+  PreparedAhoCorasick,
 } from "./core";
