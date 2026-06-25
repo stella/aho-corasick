@@ -9,6 +9,13 @@ export type NativeBinding = {
     patterns: string[],
     options?: Record<string, unknown>,
   ) => NativeAhoCorasickInstance;
+  prepareAhoCorasick(
+    patterns: string[],
+    options?: Record<string, unknown>,
+  ): Buffer;
+  ahoCorasickFromPrepared(
+    bytes: Buffer | Uint8Array,
+  ): NativeAhoCorasickInstance;
   StreamMatcher: new (
     patterns: string[],
     options?: Record<string, unknown>,
@@ -29,6 +36,7 @@ type NativeAhoCorasickInstance = {
   ): Uint32Array;
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
+  toPrepared(): Buffer;
 };
 
 type NativeStreamMatcherInstance = {
@@ -132,6 +140,11 @@ export type ByteMatch = {
   end: number;
 };
 
+export type PreparedAhoCorasick = {
+  bytes: Buffer | Uint8Array;
+  names?: readonly (string | undefined)[];
+};
+
 // ── Unpack helper ───────────────────────────────
 
 function unpack(
@@ -204,40 +217,6 @@ function unpackBuf(packed: Uint32Array): ByteMatch[] {
   return matches;
 }
 
-// ── Word boundary helpers ───────────────────────
-
-function isWordCharUnicode(ch: string): boolean {
-  return /[\p{L}\p{N}_]/u.test(ch);
-}
-
-function isWordCharAscii(ch: string): boolean {
-  return /[a-zA-Z0-9_]/.test(ch);
-}
-
-function checkBoundary(
-  haystack: string,
-  pos: number,
-  ascii: boolean,
-): boolean {
-  const isWc = ascii ? isWordCharAscii : isWordCharUnicode;
-  const before = pos > 0 && isWc(haystack.charAt(pos - 1));
-  const after =
-    pos < haystack.length && isWc(haystack.charAt(pos));
-  return before !== after;
-}
-
-function filterWholeWords(
-  matches: Match[],
-  haystack: string,
-  ascii: boolean,
-): Match[] {
-  return matches.filter(
-    (m) =>
-      checkBoundary(haystack, m.start, ascii) &&
-      checkBoundary(haystack, m.end, ascii),
-  );
-}
-
 // ── Pattern normalization ───────────────────────
 
 function normalizePatterns(patterns: readonly unknown[]): {
@@ -288,6 +267,24 @@ function normalizePatterns(patterns: readonly unknown[]): {
   return { strings, names: hasNames ? names : null };
 }
 
+function normalizeOptions(
+  options: Options | undefined,
+): Record<string, unknown> | undefined {
+  return options ? { ...options } : undefined;
+}
+
+function normalizePrepared(
+  prepared: PreparedAhoCorasick | Buffer | Uint8Array,
+  names?: readonly (string | undefined)[],
+): PreparedAhoCorasick {
+  if (prepared instanceof Uint8Array) {
+    return names
+      ? { bytes: prepared, names }
+      : { bytes: prepared };
+  }
+  return prepared;
+}
+
 // ── Classes ─────────────────────────────────────
 
 /**
@@ -312,29 +309,44 @@ function normalizePatterns(patterns: readonly unknown[]): {
 export class AhoCorasick {
   private _inner: NativeAhoCorasickInstance;
   private _names: (string | undefined)[] | null;
-  private _jsWholeWords: boolean;
 
   constructor(patterns: PatternEntry[], options?: Options) {
     const { strings, names } = normalizePatterns(patterns);
     this._names = names;
 
-    const unicodeWb = options?.unicodeBoundaries ?? true;
-    this._jsWholeWords =
-      !unicodeWb && (options?.wholeWords ?? false);
-
-    const nativeOpts: Record<string, unknown> | undefined =
-      options ? { ...options } : undefined;
-    if (nativeOpts) {
-      delete nativeOpts["unicodeBoundaries"];
-      if (this._jsWholeWords) {
-        nativeOpts["wholeWords"] = false;
-      }
-    }
-
     this._inner = new binding.AhoCorasick(
       strings,
-      nativeOpts,
+      normalizeOptions(options),
     );
+  }
+
+  static prepare(
+    patterns: PatternEntry[],
+    options?: Options,
+  ): PreparedAhoCorasick {
+    const { strings, names } = normalizePatterns(patterns);
+    const bytes = binding.prepareAhoCorasick(
+      strings,
+      normalizeOptions(options),
+    );
+    return names ? { bytes, names } : { bytes };
+  }
+
+  static fromPrepared(
+    prepared: PreparedAhoCorasick | Buffer | Uint8Array,
+    names?: readonly (string | undefined)[],
+  ): AhoCorasick {
+    const normalized = normalizePrepared(prepared, names);
+    const instance = Object.create(
+      AhoCorasick.prototype,
+    ) as AhoCorasick;
+    instance._inner = binding.ahoCorasickFromPrepared(
+      normalized.bytes,
+    );
+    instance._names = normalized.names
+      ? Array.from(normalized.names)
+      : null;
+    return instance;
   }
 
   /** Number of patterns in the automaton. */
@@ -344,36 +356,25 @@ export class AhoCorasick {
 
   /** Returns `true` if any pattern matches. */
   isMatch(haystack: string): boolean {
-    if (!this._jsWholeWords) {
-      return this._inner.isMatch(haystack);
-    }
-    return this.findIter(haystack).length > 0;
+    return this._inner.isMatch(haystack);
   }
 
   /** Find all non-overlapping matches. */
   findIter(haystack: string): Match[] {
-    let matches = unpack(
+    return unpack(
       this._inner._findIterPacked(haystack),
       haystack,
       this._names,
     );
-    if (this._jsWholeWords) {
-      matches = filterWholeWords(matches, haystack, true);
-    }
-    return matches;
   }
 
   /** Find all overlapping matches. */
   findOverlappingIter(haystack: string): Match[] {
-    let matches = unpack(
+    return unpack(
       this._inner._findOverlappingIterPacked(haystack),
       haystack,
       this._names,
     );
-    if (this._jsWholeWords) {
-      matches = filterWholeWords(matches, haystack, true);
-    }
-    return matches;
   }
 
   /**
@@ -393,19 +394,14 @@ export class AhoCorasick {
           `replacements, got ${replacements.length}`,
       );
     }
-    if (!this._jsWholeWords) {
-      return this._inner.replaceAll(haystack, replacements);
-    }
-    const matches = this.findIter(haystack);
-    let result = "";
-    let last = 0;
-    for (const m of matches) {
-      result += haystack.slice(last, m.start);
-      result += replacements[m.pattern];
-      last = m.end;
-    }
-    result += haystack.slice(last);
-    return result;
+    return this._inner.replaceAll(haystack, replacements);
+  }
+
+  toPrepared(): PreparedAhoCorasick {
+    const bytes = this._inner.toPrepared();
+    return this._names
+      ? { bytes, names: this._names }
+      : { bytes };
   }
 
   /**
@@ -446,14 +442,9 @@ export class StreamMatcher {
   private _inner: NativeStreamMatcherInstance;
 
   constructor(patterns: string[], options?: Options) {
-    const nativeOpts: Record<string, unknown> | undefined =
-      options ? { ...options } : undefined;
-    if (nativeOpts) {
-      delete nativeOpts["unicodeBoundaries"];
-    }
     this._inner = new binding.StreamMatcher(
       patterns,
-      nativeOpts,
+      normalizeOptions(options),
     );
   }
 
