@@ -110,4 +110,6 @@ const { instance: __napiInstance, module: __wasiModule, napiModule: __napiModule
 module.exports = __napiModule.exports
 module.exports.AhoCorasick = __napiModule.exports.AhoCorasick
 module.exports.StreamMatcher = __napiModule.exports.StreamMatcher
+module.exports.ahoCorasickFromPrepared = __napiModule.exports.ahoCorasickFromPrepared
 module.exports.MatchKind = __napiModule.exports.MatchKind
+module.exports.prepareAhoCorasick = __napiModule.exports.prepareAhoCorasick

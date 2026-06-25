@@ -12,6 +12,8 @@ export declare class AhoCorasick {
   constructor(patterns: Array<string>, options?: Options | undefined | null)
   /** Number of patterns in the automaton. */
   get patternCount(): number
+  /** Serialize this automaton for later loading. */
+  toPrepared(): Buffer
   /** Returns `true` if any pattern matches. */
   isMatch(haystack: string): boolean
   /**
@@ -77,6 +79,9 @@ export declare class StreamMatcher {
   reset(): void
 }
 
+/** Load an Aho-Corasick automaton from prepared bytes. */
+export declare function ahoCorasickFromPrepared(bytes: Buffer): AhoCorasick
+
 /** A single match returned by the search methods. */
 export interface Match {
   /** Index into the patterns array. */
@@ -119,4 +124,12 @@ export interface Options {
    * are always treated as word boundaries.
    */
   wholeWords?: boolean
+  /**
+   * Use Unicode word boundaries for whole-word
+   * matching. Default: `true`.
+   */
+  unicodeBoundaries?: boolean
 }
+
+/** Build and serialize an automaton in one step. */
+export declare function prepareAhoCorasick(patterns: Array<string>, options?: Options | undefined | null): Buffer

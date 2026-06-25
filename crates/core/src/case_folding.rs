@@ -1,46 +1,15 @@
 #![allow(clippy::redundant_pub_crate)]
 
-use std::sync::OnceLock;
+use std::{collections::HashSet, sync::OnceLock};
 
-use aho_corasick::{
-  AhoCorasick as RawAhoCorasick, AhoCorasickBuilder, AhoCorasickKind,
+use daachorse::{
+  DoubleArrayAhoCorasick as RawAhoCorasick, DoubleArrayAhoCorasickBuilder,
   MatchKind as RawMatchKind,
 };
 
 use crate::Error;
 
-const ASCII_CI_BUILDER_PATTERN_LIMIT: usize = 4096;
-
-// ─── Unicode Simple Case Folding ─────────────
-//
-// Uses Unicode Simple Case Folding (CaseFolding.txt
-// type S/C) instead of `to_lowercase()`. Simple
-// folding maps each char to exactly ONE char (never
-// changes string length), so byte offsets between
-// folded and original text stay in sync.
-//
-// Key differences from to_lowercase():
-//   İ (U+0130) -> i (U+0069), NOT i̇
-//   ẞ (U+1E9E) -> ß (U+00DF), NOT ss
-//
-// Three tiers for performance:
-// 1. ASCII: to_ascii_lowercase (no allocation check)
-// 2. Non-ASCII, same byte length (99.9%+ of cases):
-//    per-char simple fold, PosMapping::Identity
-// 3. Byte-length change (İ: 2 bytes -> 1 byte):
-//    per-byte offset mapping via PosMapping::Mapped
-
-/// Unicode Simple Case Fold (CaseFolding.txt S/C)
-/// plus Turkic İ->i. Always returns exactly one
-/// character -- never expands to multiple.
-///
-/// Uses `unicode-case-mapping` (Unicode 16.0) for
-/// the 1,515 standard S/C mappings. İ (U+0130) is
-/// added as a special case: Unicode classifies it
-/// as status T (Turkic-only) and F (full: İ->i̇),
-/// but NOT S/C. We fold İ->i unconditionally because
-/// legal documents span jurisdictions and treating
-/// İ as case-equivalent to i prevents misses.
+/// Unicode Simple Case Fold (CaseFolding.txt S/C) plus Turkic İ->i.
 #[inline]
 fn simple_case_fold(ch: char) -> char {
   if ch.is_ascii() {
@@ -48,51 +17,65 @@ fn simple_case_fold(ch: char) -> char {
   }
 
   match ch {
-    '\u{0130}' => 'i', // İ -> i (Turkic, not in S/C)
+    '\u{0130}' => 'i',
     _ => unicode_case_mapping::case_folded(ch)
       .and_then(|n| char::from_u32(n.get()))
       .unwrap_or(ch),
   }
 }
 
-/// Apply simple case fold to an entire string.
-/// Maps each character to exactly one character
-/// (never expands), but may change UTF-8 byte
-/// length (e.g., İ: 2 bytes -> i: 1 byte).
-/// Use `SearchCtx` to handle byte-offset mapping.
 fn simple_fold_string(s: &str) -> String {
   s.chars().map(simple_case_fold).collect()
 }
 
-fn effective_patterns(
-  mut patterns: Vec<String>,
+fn effective_pattern_values(
+  patterns: Vec<String>,
   case_insensitive: bool,
-  ascii_case_insensitive: bool,
-) -> Vec<String> {
-  if !case_insensitive {
-    return patterns;
-  }
+) -> Result<Vec<(String, u32)>, Error> {
+  let mut seen = HashSet::with_capacity(patterns.len());
+  let mut values = Vec::with_capacity(patterns.len());
 
-  for pattern in &mut patterns {
-    if pattern.is_ascii() {
-      if !ascii_case_insensitive {
+  for (index, mut pattern) in patterns.into_iter().enumerate() {
+    let index =
+      u32::try_from(index).map_err(|_| Error::PatternIndexDoesNotFit)?;
+    if case_insensitive {
+      if pattern.is_ascii() {
         pattern.make_ascii_lowercase();
+      } else {
+        pattern = simple_fold_string(&pattern);
       }
-      continue;
     }
-    *pattern = simple_fold_string(pattern);
+    if seen.insert(pattern.clone()) {
+      values.push((pattern, index));
+    }
   }
 
-  patterns
+  Ok(values)
 }
 
-/// Folded search text with optional byte offset
-/// mapping for the rare case where simple case
-/// fold changes UTF-8 byte length (İ 2->1 byte).
+fn build_raw_automaton(
+  pattern_values: &[(String, u32)],
+  match_kind: RawMatchKind,
+) -> Result<Option<RawAhoCorasick<u32>>, String> {
+  if pattern_values.is_empty() {
+    return Ok(None);
+  }
+
+  DoubleArrayAhoCorasickBuilder::new()
+    .match_kind(match_kind)
+    .build_with_values(
+      pattern_values
+        .iter()
+        .map(|(pattern, index)| (pattern.as_bytes(), *index)),
+    )
+    .map(Some)
+    .map_err(|error| error.to_string())
+}
+
+/// Folded search text with optional byte offset mapping for the rare case where
+/// simple case fold changes UTF-8 byte length.
 pub(crate) enum PosMapping {
-  /// Byte positions identical (common case).
   Identity,
-  /// `folded_byte_pos` -> `original_byte_pos`.
   Mapped(Vec<usize>),
 }
 
@@ -119,29 +102,22 @@ impl SearchCtx {
 
     let folded = simple_fold_string(haystack);
     if folded.len() == haystack.len() {
-      // Same byte length: positions are 1:1.
-      // This covers 99.9%+ of non-ASCII text
-      // (Czech, German, Polish, Hungarian, etc.)
       return Self {
         folded,
         mapping: PosMapping::Identity,
       };
     }
 
-    // Rare: byte length changed (e.g., İ 2->1).
-    // Build per-byte mapping.
     Self::build_mapped(haystack)
   }
 
   fn build_mapped(original: &str) -> Self {
     let mut folded = String::with_capacity(original.len());
-    let mut mapping: Vec<usize> =
-      Vec::with_capacity(original.len().saturating_add(1));
+    let mut mapping = Vec::with_capacity(original.len().saturating_add(1));
 
     for (orig_pos, ch) in original.char_indices() {
-      let folded_ch = simple_case_fold(ch);
       let before = folded.len();
-      folded.push(folded_ch);
+      folded.push(simple_case_fold(ch));
       for _ in before..folded.len() {
         mapping.push(orig_pos);
       }
@@ -155,11 +131,6 @@ impl SearchCtx {
   }
 }
 
-// ─── PreparedSearch ──────────────────────────
-
-/// Prepared search text. For CS or ASCII-CI,
-/// this is Direct (zero alloc, zero overhead).
-/// For non-ASCII CI, this is Folded (alloc + remap).
 pub(crate) enum PreparedSearch<'a> {
   Direct(&'a str),
   Folded { text: String, mapping: PosMapping },
@@ -186,7 +157,6 @@ impl PreparedSearch<'_> {
   }
 }
 
-/// Same as `PreparedSearch` but for raw bytes.
 pub(crate) enum PreparedBytes<'a> {
   Direct(&'a [u8]),
   Folded { bytes: Vec<u8>, mapping: PosMapping },
@@ -213,27 +183,57 @@ impl PreparedBytes<'_> {
   }
 }
 
-// ─── CaseFoldingAC ───────────────────────────
+#[derive(Clone, Copy)]
+pub(crate) struct RawPattern(u32);
 
-/// Encapsulates a raw Aho-Corasick automaton with
-/// case-folding logic. The `raw` field is private
-/// to this module; all search must go through
-/// `CaseFoldingAC` methods.
+impl RawPattern {
+  pub(crate) const fn as_u32(self) -> u32 {
+    self.0
+  }
+}
+
+#[derive(Clone, Copy)]
+pub(crate) struct RawMatch {
+  pattern: u32,
+  start: usize,
+  end: usize,
+}
+
+impl RawMatch {
+  pub(crate) const fn pattern(self) -> RawPattern {
+    RawPattern(self.pattern)
+  }
+
+  pub(crate) const fn start(self) -> usize {
+    self.start
+  }
+
+  pub(crate) const fn end(self) -> usize {
+    self.end
+  }
+}
+
 pub(crate) struct CaseFoldingAC {
-  raw: RawAhoCorasick,
+  raw: Option<RawAhoCorasick<u32>>,
+  match_kind: RawMatchKind,
   overlap: OverlapAutomaton,
   case_insensitive: bool,
-  ascii_case_insensitive: bool,
 }
 
 enum OverlapAutomaton {
   Native,
-  Fallback {
-    automaton: OnceLock<Result<RawAhoCorasick, String>>,
-    patterns: Vec<String>,
-    ascii_case_insensitive: bool,
-    dfa: bool,
+  Prepared {
+    automaton: Option<RawAhoCorasick<u32>>,
   },
+  Fallback {
+    automaton: OnceLock<Result<Option<RawAhoCorasick<u32>>, String>>,
+    pattern_values: Vec<(String, u32)>,
+  },
+}
+
+pub(crate) struct PreparedAutomata {
+  pub(crate) main: Vec<u8>,
+  pub(crate) overlap: Option<Vec<u8>>,
 }
 
 impl CaseFoldingAC {
@@ -241,64 +241,104 @@ impl CaseFoldingAC {
     patterns: Vec<String>,
     match_kind: RawMatchKind,
     case_insensitive: bool,
-    dfa: bool,
+    _dfa: bool,
   ) -> Result<Self, Error> {
-    let ascii_case_insensitive =
-      case_insensitive && patterns.len() <= ASCII_CI_BUILDER_PATTERN_LIMIT;
-    let effective_patterns =
-      effective_patterns(patterns, case_insensitive, ascii_case_insensitive);
-    let mut builder = AhoCorasickBuilder::new();
-    builder.match_kind(match_kind);
-    if ascii_case_insensitive {
-      builder.ascii_case_insensitive(true);
-    }
-    if dfa {
-      builder.kind(Some(AhoCorasickKind::DFA));
-    }
-    let raw = builder
-      .build(&effective_patterns)
-      .map_err(|e| Error::BuildAutomaton(e.to_string()))?;
+    let pattern_values = effective_pattern_values(patterns, case_insensitive)?;
+    let raw = build_raw_automaton(&pattern_values, match_kind)
+      .map_err(Error::BuildAutomaton)?;
     let overlap = if matches!(match_kind, RawMatchKind::Standard) {
       OverlapAutomaton::Native
     } else {
       OverlapAutomaton::Fallback {
         automaton: OnceLock::new(),
-        patterns: effective_patterns,
-        ascii_case_insensitive,
-        dfa,
+        pattern_values,
       }
     };
 
     Ok(Self {
       raw,
+      match_kind,
       overlap,
       case_insensitive,
-      ascii_case_insensitive,
     })
   }
 
-  /// Zero-alloc for CS or ASCII-CI.
+  pub(crate) fn from_prepared(
+    match_kind: RawMatchKind,
+    case_insensitive: bool,
+    main: &[u8],
+    overlap: Option<&[u8]>,
+  ) -> Result<Self, Error> {
+    let raw = deserialize_raw_automaton(main)?;
+    let overlap = if matches!(match_kind, RawMatchKind::Standard) {
+      OverlapAutomaton::Native
+    } else {
+      let Some(overlap) = overlap else {
+        return Err(Error::InvalidPreparedAutomaton(
+          "missing overlapping automaton".to_owned(),
+        ));
+      };
+      OverlapAutomaton::Prepared {
+        automaton: deserialize_raw_automaton(overlap)?,
+      }
+    };
+
+    Ok(Self {
+      raw,
+      match_kind,
+      overlap,
+      case_insensitive,
+    })
+  }
+
+  pub(crate) fn prepared_automata(&self) -> Result<PreparedAutomata, Error> {
+    let main = serialize_raw_automaton(self.raw.as_ref());
+    let overlap = match &self.overlap {
+      OverlapAutomaton::Native => None,
+      OverlapAutomaton::Prepared { automaton } => {
+        Some(serialize_raw_automaton(automaton.as_ref()))
+      }
+      OverlapAutomaton::Fallback {
+        automaton,
+        pattern_values,
+      } => {
+        let automaton = automaton
+          .get_or_init(|| {
+            build_raw_automaton(pattern_values, RawMatchKind::Standard)
+          })
+          .as_ref()
+          .map_err(|reason| Error::BuildOverlappingAutomaton(reason.clone()))?;
+        Some(serialize_raw_automaton(automaton.as_ref()))
+      }
+    };
+
+    Ok(PreparedAutomata { main, overlap })
+  }
+
+  pub(crate) const fn match_kind(&self) -> RawMatchKind {
+    self.match_kind
+  }
+
+  pub(crate) const fn case_insensitive(&self) -> bool {
+    self.case_insensitive
+  }
+
   #[inline]
   pub(crate) fn prepare<'a>(&self, text: &'a str) -> PreparedSearch<'a> {
-    if !self.case_insensitive
-      || (self.ascii_case_insensitive && text.is_ascii())
-    {
-      PreparedSearch::Direct(text)
-    } else {
-      let ctx = SearchCtx::new(text);
-      PreparedSearch::Folded {
-        text: ctx.folded,
-        mapping: ctx.mapping,
-      }
+    if !self.case_insensitive {
+      return PreparedSearch::Direct(text);
+    }
+
+    let ctx = SearchCtx::new(text);
+    PreparedSearch::Folded {
+      text: ctx.folded,
+      mapping: ctx.mapping,
     }
   }
 
-  /// Zero-alloc for CS, ASCII-CI, or non-UTF-8.
   #[inline]
   pub(crate) fn prepare_bytes<'a>(&self, bytes: &'a [u8]) -> PreparedBytes<'a> {
-    if !self.case_insensitive
-      || (self.ascii_case_insensitive && bytes.is_ascii())
-    {
+    if !self.case_insensitive {
       return PreparedBytes::Direct(bytes);
     }
 
@@ -317,66 +357,139 @@ impl CaseFoldingAC {
     )
   }
 
-  /// Iterate matches on prepared text.
-  pub(crate) fn find_iter<'a, 'h>(
-    &'a self,
-    prep: &'h PreparedSearch<'h>,
-  ) -> aho_corasick::FindIter<'a, 'h> {
-    self.raw.find_iter(prep.search_text())
-  }
-
-  /// Iterate matches on prepared bytes.
-  pub(crate) fn find_iter_bytes<'a, 'h>(
-    &'a self,
-    prep: &'h PreparedBytes<'h>,
-  ) -> aho_corasick::FindIter<'a, 'h> {
-    self.raw.find_iter(prep.search_bytes())
-  }
-
-  /// Check if any match exists.
-  pub(crate) fn is_match_str(&self, prep: &PreparedSearch<'_>) -> bool {
-    self.raw.is_match(prep.search_text())
-  }
-
-  pub(crate) fn is_match_bytes_prep(&self, prep: &PreparedBytes<'_>) -> bool {
-    self.raw.is_match(prep.search_bytes())
-  }
-
-  /// Overlapping search stepping (for
-  /// `find_overlapping_iter_packed`).
-  pub(crate) fn overlapping_find_iter<'a, 'h>(
-    &'a self,
-    prep: &'h PreparedSearch<'h>,
-  ) -> Result<aho_corasick::FindOverlappingIter<'a, 'h>, Error> {
-    Ok(
-      self
-        .overlapping_ac()?
-        .find_overlapping_iter(prep.search_text()),
+  pub(crate) fn find_iter(&self, prep: &PreparedSearch<'_>) -> Vec<RawMatch> {
+    find_iter_raw(
+      self.raw.as_ref(),
+      self.match_kind,
+      prep.search_text().as_bytes(),
     )
   }
 
-  fn overlapping_ac(&self) -> Result<&RawAhoCorasick, Error> {
+  pub(crate) fn find_iter_bytes(
+    &self,
+    prep: &PreparedBytes<'_>,
+  ) -> Vec<RawMatch> {
+    find_iter_raw(self.raw.as_ref(), self.match_kind, prep.search_bytes())
+  }
+
+  pub(crate) fn is_match_str(&self, prep: &PreparedSearch<'_>) -> bool {
+    is_match_raw(
+      self.raw.as_ref(),
+      self.match_kind,
+      prep.search_text().as_bytes(),
+    )
+  }
+
+  pub(crate) fn is_match_bytes_prep(&self, prep: &PreparedBytes<'_>) -> bool {
+    is_match_raw(self.raw.as_ref(), self.match_kind, prep.search_bytes())
+  }
+
+  pub(crate) fn overlapping_find_iter(
+    &self,
+    prep: &PreparedSearch<'_>,
+  ) -> Result<Vec<RawMatch>, Error> {
+    let automaton = self.overlapping_ac()?;
+    Ok(overlapping_iter_raw(
+      automaton,
+      prep.search_text().as_bytes(),
+    ))
+  }
+
+  fn overlapping_ac(&self) -> Result<Option<&RawAhoCorasick<u32>>, Error> {
     match &self.overlap {
-      OverlapAutomaton::Native => Ok(&self.raw),
+      OverlapAutomaton::Native => Ok(self.raw.as_ref()),
+      OverlapAutomaton::Prepared { automaton } => Ok(automaton.as_ref()),
       OverlapAutomaton::Fallback {
         automaton,
-        patterns,
-        ascii_case_insensitive,
-        dfa,
+        pattern_values,
       } => automaton
         .get_or_init(|| {
-          let mut builder = AhoCorasickBuilder::new();
-          builder.match_kind(RawMatchKind::Standard);
-          if *ascii_case_insensitive {
-            builder.ascii_case_insensitive(true);
-          }
-          if *dfa {
-            builder.kind(Some(AhoCorasickKind::DFA));
-          }
-          builder.build(patterns).map_err(|e| e.to_string())
+          build_raw_automaton(pattern_values, RawMatchKind::Standard)
         })
         .as_ref()
+        .map(Option::as_ref)
         .map_err(|reason| Error::BuildOverlappingAutomaton(reason.clone())),
     }
   }
+}
+
+fn serialize_raw_automaton(raw: Option<&RawAhoCorasick<u32>>) -> Vec<u8> {
+  raw.map_or_else(Vec::new, RawAhoCorasick::serialize)
+}
+
+fn deserialize_raw_automaton(
+  bytes: &[u8],
+) -> Result<Option<RawAhoCorasick<u32>>, Error> {
+  if bytes.is_empty() {
+    return Ok(None);
+  }
+
+  let (raw, rest) = RawAhoCorasick::<u32>::deserialize(bytes)
+    .map_err(|error| Error::InvalidPreparedAutomaton(error.to_string()))?;
+  if !rest.is_empty() {
+    return Err(Error::InvalidPreparedAutomaton(
+      "trailing automaton bytes".to_owned(),
+    ));
+  }
+  Ok(Some(raw))
+}
+
+const fn raw_match(pattern: u32, start: usize, end: usize) -> RawMatch {
+  RawMatch {
+    pattern,
+    start,
+    end,
+  }
+}
+
+fn find_iter_raw(
+  raw: Option<&RawAhoCorasick<u32>>,
+  match_kind: RawMatchKind,
+  haystack: &[u8],
+) -> Vec<RawMatch> {
+  let Some(raw) = raw else {
+    return Vec::new();
+  };
+
+  if matches!(match_kind, RawMatchKind::Standard) {
+    return raw
+      .find_iter(haystack)
+      .map(|m| raw_match(m.value(), m.start(), m.end()))
+      .collect();
+  }
+
+  raw
+    .leftmost_find_iter(haystack)
+    .map(|m| raw_match(m.value(), m.start(), m.end()))
+    .collect()
+}
+
+fn overlapping_iter_raw(
+  raw: Option<&RawAhoCorasick<u32>>,
+  haystack: &[u8],
+) -> Vec<RawMatch> {
+  let Some(raw) = raw else {
+    return Vec::new();
+  };
+
+  raw
+    .find_overlapping_iter(haystack)
+    .map(|m| raw_match(m.value(), m.start(), m.end()))
+    .collect()
+}
+
+fn is_match_raw(
+  raw: Option<&RawAhoCorasick<u32>>,
+  match_kind: RawMatchKind,
+  haystack: &[u8],
+) -> bool {
+  let Some(raw) = raw else {
+    return false;
+  };
+
+  if matches!(match_kind, RawMatchKind::Standard) {
+    return raw.find_iter(haystack).next().is_some();
+  }
+
+  raw.leftmost_find_iter(haystack).next().is_some()
 }
