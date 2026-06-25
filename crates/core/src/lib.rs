@@ -520,7 +520,7 @@ impl AhoCorasick {
     let main = read_bytes(bytes, &mut cursor, main_len, "missing main bytes")?;
     let overlap =
       read_bytes(bytes, &mut cursor, overlap_len, "missing overlap bytes")?;
-    if bytes.get(cursor..).is_some_and(|tail| !tail.is_empty()) {
+    if cursor != bytes.len() {
       return Err(invalid_prepared("trailing bytes"));
     }
 
@@ -539,6 +539,11 @@ impl AhoCorasick {
       }
       None
     } else {
+      if overlap.is_empty() {
+        return Err(invalid_prepared(
+          "non-standard automaton is missing overlap bytes",
+        ));
+      }
       Some(overlap)
     };
     let search = CaseFoldingAC::from_prepared(
@@ -1096,6 +1101,43 @@ mod tests {
     assert!(
       message.contains("Invalid prepared automaton"),
       "error should explain that the prepared automaton is invalid"
+    );
+  }
+
+  #[test]
+  fn prepared_rejects_missing_overlap_bytes_for_non_standard_match_kind() {
+    let options = Options {
+      match_kind: MatchKind::LeftmostFirst,
+      ..Options::default()
+    };
+    let mut bytes =
+      AhoCorasick::prepare(vec![String::from("alpha")], options).unwrap();
+    let main_len_offset = 20usize;
+    let overlap_len_offset = 24usize;
+    let main_len_bytes: [u8; 4] = bytes
+      .get(main_len_offset..overlap_len_offset)
+      .unwrap()
+      .try_into()
+      .unwrap();
+    let main_len = usize::try_from(u32::from_le_bytes(main_len_bytes)).unwrap();
+    bytes
+      .get_mut(overlap_len_offset..overlap_len_offset + 4)
+      .unwrap()
+      .copy_from_slice(&0u32.to_le_bytes());
+    bytes.truncate(28usize.saturating_add(main_len));
+
+    let result = AhoCorasick::from_prepared(&bytes);
+
+    assert!(
+      result.is_err(),
+      "non-standard prepared automata must carry overlap bytes"
+    );
+    let message = result
+      .err()
+      .map_or_else(String::new, |error| error.to_string());
+    assert!(
+      message.contains("missing overlap bytes"),
+      "error should explain that overlap bytes are required"
     );
   }
 }
