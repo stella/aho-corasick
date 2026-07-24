@@ -158,3 +158,9 @@ oxlint (ultracite preset) + oxfmt. To suppress a rule:
 - Keep Rust engine behavior, TypeScript API types, native loader files, and WASM compatibility in sync.
 - Use property tests for matcher invariants and regression tests for Unicode, offsets, streaming, and buffer/string equivalence.
 - Treat generated package metadata and platform packages as public release surface; avoid speculative changes outside the requested target.
+
+### Releases
+
+- Every pull request that changes published runtime code must add a Changesets entry; use `bun run changeset --empty` for an intentional no-release change.
+- Changesets owns `CHANGELOG.md` and the version PR. The version command synchronizes `VERSION`, every npm package, Cargo manifests and lock metadata, and the generated native loader guard.
+- Keep `.github/workflows/release.yml` as the trusted-publishing caller. Do not add another changelog generator or publish from the Changesets workflow.
