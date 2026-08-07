@@ -2,54 +2,6 @@
   "bomFormat": "CycloneDX",
   "components": [
     {
-      "bom-ref": "pkg:cargo/aho-corasick@1.1.4",
-      "evidence": {
-        "identity": [
-          {
-            "concludedValue": "Cargo.lock",
-            "confidence": 0.6,
-            "field": "purl",
-            "methods": [
-              {
-                "confidence": 0.6,
-                "technique": "manifest-analysis",
-                "value": "Cargo.lock"
-              }
-            ]
-          }
-        ]
-      },
-      "group": "",
-      "hashes": [
-        {
-          "alg": "SHA-256",
-          "content": "ddd31a130427c27518df266943a5308ed92d4b226cc639f5a8f1002816174301"
-        }
-      ],
-      "licenses": [
-        {
-          "license": {
-            "id": "MIT"
-          }
-        },
-        {
-          "license": {
-            "id": "Unlicense"
-          }
-        }
-      ],
-      "name": "aho-corasick",
-      "properties": [
-        {
-          "name": "SrcFile",
-          "value": "Cargo.lock"
-        }
-      ],
-      "purl": "pkg:cargo/aho-corasick@1.1.4",
-      "type": "library",
-      "version": "1.1.4"
-    },
-    {
       "bom-ref": "pkg:cargo/bitflags@2.12.1",
       "evidence": {
         "identity": [
@@ -235,6 +187,54 @@
       "purl": "pkg:cargo/ctor@1.0.7",
       "type": "library",
       "version": "1.0.7"
+    },
+    {
+      "bom-ref": "pkg:cargo/daachorse@3.0.2",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "Cargo.lock",
+            "confidence": 0.6,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.6,
+                "technique": "manifest-analysis",
+                "value": "Cargo.lock"
+              }
+            ]
+          }
+        ]
+      },
+      "group": "",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        },
+        {
+          "license": {
+            "id": "MIT"
+          }
+        }
+      ],
+      "name": "daachorse",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "Cargo.lock"
+        }
+      ],
+      "purl": "pkg:cargo/daachorse@3.0.2",
+      "type": "library",
+      "version": "3.0.2"
     },
     {
       "bom-ref": "pkg:cargo/futures-channel@0.3.32",
@@ -1948,12 +1948,6 @@
   ],
   "dependencies": [
     {
-      "dependsOn": [
-        "pkg:cargo/memchr@2.8.1"
-      ],
-      "ref": "pkg:cargo/aho-corasick@1.1.4"
-    },
-    {
       "dependsOn": [],
       "ref": "pkg:cargo/bitflags@2.12.1"
     },
@@ -1970,6 +1964,10 @@
     {
       "dependsOn": [],
       "ref": "pkg:cargo/ctor@1.0.7"
+    },
+    {
+      "dependsOn": [],
+      "ref": "pkg:cargo/daachorse@3.0.2"
     },
     {
       "dependsOn": [
@@ -2169,7 +2167,7 @@
     },
     {
       "dependsOn": [
-        "pkg:cargo/aho-corasick@1.1.4",
+        "pkg:cargo/daachorse@3.0.2",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
       "ref": "pkg:cargo/stella-aho-corasick-core@1.0.4"

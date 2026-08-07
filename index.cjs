@@ -578,4 +578,6 @@ if (!nativeBinding) {
 module.exports = nativeBinding
 module.exports.AhoCorasick = nativeBinding.AhoCorasick
 module.exports.StreamMatcher = nativeBinding.StreamMatcher
+module.exports.ahoCorasickFromPrepared = nativeBinding.ahoCorasickFromPrepared
 module.exports.MatchKind = nativeBinding.MatchKind
+module.exports.prepareAhoCorasick = nativeBinding.prepareAhoCorasick

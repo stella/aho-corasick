@@ -59,4 +59,6 @@ const {
 export default __napiModule.exports
 export const AhoCorasick = __napiModule.exports.AhoCorasick
 export const StreamMatcher = __napiModule.exports.StreamMatcher
+export const ahoCorasickFromPrepared = __napiModule.exports.ahoCorasickFromPrepared
 export const MatchKind = __napiModule.exports.MatchKind
+export const prepareAhoCorasick = __napiModule.exports.prepareAhoCorasick
