@@ -539,7 +539,7 @@ impl AhoCorasick {
       }
       None
     } else {
-      if overlap.is_empty() {
+      if pattern_count > 0 && overlap.is_empty() {
         return Err(invalid_prepared(
           "non-standard automaton is missing overlap bytes",
         ));
@@ -1088,6 +1088,17 @@ mod tests {
       prepared.find_iter_packed("нетidea ok").unwrap()
     );
     assert_eq!(prepared.find_iter_packed("нетidea ok").unwrap().len(), 3);
+  }
+
+  #[test]
+  fn prepared_roundtrip_supports_an_empty_pattern_set() {
+    let prepared_bytes =
+      AhoCorasick::prepare(Vec::new(), Options::default()).unwrap();
+    let prepared = AhoCorasick::from_prepared(&prepared_bytes).unwrap();
+
+    assert_eq!(prepared.pattern_count(), 0);
+    assert!(!prepared.is_match("anything").unwrap());
+    assert!(prepared.find_iter_packed("anything").unwrap().is_empty());
   }
 
   #[test]
