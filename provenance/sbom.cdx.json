@@ -189,7 +189,7 @@
       "version": "1.0.7"
     },
     {
-      "bom-ref": "pkg:cargo/daachorse@3.0.2",
+      "bom-ref": "pkg:cargo/daachorse@4.0.0",
       "evidence": {
         "identity": [
           {
@@ -210,7 +210,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "99251f238b74cd219a86fe6ea9328308ebb223fcbb5b8eb5aa400b847a41dded"
+          "content": "d358f1fa877be3097baa74c1fc22288626450392cb37d844f850baa60e6439a0"
         }
       ],
       "licenses": [
@@ -232,9 +232,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/daachorse@3.0.2",
+      "purl": "pkg:cargo/daachorse@4.0.0",
       "type": "library",
-      "version": "3.0.2"
+      "version": "4.0.0"
     },
     {
       "bom-ref": "pkg:cargo/futures-channel@0.3.32",
@@ -1967,7 +1967,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:cargo/daachorse@3.0.2"
+      "ref": "pkg:cargo/daachorse@4.0.0"
     },
     {
       "dependsOn": [
@@ -2167,7 +2167,7 @@
     },
     {
       "dependsOn": [
-        "pkg:cargo/daachorse@3.0.2",
+        "pkg:cargo/daachorse@4.0.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
       "ref": "pkg:cargo/stella-aho-corasick-core@1.0.4"
