@@ -15,11 +15,8 @@ const browserPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const napiPath = fileURLToPath(
-  new URL(
-    `../node_modules/.bin/${process.platform === "win32" ? "napi.cmd" : "napi"}`,
-    import.meta.url,
-  ),
+const buildScriptPath = fileURLToPath(
+  new URL("./build-native.mjs", import.meta.url),
 );
 
 try {
@@ -31,12 +28,14 @@ try {
   }
 
   const result = spawnSync(
-    napiPath,
+    process.execPath,
     [
-      "build",
+      buildScriptPath,
       "--platform",
       "--target",
       "wasm32-wasip1-threads",
+      "--dts",
+      "index.d.cts",
       "--release",
     ],
     {
