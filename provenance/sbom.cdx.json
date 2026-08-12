@@ -2382,6 +2382,130 @@
     {
       "authors": [
         {
+          "name": "toyobayashi"
+        }
+      ],
+      "bom-ref": "pkg:npm/@emnapi/runtime@2.0.0-alpha.3",
+      "description": "emnapi runtime",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/@emnapi/runtime/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/@emnapi/runtime/package.json"
+              }
+            ]
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/toyobayashi/emnapi#readme"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/toyobayashi/emnapi.git"
+        }
+      ],
+      "group": "@emnapi",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+          }
+        }
+      ],
+      "name": "runtime",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/@emnapi/runtime/package.json"
+        }
+      ],
+      "purl": "pkg:npm/%40emnapi/runtime@2.0.0-alpha.3",
+      "scope": "required",
+      "type": "library",
+      "version": "2.0.0-alpha.3"
+    },
+    {
+      "authors": [
+        {
+          "name": "LongYinan (https://github.com/Brooooooklyn)"
+        }
+      ],
+      "bom-ref": "pkg:npm/@napi-rs/wasm-runtime@1.2.2",
+      "description": "Runtime and polyfill for wasm targets",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/@napi-rs/wasm-runtime/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/@napi-rs/wasm-runtime/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "npm/wasm32-wasi/wasi-worker-browser.mjs#1"
+          },
+          {
+            "location": "npm/wasm32-wasi/wasi-worker.mjs#9"
+          },
+          {
+            "location": "wasi-worker-browser.mjs#7"
+          },
+          {
+            "location": "wasi-worker.mjs#15"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "website",
+          "url": "https://napi.rs/"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/napi-rs/napi-rs.git"
+        }
+      ],
+      "group": "@napi-rs",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+          }
+        }
+      ],
+      "name": "wasm-runtime",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/@napi-rs/wasm-runtime/package.json"
+        }
+      ],
+      "purl": "pkg:npm/%40napi-rs/wasm-runtime@1.2.2",
+      "scope": "required",
+      "type": "library",
+      "version": "1.2.2"
+    },
+    {
+      "authors": [
+        {
           "name": "Kevin Deng <sxzz@sxzz.moe>"
         }
       ],
