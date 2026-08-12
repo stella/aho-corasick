@@ -2,10 +2,14 @@
 name = "stella-aho-corasick-core"
 version = "1.0.4"
 edition = "2024"
+rust-version = "1.85"
 description = "Exact many-pattern string search core"
 license = "MIT"
-publish = false
+publish = ["crates-io"]
 repository = "https://github.com/stella/aho-corasick"
+homepage = "https://github.com/stella/aho-corasick"
+documentation = "https://docs.rs/stella-aho-corasick-core"
+readme = "README.md"
 keywords = ["aho-corasick", "search", "text"]
 categories = ["text-processing"]
 
