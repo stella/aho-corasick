@@ -138,7 +138,7 @@ pub(crate) enum PreparedSearch<'a> {
 
 impl PreparedSearch<'_> {
   #[inline]
-  pub(crate) fn search_text(&self) -> &str {
+  fn search_text(&self) -> &str {
     match self {
       Self::Direct(s) => s,
       Self::Folded { text, .. } => text,
@@ -164,7 +164,7 @@ pub(crate) enum PreparedBytes<'a> {
 
 impl PreparedBytes<'_> {
   #[inline]
-  pub(crate) fn search_bytes(&self) -> &[u8] {
+  fn search_bytes(&self) -> &[u8] {
     match self {
       Self::Direct(b) => b,
       Self::Folded { bytes, .. } => bytes,
