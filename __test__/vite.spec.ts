@@ -53,7 +53,8 @@ describe("stllAhoCorasickWasmVite", () => {
 describe("injectWasmFetchGuard", () => {
   test("wraps the napi-rs fetch with a wasm byte check", () => {
     const code = `
-const bytes = await fetch(__wasmUrl).then((res) => res.arrayBuffer())
+const __wasmResponse = await globalThis.fetch(__wasmUrl)
+const __wasmFile = await __wasmResponse.arrayBuffer()
 `;
 
     const transformed = injectWasmFetchGuard(
@@ -63,9 +64,11 @@ const bytes = await fetch(__wasmUrl).then((res) => res.arrayBuffer())
     );
 
     expect(transformed).toContain(
-      "const view = new Uint8Array(bytes)",
+      "const __wasmView = new Uint8Array(__wasmFile)",
     );
-    expect(transformed).toContain("view[0] !== 0x00");
+    expect(transformed).toContain(
+      "__wasmView[0] !== 0x00",
+    );
     expect(transformed).toContain(
       "@stll/aho-corasick-wasm/vite",
     );

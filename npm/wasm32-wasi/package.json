@@ -5,9 +5,11 @@
     "wasm32"
   ],
   "main": "aho-corasick.wasi.cjs",
+  "types": "aho-corasick.wasi.d.cts",
   "files": [
     "aho-corasick.wasm32-wasi.wasm",
     "aho-corasick.wasi.cjs",
+    "aho-corasick.wasi.d.cts",
     "aho-corasick.wasi-browser.js",
     "wasi-worker.mjs",
     "wasi-worker-browser.mjs"
@@ -38,6 +40,8 @@
   },
   "browser": "aho-corasick.wasi-browser.js",
   "dependencies": {
-    "@napi-rs/wasm-runtime": "^1.1.3"
+    "@emnapi/core": "2.0.0-alpha.3",
+    "@emnapi/runtime": "2.0.0-alpha.3",
+    "@napi-rs/wasm-runtime": "1.2.2"
   }
 }
