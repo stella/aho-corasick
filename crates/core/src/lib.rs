@@ -1026,6 +1026,27 @@ mod tests {
   use super::{AhoCorasick, MatchKind, Options};
 
   #[test]
+  fn options_builder_preserves_defaults_and_overrides() {
+    assert_eq!(Options::builder().build(), Options::default());
+    assert_eq!(
+      Options::builder()
+        .match_kind(MatchKind::LeftmostLongest)
+        .case_insensitive(true)
+        .dfa(true)
+        .whole_words(true)
+        .unicode_boundaries(false)
+        .build(),
+      Options {
+        match_kind: MatchKind::LeftmostLongest,
+        case_insensitive: true,
+        dfa: true,
+        whole_words: true,
+        unicode_boundaries: false,
+      }
+    );
+  }
+
+  #[test]
   fn packed_bytes_emit_byte_offsets() {
     // `ä` is 2 UTF-8 bytes but 1 UTF-16 code unit, so the units diverge.
     let ac =
