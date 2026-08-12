@@ -59,24 +59,23 @@ pub enum MatchKind {
 }
 
 #[allow(clippy::struct_excessive_bools)]
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+#[derive(bon::Builder, Clone, Copy, Debug, PartialEq, Eq)]
 pub struct Options {
+  #[builder(default = MatchKind::LeftmostFirst)]
   pub match_kind: MatchKind,
+  #[builder(default)]
   pub case_insensitive: bool,
+  #[builder(default)]
   pub dfa: bool,
+  #[builder(default)]
   pub whole_words: bool,
+  #[builder(default = true)]
   pub unicode_boundaries: bool,
 }
 
 impl Default for Options {
   fn default() -> Self {
-    Self {
-      match_kind: MatchKind::LeftmostFirst,
-      case_insensitive: false,
-      dfa: false,
-      whole_words: false,
-      unicode_boundaries: true,
-    }
+    Self::builder().build()
   }
 }
 

@@ -14,6 +14,7 @@ keywords = ["aho-corasick", "search", "text"]
 categories = ["text-processing"]
 
 [dependencies]
+bon = "3.9.3"
 daachorse = "5.0.0"
 unicode-case-mapping = "1"
 

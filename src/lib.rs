@@ -73,15 +73,17 @@ const fn default_options() -> Options {
 
 fn resolve_options(options: Option<Options>) -> core::Options {
   let opts = options.unwrap_or_else(default_options);
-  core::Options {
-    match_kind: opts
-      .match_kind
-      .map_or(core::MatchKind::LeftmostFirst, core::MatchKind::from),
-    case_insensitive: opts.case_insensitive.unwrap_or(false),
-    dfa: opts.dfa.unwrap_or(false),
-    whole_words: opts.whole_words.unwrap_or(false),
-    unicode_boundaries: opts.unicode_boundaries.unwrap_or(true),
-  }
+  core::Options::builder()
+    .match_kind(
+      opts
+        .match_kind
+        .map_or(core::MatchKind::LeftmostFirst, core::MatchKind::from),
+    )
+    .case_insensitive(opts.case_insensitive.unwrap_or(false))
+    .dfa(opts.dfa.unwrap_or(false))
+    .whole_words(opts.whole_words.unwrap_or(false))
+    .unicode_boundaries(opts.unicode_boundaries.unwrap_or(true))
+    .build()
 }
 
 #[napi(js_name = "prepareAhoCorasick")]
