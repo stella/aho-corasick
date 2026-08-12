@@ -2242,6 +2242,10 @@
             {
               "type": "vcs",
               "url": "https://github.com/stella/aho-corasick"
+            },
+            {
+              "type": "vcs",
+              "url": "https://github.com/stella/aho-corasick"
             }
           ],
           "group": "",
