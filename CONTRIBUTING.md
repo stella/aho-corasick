@@ -38,6 +38,8 @@ bun run build:js    # TypeScript -> dist/
 bun test            # run tests
 bun run lint        # oxlint
 bun run format      # oxfmt + rustfmt
+cargo clippy --workspace --all-targets --all-features -- -D warnings
+bun run rust:hawk   # Rust visibility lints
 ```
 
 To test the WASM build locally, use `napi artifacts` to
