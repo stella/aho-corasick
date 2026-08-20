@@ -479,10 +479,45 @@ function mismatches(expectedVersion) {
   return results;
 }
 
-function syncVersion(nextVersion) {
+export function rewriteLoaderVersion({
+  content,
+  filePath,
+  nextVersion,
+  previousVersion,
+}) {
+  if (content.includes(previousVersion)) {
+    return content.replaceAll(previousVersion, nextVersion);
+  }
+  if (content.includes(nextVersion)) {
+    return content;
+  }
+  throw new Error(
+    `Expected ${filePath} to contain ${previousVersion} or ${nextVersion}`,
+  );
+}
+
+export function resolveSyncVersions({
+  packageVersion,
+  requestedVersion,
+  versionFileVersion,
+}) {
+  return {
+    previousVersion: versionFileVersion,
+    nextVersion: requestedVersion ?? packageVersion,
+  };
+}
+
+function syncVersion({ nextVersion, previousVersion }) {
   const meta = packageMeta();
   const platforms = platformPackageManifests();
-  const previousVersion = meta.root.version;
+  const nextIndexCjs = fileExists(meta.indexCjsPath)
+    ? rewriteLoaderVersion({
+        content: readText(meta.indexCjsPath),
+        filePath: meta.indexCjsPath,
+        nextVersion,
+        previousVersion,
+      })
+    : null;
 
   writeText(repoPath("VERSION"), `${nextVersion}\n`);
   meta.root.version = nextVersion;
@@ -555,18 +590,8 @@ function syncVersion(nextVersion) {
     },
   );
 
-  if (fileExists(meta.indexCjsPath)) {
-    let indexCjs = readText(meta.indexCjsPath);
-    if (!indexCjs.includes(previousVersion)) {
-      throw new Error(
-        `Expected ${meta.indexCjsPath} to contain ${previousVersion}`,
-      );
-    }
-    indexCjs = indexCjs.replaceAll(
-      previousVersion,
-      nextVersion,
-    );
-    writeText(meta.indexCjsPath, indexCjs);
+  if (nextIndexCjs !== null) {
+    writeText(meta.indexCjsPath, nextIndexCjs);
   }
 
   if (fileExists(meta.provenanceSbomPath)) {
@@ -654,17 +679,23 @@ function main() {
     process.exit(1);
   }
 
-  const version =
+  const requestedVersion =
     args.get("version") ??
-    args.get("tag")?.replace(/^v/, "") ??
-    readVersion();
+    args.get("tag")?.replace(/^v/, "");
 
   if (command === "sync") {
-    syncVersion(version);
+    syncVersion(
+      resolveSyncVersions({
+        packageVersion: packageMeta().root.version,
+        requestedVersion,
+        versionFileVersion: readVersion(),
+      }),
+    );
     return;
   }
 
   if (command === "check") {
+    const version = requestedVersion ?? readVersion();
     const drift = mismatches(version);
     if (drift.length > 0) {
       console.error("Version drift detected:");
@@ -677,4 +708,10 @@ function main() {
   }
 }
 
-main();
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) ===
+    fileURLToPath(import.meta.url)
+) {
+  main();
+}
