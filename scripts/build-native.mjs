@@ -61,3 +61,18 @@ await normalizeGeneratedFile(
 );
 await normalizeGeneratedFile("wasi-worker-browser.mjs");
 await normalizeGeneratedFile("wasi-worker.mjs");
+
+const contractResult = spawnSync(
+  "bun",
+  [
+    fileURLToPath(
+      new URL("./wasi-artifact-contract.mjs", import.meta.url),
+    ),
+    "--generated",
+  ],
+  { stdio: "inherit" },
+);
+
+if (contractResult.status !== 0) {
+  process.exit(contractResult.status ?? 1);
+}
