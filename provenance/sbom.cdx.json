@@ -1958,7 +1958,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
       "evidence": {
         "identity": [
           {
@@ -1983,12 +1983,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+      "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
       "type": "library",
-      "version": "1.0.4"
+      "version": "1.1.0"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.4",
+      "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
       "evidence": {
         "identity": [
           {
@@ -2013,9 +2013,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick@1.0.4",
+      "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
       "type": "library",
-      "version": "1.0.4"
+      "version": "1.1.0"
     },
     {
       "bom-ref": "pkg:cargo/strsim@0.11.1",
@@ -2630,7 +2630,7 @@
   "compositions": [
     {
       "aggregate": "incomplete",
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.4"
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0"
     }
   ],
   "dependencies": [
@@ -2912,9 +2912,9 @@
         "pkg:cargo/napi-build@2.4.1",
         "pkg:cargo/napi-derive@3.6.3",
         "pkg:cargo/napi@3.12.1",
-        "pkg:cargo/stella-aho-corasick-core@1.0.4"
+        "pkg:cargo/stella-aho-corasick-core@1.1.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick@1.0.4"
+      "ref": "pkg:cargo/stella-aho-corasick@1.1.0"
     },
     {
       "dependsOn": [
@@ -2922,7 +2922,7 @@
         "pkg:cargo/daachorse@5.0.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-core@1.0.4"
+      "ref": "pkg:cargo/stella-aho-corasick-core@1.1.0"
     },
     {
       "dependsOn": [],
@@ -2958,7 +2958,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:npm/@stll/aho-corasick@1.0.4"
+      "ref": "pkg:npm/@stll/aho-corasick@1.1.0"
     }
   ],
   "metadata": {
@@ -2968,10 +2968,10 @@
       }
     ],
     "component": {
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.0.4",
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0",
       "components": [
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick@1.0.4",
+          "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
           "externalReferences": [
             {
               "type": "vcs",
@@ -2988,12 +2988,12 @@
             }
           ],
           "name": "stella-aho-corasick",
-          "purl": "pkg:cargo/stella-aho-corasick@1.0.4",
+          "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
           "type": "application",
-          "version": "1.0.4"
+          "version": "1.1.0"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
           "externalReferences": [
             {
               "type": "vcs",
@@ -3014,9 +3014,9 @@
             }
           ],
           "name": "stella-aho-corasick-core",
-          "purl": "pkg:cargo/stella-aho-corasick-core@1.0.4",
+          "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
           "type": "library",
-          "version": "1.0.4"
+          "version": "1.1.0"
         }
       ],
       "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -3040,9 +3040,9 @@
         }
       ],
       "name": "aho-corasick",
-      "purl": "pkg:npm/%40stll/aho-corasick@1.0.4",
+      "purl": "pkg:npm/%40stll/aho-corasick@1.1.0",
       "type": "application",
-      "version": "1.0.4"
+      "version": "1.1.0"
     },
     "lifecycles": [
       {

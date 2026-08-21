@@ -4,7 +4,7 @@ resolver = "3"
 
 [package]
 name = "stella-aho-corasick"
-version = "1.0.4"
+version = "1.1.0"
 edition = "2024"
 description = "Exact many-pattern string search"
 license = "MIT"
@@ -23,7 +23,7 @@ napi = { version = "3", default-features = false, features = [
   "serde-json",
 ] }
 napi-derive = "3"
-stella-aho-corasick-core = { version = "1.0.4", path = "crates/core" }
+stella-aho-corasick-core = { version = "1.1.0", path = "crates/core" }
 
 [build-dependencies]
 napi-build = "2"

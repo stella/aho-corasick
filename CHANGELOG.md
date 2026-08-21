@@ -1,5 +1,15 @@
 # Changelog
 
+## 1.1.0
+
+### Minor Changes
+
+- [#101](https://github.com/stella/aho-corasick/pull/101) [`f329c0e`](https://github.com/stella/aho-corasick/commit/f329c0e3c8f9908d017a0e82c3581a2012c976f5) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Add reusable prepared automata that can be serialized once and loaded for repeated searches.
+
+### Patch Changes
+
+- [#124](https://github.com/stella/aho-corasick/pull/124) [`009816e`](https://github.com/stella/aho-corasick/commit/009816e1888f4f535c7647d9d7ce815f58654d41) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Update dependencies and Rust quality tooling.
+
 ## 1.0.4
 
 ### Features
