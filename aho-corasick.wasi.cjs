@@ -1,4 +1,4 @@
-// napi-rs-artifact-metadata:{"version":2,"rootEntry":"index.js","exports":["AhoCorasick","StreamMatcher","ahoCorasickFromPrepared","MatchKind","prepareAhoCorasick"],"managedRootEntries":["browser.js","index.js","aho-corasick.wasm","aho-corasick.debug.wasm"]}
+// napi-rs-artifact-metadata:{"version":2,"rootEntry":"index.cjs","exports":["AhoCorasick","StreamMatcher","ahoCorasickFromPrepared","MatchKind","prepareAhoCorasick"],"managedRootEntries":["browser.js","index.cjs","aho-corasick.wasm","aho-corasick.debug.wasm"]}
 /* eslint-disable */
 /* prettier-ignore */
 

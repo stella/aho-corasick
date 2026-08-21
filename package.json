@@ -38,14 +38,14 @@
   },
   "scripts": {
     "fix:loader": "node scripts/fix-napi-loader.mjs",
-    "build": "node scripts/build-native.mjs --platform --dts index.d.cts --release",
-    "build:debug": "node scripts/build-native.mjs --platform --dts index.d.cts",
-    "build:wasm": "node scripts/build-native.mjs --platform --target wasm32-wasip1-threads --dts index.d.cts --release",
+    "build": "node scripts/build-native.mjs --platform --dts index.d.cts --release && bun scripts/wasi-artifact-contract.mjs --generated",
+    "build:debug": "node scripts/build-native.mjs --platform --dts index.d.cts && bun scripts/wasi-artifact-contract.mjs --generated",
+    "build:wasm": "node scripts/build-native.mjs --platform --target wasm32-wasip1-threads --dts index.d.cts --release && bun scripts/wasi-artifact-contract.mjs --generated",
     "artifacts": "napi artifacts",
     "universal": "napi universal",
     "build:js": "node scripts/ensure-wasm-artifact.mjs && tsdown && node scripts/fix-napi-loader.mjs && node scripts/check-wasm-compat.mjs",
     "prepublishOnly": "napi prepublish -t npm && tsdown && node scripts/fix-napi-loader.mjs",
-    "test": "bun test __test__/index.spec.ts scripts/version-sync.test.mjs",
+    "test": "bun run check:release-artifacts && bun test __test__/index.spec.ts scripts/version-sync.test.mjs",
     "test:props": "bun test __test__/properties.spec.ts",
     "test:runtime:bun": "bun scripts/runtime-smoke.mjs",
     "test:runtime:node": "node scripts/runtime-smoke.mjs",
@@ -61,6 +61,7 @@
     "lint": "bun --bun oxlint -c oxlint.config.ts --report-unused-disable-directives-severity=error --deny-warnings --type-aware .",
     "lint:fix": "bun --bun oxlint -c oxlint.config.ts --type-aware --fix .",
     "check:wasm-compat": "node scripts/check-wasm-compat.mjs",
+    "check:release-artifacts": "bun scripts/wasi-artifact-contract.mjs",
     "bench": "bun __bench__/speed.ts",
     "bench:speed": "bun __bench__/speed.ts",
     "bench:unicode": "bun __bench__/unicode.ts",
@@ -105,6 +106,7 @@
     ]
   },
   "engines": {
+    "bun": ">=1.4.0",
     "node": ">= 18"
   },
   "packageManager": "bun@1.4.0"
