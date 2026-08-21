@@ -162,7 +162,8 @@ jobs:
       - name: Build WASM
         if: matrix.settings.target == 'wasm32-wasip1-threads'
         run: bun run build:wasm
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+      - name: Upload bindings
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: bindings-${{ matrix.settings.target }}
           path: |
@@ -171,8 +172,8 @@ jobs:
             !*.debug.wasm
             *.cjs
             *.d.cts
-            *.wasi-browser.js
-            wasi-worker*.mjs
+            *.js
+            *.mjs
           if-no-files-found: error
 
   test:

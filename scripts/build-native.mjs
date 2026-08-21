@@ -12,6 +12,8 @@ const result = spawnSync(
   [
     fileURLToPath(cliPath),
     "build",
+    "--js",
+    "index.cjs",
     ...process.argv.slice(2),
   ],
   {
@@ -30,7 +32,10 @@ async function normalizeGeneratedFile(
   fileName,
   { disableTypecheck = false } = {},
 ) {
-  const fileUrl = new URL(`../${fileName}`, import.meta.url);
+  const fileUrl = new URL(
+    `../${fileName}`,
+    import.meta.url,
+  );
   try {
     let content = await readFile(fileUrl, "utf8");
     if (
@@ -56,5 +61,3 @@ await normalizeGeneratedFile(
 );
 await normalizeGeneratedFile("wasi-worker-browser.mjs");
 await normalizeGeneratedFile("wasi-worker.mjs");
-
-await import("./fix-napi-loader.mjs");
