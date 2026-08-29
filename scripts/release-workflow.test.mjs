@@ -98,6 +98,11 @@ describe("release credential boundaries", () => {
     expect(core).toContain(
       "The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}",
     );
+    expect(
+      core.split(
+        '"https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)',
+      ),
+    ).toHaveLength(3);
     expect(core).not.toMatch(
       /actions\/checkout@|setup-bun@|rust-toolchain@|npm (?:install|pack)|bun (?:install|run)|cargo (?:package|publish|build|test)/,
     );

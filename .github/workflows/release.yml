@@ -507,7 +507,7 @@ jobs:
             published_status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
               --user-agent 'stella-aho-corasick-release' \
               --output "$published_response" --write-out '%{http_code}' \
-              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
+              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
             if [[ "$published_status" == 200 ]] &&
               jq -e --arg version "$CRATE_VERSION" \
                 '.version.num == $version' "$published_response" >/dev/null; then
@@ -534,7 +534,7 @@ jobs:
             status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
               --user-agent 'stella-aho-corasick-release' \
               --output "$response" --write-out '%{http_code}' \
-              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
+              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
             if [[ "$status" == 200 ]] &&
               jq -e --arg version "$CRATE_VERSION" \
                 '.version.num == $version' "$response" >/dev/null; then
