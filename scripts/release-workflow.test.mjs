@@ -11,6 +11,7 @@ const workflow = readFileSync(
 
 const jobsStart = workflow.indexOf("\njobs:\n");
 expect(jobsStart).not.toBe(-1);
+const workflowPreamble = workflow.slice(0, jobsStart);
 const jobsText = workflow.slice(
   jobsStart + "\njobs:\n".length,
 );
@@ -47,6 +48,12 @@ describe("release credential boundaries", () => {
       "core",
       "finalize",
     ]);
+    expect(workflowPreamble).toContain(
+      "permissions:\n  contents: read",
+    );
+    expect(workflowPreamble).not.toContain(
+      "id-token: write",
+    );
   });
 
   test("builds and packs npm artifacts without OIDC", () => {
@@ -79,6 +86,12 @@ describe("release credential boundaries", () => {
 
   test("publishes only the prebuilt Rust upload body with OIDC", () => {
     const core = job("core");
+    const actionRefs = [
+      ...core.matchAll(/^\s+(?:-\s+)?uses:\s+(\S+)/gm),
+    ].map((match) => match[1]);
+    const shellSteps = [
+      ...core.matchAll(/^\s+run:\s*[|>]?(?:\s*)$/gm),
+    ];
     expect(core).toContain("id-token: write");
     expect(core).toContain("actions/download-artifact@");
     expect(core).toContain("--data-binary");
@@ -88,5 +101,10 @@ describe("release credential boundaries", () => {
     expect(core).not.toMatch(
       /actions\/checkout@|setup-bun@|rust-toolchain@|npm (?:install|pack)|bun (?:install|run)|cargo (?:package|publish|build|test)/,
     );
+    expect(actionRefs).toEqual([
+      "actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c",
+      "rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18",
+    ]);
+    expect(shellSteps).toHaveLength(4);
   });
 });
