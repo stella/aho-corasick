@@ -1,11 +1,5 @@
 name: Release
 
-env:
-  NODE_VERSION: "22"
-  BUN_VERSION: "1.4.0"
-  CDXGEN_VERSION: "12.1.5"
-  CARGO_INCREMENTAL: 0
-
 on:
   push:
     branches: [main]
@@ -70,13 +64,15 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: "22"
       - run: node scripts/version-sync.mjs check
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
@@ -88,7 +84,7 @@ jobs:
           shared-key: release-verify
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
       - run: bun run lint
       - run: cargo clippy --workspace --all-targets --all-features -- -D warnings
@@ -117,6 +113,8 @@ jobs:
     needs: [preflight, verify]
     if: needs.preflight.outputs.already-released != 'true'
     runs-on: ${{ matrix.settings.os }}
+    env:
+      CARGO_INCREMENTAL: 0
     strategy:
       fail-fast: false
       matrix:
@@ -145,7 +143,7 @@ jobs:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: "22"
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
           toolchain: stable
@@ -155,7 +153,7 @@ jobs:
           shared-key: release-build-${{ matrix.settings.target }}
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
       - name: Build native
         if: >-
@@ -211,7 +209,7 @@ jobs:
           persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
@@ -238,24 +236,21 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-    outputs:
-      aux_tarballs: ${{ steps.pack.outputs.aux_tarballs }}
-      root_tarball: ${{ steps.pack.outputs.root_tarball }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
+          node-version: "22"
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
-          bun-version: ${{ env.BUN_VERSION }}
+          bun-version: "1.4.0"
       - run: bun install --frozen-lockfile
       - name: Install SBOM generator
         # This fixed CLI generates release metadata without receiving publish credentials.
         # zizmor: ignore[adhoc-packages]
-        run: npm install --global --ignore-scripts "@cyclonedx/cdxgen@${CDXGEN_VERSION}"
+        run: npm install --global --ignore-scripts "@cyclonedx/cdxgen@12.1.5"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
@@ -272,7 +267,6 @@ jobs:
       - run: bun run build:js
       - run: node scripts/prepare-release-package.mjs
       - name: Pack release tarballs
-        id: pack
         shell: bash
         run: |
           set -euo pipefail
@@ -296,13 +290,6 @@ jobs:
 
           mapfile -t aux_tarballs < <(find release-artifacts -maxdepth 1 -name '*.tgz' ! -name "$root_file" | sort)
           node scripts/check-release-tarballs.mjs "$root_tarball" "${aux_tarballs[@]}"
-
-          echo "root_tarball=$root_tarball" >> "$GITHUB_OUTPUT"
-          {
-            echo 'aux_tarballs<<EOF'
-            printf '%s\n' "${aux_tarballs[@]}"
-            echo EOF
-          } >> "$GITHUB_OUTPUT"
       - name: Generate release checksums
         run: |
           set -euo pipefail
@@ -334,8 +321,9 @@ jobs:
     name: Attest npm artifacts
     needs: pack
     if: >-
-      github.event_name == 'push'
-      || (inputs.publish_to_npm && github.ref == 'refs/heads/main')
+      github.ref == 'refs/heads/main' && (
+        github.event_name == 'push'
+        || inputs.publish_to_npm)
     runs-on: ubuntu-latest
     permissions:
       attestations: write # Required to record artifact attestations.
@@ -346,267 +334,67 @@ jobs:
         with:
           name: release-artifacts
           path: release-artifacts
-      - name: Attest root package tarball with SBOM
+      - name: Attest npm package tarballs with SBOM
         uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
         with:
-          subject-path: ${{ needs.pack.outputs.root_tarball }}
+          subject-path: release-artifacts/*.tgz
           sbom-path: release-artifacts/attest-sbom.cdx.json
-      - name: Attest auxiliary package tarballs
-        if: needs.pack.outputs.aux_tarballs != ''
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-path: ${{ needs.pack.outputs.aux_tarballs }}
 
-  core-package:
-    name: Package Rust core
-    needs: [preflight, verify, test]
+  core-verify:
+    name: Verify Rust core package
+    needs: preflight
     if: >-
-      always()
-      && needs.preflight.result == 'success'
-      && (needs.preflight.outputs.already-released == 'true'
-          || (needs.verify.result == 'success'
-              && needs.test.result == 'success'))
+      github.event_name == 'workflow_dispatch'
+      && inputs.publish_to_npm != true
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    env:
+      CARGO_INCREMENTAL: 0
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          node-version: ${{ env.NODE_VERSION }}
-      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
-      - run: node scripts/version-sync.mjs check
-      - name: Package and verify Rust core
-        run: cargo package --package stella-aho-corasick-core --locked
-      - name: Build exact crates.io upload artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          version="$(tr -d '[:space:]' < VERSION)"
-          crate="target/package/stella-aho-corasick-core-${version}.crate"
-          mkdir -p core-crate
-          cp -- "$crate" core-crate/
-          node scripts/create-crate-upload.mjs \
-            stella-aho-corasick-core \
-            "core-crate/$(basename "$crate")" \
-            core-crate/upload.bin \
-            core-crate/release.json
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+          node-version: "22"
+      - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8
         with:
-          name: core-crate
-          path: core-crate
-          if-no-files-found: error
+          toolchain: stable
+      - run: node scripts/version-sync.mjs check
+      - run: cargo package --locked --manifest-path crates/core/Cargo.toml
 
   core:
     name: Publish Rust core
-    needs: core-package
+    needs: [preflight, verify, test]
     if: >-
-      github.event_name == 'push'
-      || (inputs.publish_to_npm && github.ref == 'refs/heads/main')
-    runs-on: ubuntu-latest
-    environment: crates-io
+      github.ref == 'refs/heads/main' && (
+        always()
+        && needs.preflight.result == 'success'
+        && (needs.preflight.outputs.already-released == 'true'
+            || (needs.verify.result == 'success'
+                && needs.test.result == 'success'))
+        && (github.event_name == 'push'
+            || inputs.publish_to_npm))
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@eabb8b7de6cc69e1bbd3468ee80ddaf99cbddc33
+    with:
+      crate-name: stella-aho-corasick-core
+      manifest-path: crates/core/Cargo.toml
     permissions:
       contents: read
-      id-token: write # Required only for the crates.io publishing token.
-    steps:
-      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
-        with:
-          name: core-crate
-          path: core-crate
-      - name: Validate Rust release artifact
-        id: artifact
-        shell: bash
-        run: |
-          set -euo pipefail
-          manifest=core-crate/release.json
-          upload=core-crate/upload.bin
-          test -f "$manifest"
-          test -f "$upload"
-
-          name="$(jq -er '.name' "$manifest")"
-          version="$(jq -er '.version' "$manifest")"
-          crate_file="$(jq -er '.crateFile' "$manifest")"
-          upload_file="$(jq -er '.uploadFile' "$manifest")"
-          [[ "$name" == "stella-aho-corasick-core" ]]
-          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
-          [[ "$crate_file" == "${name}-${version}.crate" ]]
-          [[ "$upload_file" == "upload.bin" ]]
-          test -f "core-crate/$crate_file"
-
-          crate_sha="$(jq -er '.crateSha256' "$manifest")"
-          upload_sha="$(jq -er '.uploadSha256' "$manifest")"
-          [[ "$crate_sha" =~ ^[0-9a-f]{64}$ ]]
-          [[ "$upload_sha" =~ ^[0-9a-f]{64}$ ]]
-          echo "$crate_sha  core-crate/$crate_file" | sha256sum --check --strict
-          echo "$upload_sha  $upload" | sha256sum --check --strict
-
-          {
-            echo "name=$name"
-            echo "version=$version"
-            echo "crate_sha256=$crate_sha"
-          } >> "$GITHUB_OUTPUT"
-      - name: Check exact crates.io version
-        id: crate-status
-        shell: bash
-        env:
-          CRATE_NAME: ${{ steps.artifact.outputs.name }}
-          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
-          EXPECTED_CRATE_SHA256: ${{ steps.artifact.outputs.crate_sha256 }}
-        run: |
-          set -euo pipefail
-          response="${RUNNER_TEMP}/crate-version.json"
-          status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
-            --connect-timeout 10 --max-time 60 \
-            --user-agent 'stella-aho-corasick-release' \
-            --output "$response" --write-out '%{http_code}' \
-            "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
-          case "$status" in
-            200)
-              jq -e --arg version "$CRATE_VERSION" \
-                '.version.num == $version' "$response" >/dev/null
-              archive="${RUNNER_TEMP}/existing-crate.crate"
-              archive_status="$(curl --location --proto '=https' \
-                --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
-                --connect-timeout 10 --max-time 60 \
-                --user-agent 'stella-aho-corasick-release' \
-                --output "$archive" --write-out '%{http_code}' \
-                "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download")"
-              [[ "$archive_status" == 200 ]]
-              archive_sha="$(sha256sum "$archive" | cut -d ' ' -f1)"
-              if [[ "$archive_sha" != "$EXPECTED_CRATE_SHA256" ]]; then
-                echo "::error::Existing crates.io archive does not match the prepared crate."
-                exit 1
-              fi
-              echo "already-released=true" >> "$GITHUB_OUTPUT"
-              ;;
-            404)
-              echo "already-released=false" >> "$GITHUB_OUTPUT"
-              ;;
-            *)
-              echo "::error::crates.io returned HTTP ${status}"
-              cat "$response"
-              exit 1
-              ;;
-          esac
-      - name: Authenticate to crates.io
-        id: crates-io-auth
-        if: steps.crate-status.outputs.already-released != 'true'
-        uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
-      - name: Publish Rust core
-        if: steps.crate-status.outputs.already-released != 'true'
-        env:
-          CRATES_IO_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
-          CRATE_NAME: ${{ steps.artifact.outputs.name }}
-          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
-          EXPECTED_CRATE_SHA256: ${{ steps.artifact.outputs.crate_sha256 }}
-        run: |
-          set -euo pipefail
-          response="${RUNNER_TEMP}/publish-response.json"
-          status="$(curl --proto '=https' --tlsv1.2 -sS \
-            --connect-timeout 30 --max-time 300 \
-            --request PUT \
-            --header 'Accept: application/json' \
-            --header "Authorization: ${CRATES_IO_TOKEN}" \
-            --header 'Content-Type: application/octet-stream' \
-            --data-binary @core-crate/upload.bin \
-            --output "$response" \
-            --write-out '%{http_code}' \
-            https://crates.io/api/v1/crates/new || true)"
-          if [[ "$status" == 2* ]] &&
-            jq -e '(.errors // []) | length == 0' "$response" >/dev/null; then
-            exit 0
-          fi
-
-          # A timed-out or failed response can still follow a committed upload.
-          # Never resend the immutable version until the registry has had a
-          # bounded opportunity to expose that exact release.
-          published_response="${RUNNER_TEMP}/ambiguous-published-version.json"
-          for attempt in {1..12}; do
-            published_status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
-              --connect-timeout 10 --max-time 60 \
-              --user-agent 'stella-aho-corasick-release' \
-              --output "$published_response" --write-out '%{http_code}' \
-              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
-            if [[ "$published_status" == 200 ]] &&
-              jq -e --arg version "$CRATE_VERSION" \
-                '.version.num == $version' "$published_response" >/dev/null; then
-              archive="${RUNNER_TEMP}/ambiguous-published-crate.crate"
-              archive_status="$(curl --location --proto '=https' \
-                --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
-                --connect-timeout 10 --max-time 60 \
-                --user-agent 'stella-aho-corasick-release' \
-                --output "$archive" --write-out '%{http_code}' \
-                "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download" || true)"
-              if [[ "$archive_status" == 200 ]]; then
-                archive_sha="$(sha256sum "$archive" | cut -d ' ' -f1)"
-                if [[ "$archive_sha" != "$EXPECTED_CRATE_SHA256" ]]; then
-                  echo "::error::The ambiguously published crates.io archive does not match the prepared crate."
-                  exit 1
-                fi
-                echo "::notice::The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}."
-                exit 0
-              fi
-            fi
-            sleep 5
-          done
-
-          if [[ -f "$response" ]]; then
-            jq -r '.errors[]?.detail // empty' "$response"
-          fi
-          echo "::error::crates.io upload returned HTTP ${status}; the exact version is not visible after ${attempt} checks."
-          exit 1
-      - name: Verify exact crates.io release
-        shell: bash
-        env:
-          CRATE_NAME: ${{ steps.artifact.outputs.name }}
-          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
-          EXPECTED_CRATE_SHA256: ${{ steps.artifact.outputs.crate_sha256 }}
-        run: |
-          set -euo pipefail
-          response="${RUNNER_TEMP}/published-crate-version.json"
-          for attempt in {1..12}; do
-            status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
-              --connect-timeout 10 --max-time 60 \
-              --user-agent 'stella-aho-corasick-release' \
-              --output "$response" --write-out '%{http_code}' \
-              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
-            if [[ "$status" == 200 ]] &&
-              jq -e --arg version "$CRATE_VERSION" \
-                '.version.num == $version' "$response" >/dev/null; then
-              archive="${RUNNER_TEMP}/published-crate.crate"
-              archive_status="$(curl --location --proto '=https' \
-                --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
-                --connect-timeout 10 --max-time 60 \
-                --user-agent 'stella-aho-corasick-release' \
-                --output "$archive" --write-out '%{http_code}' \
-                "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download" || true)"
-              if [[ "$archive_status" == 200 ]]; then
-                archive_sha="$(sha256sum "$archive" | cut -d ' ' -f1)"
-                if [[ "$archive_sha" != "$EXPECTED_CRATE_SHA256" ]]; then
-                  echo "::error::Published crates.io archive does not match the prepared crate."
-                  exit 1
-                fi
-                exit 0
-              fi
-            fi
-            if [[ "$attempt" == 12 ]]; then
-              echo "::error::${CRATE_NAME} ${CRATE_VERSION} is not available"
-              exit 1
-            fi
-            sleep 5
-          done
+      attestations: write
+      id-token: write
 
   finalize:
     name: Finalize
     needs: [preflight, pack, attest, core]
     if: >-
-      needs.preflight.outputs.already-released != 'true'
-      && needs.core.result == 'success'
-      && (github.event_name == 'push'
-          || (inputs.publish_to_npm && github.ref == 'refs/heads/main'))
-    uses: stella/.github/.github/workflows/npm-version-finalize.yml@1ce0079bbdbf93a4c1917d2857496b89aedcec14
+      github.ref == 'refs/heads/main' && (
+        needs.preflight.outputs.already-released != 'true'
+        && needs.core.result == 'success'
+        && (github.event_name == 'push'
+            || inputs.publish_to_npm))
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@eabb8b7de6cc69e1bbd3468ee80ddaf99cbddc33
     with:
       package-files: |
         package.json
