@@ -36,6 +36,16 @@ const job = (name) => {
   return body;
 };
 
+const step = (jobBody, name) => {
+  const start = jobBody.indexOf(`      - name: ${name}\n`);
+  expect(start, `missing ${name} step`).not.toBe(-1);
+  const end = jobBody.indexOf("\n      - ", start + 1);
+  return jobBody.slice(
+    start,
+    end === -1 ? jobBody.length : end,
+  );
+};
+
 describe("release credential boundaries", () => {
   test("only the artifact consumers receive OIDC", () => {
     const oidcJobs = [...jobs]
@@ -111,5 +121,51 @@ describe("release credential boundaries", () => {
       "rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18",
     ]);
     expect(shellSteps).toHaveLength(4);
+  });
+
+  test("proves every crates.io success path serves the prepared crate", () => {
+    const core = job("core");
+    const artifactValidation = step(
+      core,
+      "Validate Rust release artifact",
+    );
+    expect(artifactValidation).toContain(
+      'echo "crate_sha256=$crate_sha"',
+    );
+    expect(artifactValidation).toContain(
+      '} >> "$GITHUB_OUTPUT"',
+    );
+
+    for (const [stepName, successMarker] of [
+      [
+        "Check exact crates.io version",
+        'echo "already-released=true"',
+      ],
+      [
+        "Publish Rust core",
+        'echo "::notice::The ambiguous upload committed',
+      ],
+      ["Verify exact crates.io release", "exit 0"],
+    ]) {
+      const successPath = step(core, stepName);
+      const archiveDownload =
+        '"https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download"';
+      const archiveComparison =
+        '[[ "$archive_sha" != "$EXPECTED_CRATE_SHA256" ]]';
+      expect(successPath).toContain(
+        "EXPECTED_CRATE_SHA256: ${{ steps.artifact.outputs.crate_sha256 }}",
+      );
+      expect(successPath).toContain(archiveDownload);
+      expect(successPath).toContain(
+        'archive_sha="$(sha256sum "$archive" | cut -d \' \' -f1)"',
+      );
+      expect(successPath).toContain(archiveComparison);
+      expect(
+        successPath.indexOf(archiveDownload),
+      ).toBeLessThan(successPath.indexOf(successMarker));
+      expect(
+        successPath.indexOf(archiveComparison),
+      ).toBeLessThan(successPath.indexOf(successMarker));
+    }
   });
 });
