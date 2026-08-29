@@ -72,6 +72,8 @@ jobs:
       contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -139,6 +141,8 @@ jobs:
             os: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -157,12 +161,16 @@ jobs:
         if: >-
           !matrix.settings.use-cross
           && matrix.settings.target != 'wasm32-wasip1-threads'
-        run: bun run build --target ${{ matrix.settings.target }}
+        env:
+          BUILD_TARGET: ${{ matrix.settings.target }}
+        run: bun run build --target "$BUILD_TARGET"
       - name: Build cross-compile
         if: ${{ matrix.settings.use-cross }}
+        env:
+          BUILD_TARGET: ${{ matrix.settings.target }}
         run: >
           bun run build
-          --target ${{ matrix.settings.target }}
+          --target "$BUILD_TARGET"
           --use-napi-cross
       - name: Build WASM
         if: matrix.settings.target == 'wasm32-wasip1-threads'
@@ -199,6 +207,8 @@ jobs:
         os: [ubuntu-latest, macos-15, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
         with:
           bun-version: ${{ env.BUN_VERSION }}
@@ -228,10 +238,13 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      attestations: write
-      id-token: write
+    outputs:
+      aux_tarballs: ${{ steps.pack.outputs.aux_tarballs }}
+      root_tarball: ${{ steps.pack.outputs.root_tarball }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: ${{ env.NODE_VERSION }}
@@ -239,7 +252,10 @@ jobs:
         with:
           bun-version: ${{ env.BUN_VERSION }}
       - run: bun install --frozen-lockfile
-      - run: npm install --global "@cyclonedx/cdxgen@${{ env.CDXGEN_VERSION }}"
+      - name: Install SBOM generator
+        # This fixed CLI generates release metadata without receiving publish credentials.
+        # zizmor: ignore[adhoc-packages]
+        run: npm install --global --ignore-scripts "@cyclonedx/cdxgen@${CDXGEN_VERSION}"
       - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           path: artifacts
@@ -302,16 +318,6 @@ jobs:
           --exclude-regex '(^|/)node_modules(/.*)?$'
           --output release-artifacts/attest-sbom.cdx.json
           .
-      - name: Attest root package tarball with SBOM
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-path: ${{ steps.pack.outputs.root_tarball }}
-          sbom-path: release-artifacts/attest-sbom.cdx.json
-      - name: Attest auxiliary package tarballs
-        if: steps.pack.outputs.aux_tarballs != ''
-        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
-        with:
-          subject-path: ${{ steps.pack.outputs.aux_tarballs }}
       - name: Stage provenance release assets
         run: |
           set -euo pipefail
@@ -324,8 +330,32 @@ jobs:
           path: release-artifacts
           if-no-files-found: error
 
-  core:
-    name: Publish Rust core
+  attest:
+    name: Attest npm artifacts
+    needs: pack
+    runs-on: ubuntu-latest
+    permissions:
+      attestations: write # Required to record artifact attestations.
+      contents: read
+      id-token: write # Required to sign artifact attestations.
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+      - name: Attest root package tarball with SBOM
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: ${{ needs.pack.outputs.root_tarball }}
+          sbom-path: release-artifacts/attest-sbom.cdx.json
+      - name: Attest auxiliary package tarballs
+        if: needs.pack.outputs.aux_tarballs != ''
+        uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+        with:
+          subject-path: ${{ needs.pack.outputs.aux_tarballs }}
+
+  core-package:
+    name: Package Rust core
     needs: [preflight, verify, test]
     if: >-
       always()
@@ -334,10 +364,8 @@ jobs:
           || (needs.verify.result == 'success'
               && needs.test.result == 'success'))
     runs-on: ubuntu-latest
-    environment: crates-io
     permissions:
       contents: read
-      id-token: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -347,29 +375,88 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
       - uses: dtolnay/rust-toolchain@29eef336d9b2848a0b548edc03f92a220660cdb8 # stable
       - run: node scripts/version-sync.mjs check
-      - name: Verify publishable core package
-        run: cargo publish --dry-run --package stella-aho-corasick-core --locked
-      - name: Resolve release mode
-        id: release-mode
-        run: >-
-          echo "enabled=${{
-            github.event_name == 'push'
-            || (inputs.publish_to_npm && github.ref == 'refs/heads/main')
-          }}" >> "$GITHUB_OUTPUT"
-      - name: Check exact crates.io version
-        id: crate-status
+      - name: Package and verify Rust core
+        run: cargo package --package stella-aho-corasick-core --locked
+      - name: Build exact crates.io upload artifact
         shell: bash
         run: |
           set -euo pipefail
           version="$(tr -d '[:space:]' < VERSION)"
+          crate="target/package/stella-aho-corasick-core-${version}.crate"
+          mkdir -p core-crate
+          cp -- "$crate" core-crate/
+          node scripts/create-crate-upload.mjs \
+            stella-aho-corasick-core \
+            "core-crate/$(basename "$crate")" \
+            core-crate/upload.bin \
+            core-crate/release.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: core-crate
+          path: core-crate
+          if-no-files-found: error
+
+  core:
+    name: Publish Rust core
+    needs: core-package
+    if: >-
+      github.event_name == 'push'
+      || (inputs.publish_to_npm && github.ref == 'refs/heads/main')
+    runs-on: ubuntu-latest
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # Required only for the crates.io publishing token.
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: core-crate
+          path: core-crate
+      - name: Validate Rust release artifact
+        id: artifact
+        shell: bash
+        run: |
+          set -euo pipefail
+          manifest=core-crate/release.json
+          upload=core-crate/upload.bin
+          test -f "$manifest"
+          test -f "$upload"
+
+          name="$(jq -er '.name' "$manifest")"
+          version="$(jq -er '.version' "$manifest")"
+          crate_file="$(jq -er '.crateFile' "$manifest")"
+          upload_file="$(jq -er '.uploadFile' "$manifest")"
+          [[ "$name" == "stella-aho-corasick-core" ]]
+          [[ "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]
+          [[ "$crate_file" == "${name}-${version}.crate" ]]
+          [[ "$upload_file" == "upload.bin" ]]
+          test -f "core-crate/$crate_file"
+
+          crate_sha="$(jq -er '.crateSha256' "$manifest")"
+          upload_sha="$(jq -er '.uploadSha256' "$manifest")"
+          [[ "$crate_sha" =~ ^[0-9a-f]{64}$ ]]
+          [[ "$upload_sha" =~ ^[0-9a-f]{64}$ ]]
+          echo "$crate_sha  core-crate/$crate_file" | sha256sum --check --strict
+          echo "$upload_sha  $upload" | sha256sum --check --strict
+
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+      - name: Check exact crates.io version
+        id: crate-status
+        shell: bash
+        env:
+          CRATE_NAME: ${{ steps.artifact.outputs.name }}
+          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
+        run: |
+          set -euo pipefail
           response="${RUNNER_TEMP}/crate-version.json"
           status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
             --user-agent 'stella-aho-corasick-release' \
             --output "$response" --write-out '%{http_code}' \
-            "https://crates.io/api/v1/crates/stella-aho-corasick-core/${version}")"
+            "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
           case "$status" in
             200)
-              jq -e --arg version "$version" \
+              jq -e --arg version "$CRATE_VERSION" \
                 '.version.num == $version' "$response" >/dev/null
               echo "already-released=true" >> "$GITHUB_OUTPUT"
               ;;
@@ -384,36 +471,44 @@ jobs:
           esac
       - name: Authenticate to crates.io
         id: crates-io-auth
-        if: >-
-          steps.release-mode.outputs.enabled == 'true'
-          && steps.crate-status.outputs.already-released != 'true'
+        if: steps.crate-status.outputs.already-released != 'true'
         uses: rust-lang/crates-io-auth-action@c6f97d42243bad5fab37ca0427f495c86d5b1a18 # v1.0.5
       - name: Publish Rust core
-        if: >-
-          steps.release-mode.outputs.enabled == 'true'
-          && steps.crate-status.outputs.already-released != 'true'
-        run: cargo publish --package stella-aho-corasick-core --locked
+        if: steps.crate-status.outputs.already-released != 'true'
         env:
-          CARGO_REGISTRY_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
-      - name: Verify exact crates.io release
-        if: steps.release-mode.outputs.enabled == 'true'
-        shell: bash
+          CRATES_IO_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
         run: |
           set -euo pipefail
-          version="$(tr -d '[:space:]' < VERSION)"
+          response="${RUNNER_TEMP}/publish-response.json"
+          curl --proto '=https' --tlsv1.2 --retry 3 --fail-with-body -sS \
+            --request PUT \
+            --header 'Accept: application/json' \
+            --header "Authorization: ${CRATES_IO_TOKEN}" \
+            --header 'Content-Type: application/octet-stream' \
+            --data-binary @core-crate/upload.bin \
+            --output "$response" \
+            https://crates.io/api/v1/crates/new
+          jq -e '(.errors // []) | length == 0' "$response" >/dev/null
+      - name: Verify exact crates.io release
+        shell: bash
+        env:
+          CRATE_NAME: ${{ steps.artifact.outputs.name }}
+          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
+        run: |
+          set -euo pipefail
           response="${RUNNER_TEMP}/published-crate-version.json"
           for attempt in {1..12}; do
             status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
               --user-agent 'stella-aho-corasick-release' \
               --output "$response" --write-out '%{http_code}' \
-              "https://crates.io/api/v1/crates/stella-aho-corasick-core/${version}")"
+              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
             if [[ "$status" == 200 ]] &&
-              jq -e --arg version "$version" \
+              jq -e --arg version "$CRATE_VERSION" \
                 '.version.num == $version' "$response" >/dev/null; then
               exit 0
             fi
             if [[ "$attempt" == 12 ]]; then
-              echo "::error::stella-aho-corasick-core ${version} is not available"
+              echo "::error::${CRATE_NAME} ${CRATE_VERSION} is not available"
               exit 1
             fi
             sleep 5
@@ -421,13 +516,13 @@ jobs:
 
   finalize:
     name: Finalize
-    needs: [preflight, pack, core]
+    needs: [preflight, pack, attest, core]
     if: >-
       needs.preflight.outputs.already-released != 'true'
       && needs.core.result == 'success'
       && (github.event_name == 'push'
           || (inputs.publish_to_npm && github.ref == 'refs/heads/main'))
-    uses: stella/.github/.github/workflows/npm-version-finalize.yml@7198083e27bdd963cacc0b7d70ca54fe3ec83393
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@1ce0079bbdbf93a4c1917d2857496b89aedcec14
     with:
       package-files: |
         package.json
@@ -443,7 +538,10 @@ jobs:
             || (inputs.publish_to_npm && github.ref == 'refs/heads/main') }}
       update-changelog: false
     permissions:
-      contents: write
-      id-token: write
-      pull-requests: write
-    secrets: inherit
+      contents: write # Required to create the release tag and GitHub release.
+      id-token: write # Required only for npm trusted publishing.
+    secrets:
+      CHANGELOG_APP_ID: ${{ secrets.CHANGELOG_APP_ID }}
+      CHANGELOG_APP_PRIVATE_KEY: ${{ secrets.CHANGELOG_APP_PRIVATE_KEY }}
+      RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
