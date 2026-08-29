@@ -333,6 +333,9 @@ jobs:
   attest:
     name: Attest npm artifacts
     needs: pack
+    if: >-
+      github.event_name == 'push'
+      || (inputs.publish_to_npm && github.ref == 'refs/heads/main')
     runs-on: ubuntu-latest
     permissions:
       attestations: write # Required to record artifact attestations.
