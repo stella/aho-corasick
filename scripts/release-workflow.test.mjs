@@ -105,6 +105,9 @@ describe("release credential boundaries", () => {
     expect(core).toContain("id-token: write");
     expect(core).toContain("actions/download-artifact@");
     expect(core).toContain("--data-binary");
+    expect(step(core, "Publish Rust core")).toContain(
+      "--connect-timeout 30 --max-time 300",
+    );
     expect(core).toContain(
       "The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}",
     );

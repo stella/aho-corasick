@@ -503,6 +503,7 @@ jobs:
           set -euo pipefail
           response="${RUNNER_TEMP}/publish-response.json"
           status="$(curl --proto '=https' --tlsv1.2 -sS \
+            --connect-timeout 30 --max-time 300 \
             --request PUT \
             --header 'Accept: application/json' \
             --header "Authorization: ${CRATES_IO_TOKEN}" \
