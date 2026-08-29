@@ -21,13 +21,20 @@ describe("Rust release recovery", () => {
   test("validates synchronized versions before every crate publish", () => {
     const verify = readJob("core-verify");
     const publish = readJob("core");
+    const recovery = readJob("core-recovery");
 
     expect(verify).toContain("node scripts/version-sync.mjs check");
     expect(verify).toContain("cargo package --locked --manifest-path crates/core/Cargo.toml");
     expect(verify).toContain("github.event_name == 'push'");
-    expect(publish).toContain("needs: [preflight, core-verify]");
+    expect(publish).toContain("needs: [preflight, verify, test, pack, attest, core-verify]");
+    expect(publish).toContain("needs.preflight.outputs.already-released != 'true'");
+    expect(publish).toContain("needs.test.result == 'success'");
+    expect(publish).toContain("needs.attest.result == 'success'");
     expect(publish).toContain("needs.core-verify.result == 'success'");
+    expect(recovery).toContain("needs: [preflight, core-verify]");
+    expect(recovery).toContain("needs.preflight.outputs.already-released == 'true'");
+    expect(recovery).toContain("needs.core-verify.result == 'success'");
     expect(publish).not.toMatch(/always\(\)|failure\(\)|cancelled\(\)/);
-    expect(publish).not.toContain("always()");
+    expect(recovery).not.toMatch(/always\(\)|failure\(\)|cancelled\(\)/);
   });
 });
