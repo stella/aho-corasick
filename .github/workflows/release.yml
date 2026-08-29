@@ -458,6 +458,7 @@ jobs:
           set -euo pipefail
           response="${RUNNER_TEMP}/crate-version.json"
           status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
+            --connect-timeout 10 --max-time 60 \
             --user-agent 'stella-aho-corasick-release' \
             --output "$response" --write-out '%{http_code}' \
             "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
@@ -468,6 +469,7 @@ jobs:
               archive="${RUNNER_TEMP}/existing-crate.crate"
               archive_status="$(curl --location --proto '=https' \
                 --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
+                --connect-timeout 10 --max-time 60 \
                 --user-agent 'stella-aho-corasick-release' \
                 --output "$archive" --write-out '%{http_code}' \
                 "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download")"
@@ -523,6 +525,7 @@ jobs:
           published_response="${RUNNER_TEMP}/ambiguous-published-version.json"
           for attempt in {1..12}; do
             published_status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
+              --connect-timeout 10 --max-time 60 \
               --user-agent 'stella-aho-corasick-release' \
               --output "$published_response" --write-out '%{http_code}' \
               "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
@@ -532,6 +535,7 @@ jobs:
               archive="${RUNNER_TEMP}/ambiguous-published-crate.crate"
               archive_status="$(curl --location --proto '=https' \
                 --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
+                --connect-timeout 10 --max-time 60 \
                 --user-agent 'stella-aho-corasick-release' \
                 --output "$archive" --write-out '%{http_code}' \
                 "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download" || true)"
@@ -564,6 +568,7 @@ jobs:
           response="${RUNNER_TEMP}/published-crate-version.json"
           for attempt in {1..12}; do
             status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
+              --connect-timeout 10 --max-time 60 \
               --user-agent 'stella-aho-corasick-release' \
               --output "$response" --write-out '%{http_code}' \
               "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}" || true)"
@@ -573,6 +578,7 @@ jobs:
               archive="${RUNNER_TEMP}/published-crate.crate"
               archive_status="$(curl --location --proto '=https' \
                 --proto-redir '=https' --tlsv1.2 --retry 3 -sS \
+                --connect-timeout 10 --max-time 60 \
                 --user-agent 'stella-aho-corasick-release' \
                 --output "$archive" --write-out '%{http_code}' \
                 "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}/download" || true)"

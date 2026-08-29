@@ -108,6 +108,9 @@ describe("release credential boundaries", () => {
     expect(step(core, "Publish Rust core")).toContain(
       "--connect-timeout 30 --max-time 300",
     );
+    expect(
+      core.match(/--connect-timeout 10 --max-time 60/g),
+    ).toHaveLength(6);
     expect(core).toContain(
       "The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}",
     );
