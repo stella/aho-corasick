@@ -480,18 +480,48 @@ jobs:
         if: steps.crate-status.outputs.already-released != 'true'
         env:
           CRATES_IO_TOKEN: ${{ steps.crates-io-auth.outputs.token }}
+          CRATE_NAME: ${{ steps.artifact.outputs.name }}
+          CRATE_VERSION: ${{ steps.artifact.outputs.version }}
         run: |
           set -euo pipefail
           response="${RUNNER_TEMP}/publish-response.json"
-          curl --proto '=https' --tlsv1.2 --retry 3 --fail-with-body -sS \
+          status="$(curl --proto '=https' --tlsv1.2 -sS \
             --request PUT \
             --header 'Accept: application/json' \
             --header "Authorization: ${CRATES_IO_TOKEN}" \
             --header 'Content-Type: application/octet-stream' \
             --data-binary @core-crate/upload.bin \
             --output "$response" \
-            https://crates.io/api/v1/crates/new
-          jq -e '(.errors // []) | length == 0' "$response" >/dev/null
+            --write-out '%{http_code}' \
+            https://crates.io/api/v1/crates/new || true)"
+          if [[ "$status" == 2* ]] &&
+            jq -e '(.errors // []) | length == 0' "$response" >/dev/null; then
+            exit 0
+          fi
+
+          # A timed-out or failed response can still follow a committed upload.
+          # Never resend the immutable version until the registry has had a
+          # bounded opportunity to expose that exact release.
+          published_response="${RUNNER_TEMP}/ambiguous-published-version.json"
+          for attempt in {1..12}; do
+            published_status="$(curl --proto '=https' --tlsv1.2 --retry 3 -sS \
+              --user-agent 'stella-aho-corasick-release' \
+              --output "$published_response" --write-out '%{http_code}' \
+              "https://crates.io/api/v1/crates/${CRATE_NAME}/${CRATE_VERSION}")"
+            if [[ "$published_status" == 200 ]] &&
+              jq -e --arg version "$CRATE_VERSION" \
+                '.version.num == $version' "$published_response" >/dev/null; then
+              echo "::notice::The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}."
+              exit 0
+            fi
+            sleep 5
+          done
+
+          if [[ -f "$response" ]]; then
+            jq -r '.errors[]?.detail // empty' "$response"
+          fi
+          echo "::error::crates.io upload returned HTTP ${status}; the exact version is not visible after ${attempt} checks."
+          exit 1
       - name: Verify exact crates.io release
         shell: bash
         env:

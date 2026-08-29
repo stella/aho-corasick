@@ -54,6 +54,9 @@ describe("release credential boundaries", () => {
     expect(core).toContain("id-token: write");
     expect(core).toContain("actions/download-artifact@");
     expect(core).toContain("--data-binary");
+    expect(core).toContain(
+      "The ambiguous upload committed ${CRATE_NAME} ${CRATE_VERSION}",
+    );
     expect(core).not.toMatch(
       /actions\/checkout@|setup-bun@|rust-toolchain@|npm (?:install|pack)|bun (?:install|run)|cargo (?:package|publish|build|test)/,
     );
