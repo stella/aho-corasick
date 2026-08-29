@@ -9,18 +9,46 @@ const workflow = readFileSync(
   "utf8",
 );
 
-const job = (name) => {
-  const match = workflow.match(
-    new RegExp(
-      `^  ${name}:\\n([\\s\\S]*?)(?=^  [a-z][a-z0-9-]*:\\n|(?![\\s\\S]))`,
-      "m",
+const jobsStart = workflow.indexOf("\njobs:\n");
+expect(jobsStart).not.toBe(-1);
+const jobsText = workflow.slice(
+  jobsStart + "\njobs:\n".length,
+);
+const headers = [
+  ...jobsText.matchAll(
+    /^  ([A-Za-z_][A-Za-z0-9_-]*):\s*$/gm,
+  ),
+];
+const jobs = new Map(
+  headers.map((header, index) => [
+    header[1],
+    jobsText.slice(
+      header.index,
+      headers.at(index + 1)?.index ?? jobsText.length,
     ),
-  );
-  expect(match, `missing ${name} job`).not.toBeNull();
-  return match[0];
+  ]),
+);
+
+const job = (name) => {
+  const body = jobs.get(name);
+  expect(body, `missing ${name} job`).toBeDefined();
+  return body;
 };
 
 describe("release credential boundaries", () => {
+  test("only the artifact consumers receive OIDC", () => {
+    const oidcJobs = [...jobs]
+      .filter(([, body]) => /id-token:\s*write/.test(body))
+      .map(([name]) => name)
+      .sort((left, right) => left.localeCompare(right));
+
+    expect(oidcJobs).toEqual([
+      "attest",
+      "core",
+      "finalize",
+    ]);
+  });
+
   test("builds and packs npm artifacts without OIDC", () => {
     const pack = job("pack");
     expect(pack).not.toContain("id-token: write");
