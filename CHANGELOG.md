@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.1.1
+
+### Patch Changes
+
+- [#152](https://github.com/stella/aho-corasick/pull/152) [`7f7f57f`](https://github.com/stella/aho-corasick/commit/7f7f57f3faa70a523c8f9e3db069971caab80138) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update the emnapi WASM runtime and build tooling, then regenerate its loaders.
+
 ## 1.1.0
 
 ### Minor Changes
