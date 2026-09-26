@@ -35,7 +35,7 @@ Project: root
 - libloading 0.9.0 — ISC
 - memchr 2.8.3 — MIT OR Unlicense
 - napi 3.12.1 — MIT
-- napi-build 2.4.1 — MIT
+- napi-build 2.4.4 — MIT
 - napi-derive 3.6.3 — MIT
 - napi-derive-backend 6.1.2 — MIT
 - napi-sys 3.3.0 — MIT
