@@ -34,11 +34,11 @@ Project: root
 - libc 0.2.189 — Apache-2.0 OR MIT
 - libloading 0.9.0 — ISC
 - memchr 2.8.3 — MIT OR Unlicense
-- napi 3.12.1 — MIT
-- napi-build 2.4.1 — MIT
+- napi 3.12.7 — MIT
+- napi-build 2.5.0 — MIT
 - napi-derive 3.6.3 — MIT
 - napi-derive-backend 6.1.2 — MIT
-- napi-sys 3.3.0 — MIT
+- napi-sys 3.3.2 — MIT
 - nohash-hasher 0.2.0 — Apache-2.0 OR MIT
 - pin-project-lite 0.2.17 — Apache-2.0 OR MIT
 - prettyplease 0.2.37 — Apache-2.0 OR MIT
