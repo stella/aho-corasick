@@ -6,6 +6,7 @@
   ],
   "main": "aho-corasick.darwin-x64.node",
   "files": [
+    "NOTICE",
     "aho-corasick.darwin-x64.node"
   ],
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -18,7 +19,7 @@
     "string-search"
   ],
   "homepage": "https://github.com/stella/aho-corasick#readme",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">= 18"
   },

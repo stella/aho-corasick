@@ -7,6 +7,7 @@
   "main": "aho-corasick.wasi.cjs",
   "types": "aho-corasick.wasi.d.cts",
   "files": [
+    "NOTICE",
     "aho-corasick.wasm32-wasi.wasm",
     "aho-corasick.wasi.cjs",
     "aho-corasick.wasi.d.cts",
@@ -24,7 +25,7 @@
     "string-search"
   ],
   "homepage": "https://github.com/stella/aho-corasick#readme",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">= 18"
   },
