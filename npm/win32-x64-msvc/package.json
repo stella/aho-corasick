@@ -6,6 +6,7 @@
   ],
   "main": "aho-corasick.win32-x64-msvc.node",
   "files": [
+    "NOTICE",
     "aho-corasick.win32-x64-msvc.node"
   ],
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",

@@ -20,6 +20,7 @@
     "url": "git+https://github.com/stella/aho-corasick.git"
   },
   "files": [
+    "NOTICE",
     "dist"
   ],
   "type": "module",

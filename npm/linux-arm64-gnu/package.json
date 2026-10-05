@@ -6,6 +6,7 @@
   ],
   "main": "aho-corasick.linux-arm64-gnu.node",
   "files": [
+    "NOTICE",
     "aho-corasick.linux-arm64-gnu.node"
   ],
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",

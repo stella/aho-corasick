@@ -6,6 +6,7 @@
   ],
   "main": "aho-corasick.darwin-arm64.node",
   "files": [
+    "NOTICE",
     "aho-corasick.darwin-arm64.node"
   ],
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
