@@ -24,7 +24,7 @@
     "string-search"
   ],
   "homepage": "https://github.com/stella/aho-corasick#readme",
-  "license": "MIT",
+  "license": "Apache-2.0",
   "engines": {
     "node": ">= 18"
   },
