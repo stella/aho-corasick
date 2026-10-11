@@ -50,10 +50,15 @@ jobs:
               - 'clippy.toml'
               - 'deny.toml'
               - 'hawk.toml'
-              - 'rust-toolchain.toml'
+              - '**/rust-toolchain'
+              - '**/rust-toolchain.toml'
+              - 'stll-toolchain.json'
               - 'rustfmt.toml'
               - '.github/workflows/ci.yml'
             build:
+              - '**/rust-toolchain'
+              - '**/rust-toolchain.toml'
+              - 'stll-toolchain.json'
               - '.github/workflows/**'
               - 'VERSION'
               - 'src/**'
@@ -170,7 +175,7 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
@@ -181,7 +186,7 @@ jobs:
   napi-ci:
     if: ${{ always() && !cancelled() && needs.check-changes.result == 'success' && (needs.trust-check.result == 'success' || needs.trust-check.result == 'skipped') }}
     needs: [check-changes, trust-check]
-    uses: stella/.github/.github/workflows/rust-napi-ci.yml@636b7841096c8f0cc5a1572077b78768ef8fea42
+    uses: stella/.github/.github/workflows/rust-napi-ci.yml@f928cb8f72e75a3c44eccc576730cc241f478f3e
     with:
       node-version: "22"
       trusted: ${{ (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true') && 'true' || 'false' }}
@@ -210,12 +215,12 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - uses: dtolnay/rust-toolchain@6bed0761d98439e5a578e2877258200ad565ba87
         with:
-          toolchain: ${{ env.HAWK_RUST_TOOLCHAIN }}
+          toolchain: 1.97.1 # Hawk exception: tooling#99, expires 2026-11-11
       - name: Install pinned Hawk
         shell: bash
         run: |
