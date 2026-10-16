@@ -11,9 +11,11 @@ import {
   mkdirSync,
   rmSync,
   writeFileSync,
+  symlinkSync,
 } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 import config from "../oxlint.config";
 
@@ -39,7 +41,9 @@ test("the shared portable safety pack stays active in every preset scope", () =>
 
 test("cloud outputs match the installed shared generator", () => {
   const root = new URL("../", import.meta.url);
-  const fixture = mkdtempSync(join(tmpdir(), "aho-cloud-"));
+  const fixture = mkdtempSync(
+    join(tmpdir(), "aho cloud-ž-"),
+  );
   const run = (command: string, args: string[]) => {
     const result = spawnSync(command, args, {
       cwd: fixture,
@@ -66,11 +70,20 @@ test("cloud outputs match the installed shared generator", () => {
     );
     run("git", ["init", "--quiet"]);
     run("git", ["add", "--", "."]);
+    symlinkSync(
+      fileURLToPath(new URL("node_modules", root)),
+      join(fixture, "node_modules"),
+      "dir",
+    );
     run("bun", [
-      new URL(
-        "../node_modules/@stll/oxlint-config/dist/cloud-setup-cli.mjs",
-        import.meta.url,
-      ).pathname,
+      fileURLToPath(
+        pathToFileURL(
+          join(
+            fixture,
+            "node_modules/@stll/oxlint-config/dist/cloud-setup-cli.mjs",
+          ),
+        ),
+      ),
     ]);
     for (const file of [
       ".agents/cloud-setup.sh",
