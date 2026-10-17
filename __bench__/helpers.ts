@@ -6,6 +6,7 @@ import BrunoAC from "ahocorasick";
 import ModernAC from "modern-ahocorasick";
 
 import { AhoCorasick } from "../src/index";
+import { speedupRows } from "./speedups";
 
 // ─── Adapter type ─────────────────────────────
 
@@ -94,14 +95,12 @@ export const bench = (
 };
 
 export const printSpeedups = (times: number[]) => {
-  const stellaMs = times[0]!;
+  const rows = speedupRows({
+    names: libs.map(({ name }) => name),
+    times,
+  });
   console.log();
-  for (let i = 1; i < libs.length; i++) {
-    console.log(
-      `  vs ${libs[i]!.name}: ` +
-        `${(times[i]! / stellaMs).toFixed(1)}x`,
-    );
-  }
+  for (const row of rows) console.log(row);
 };
 
 // ─── Shared pattern sets ──────────────────────

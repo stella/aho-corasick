@@ -19,6 +19,9 @@
     "type": "git",
     "url": "git+https://github.com/stella/aho-corasick.git"
   },
+  "workspaces": [
+    "__bench__"
+  ],
   "files": [
     "NOTICE",
     "dist",
@@ -74,7 +77,9 @@
     "bench:install": "cd __bench__ && bun install",
     "bench:download": "bash __bench__/download-corpus.sh",
     "sync-ai": "bash scripts/sync-ai-skills.sh",
-    "sync-ai:check": "bash scripts/sync-ai-skills.sh --check"
+    "sync-ai:check": "bash scripts/sync-ai-skills.sh --check",
+    "cloud:setup": "stll-cloud-setup",
+    "test:tooling": "bun test scripts/tooling-adoption.test.ts scripts/speedups.test.ts"
   },
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
@@ -83,8 +88,9 @@
     "@emnapi/runtime": "2.0.0-alpha.5",
     "@napi-rs/cli": "3.10.8",
     "@napi-rs/wasm-runtime": "1.2.5",
-    "@stll/oxlint-config": "0.10.0",
-    "@stll/typescript-config": "0.6.0",
+    "@stll/oxlint-config": "1.4.0",
+    "@stll/oxlint-plugin": "0.2.2",
+    "@stll/typescript-config": "0.8.0",
     "@tybys/wasm-util": "^0.10.4",
     "@types/node": "^26.6.5",
     "bun-types": "1.4.3",
