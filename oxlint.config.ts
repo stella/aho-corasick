@@ -3,8 +3,9 @@ import {
   portableSafetyPluginSpecifiers,
   portableSafetyRules,
 } from "@stll/oxlint-plugin";
+import type { OxlintConfig } from "oxlint";
 
-export default library({
+const config: OxlintConfig = library({
   // NAPI CLI outputs; scripts/build-native.mjs and fix-napi-loader.mjs own these artifacts.
   ignorePatterns: [
     "*.node",
@@ -20,3 +21,5 @@ export default library({
   jsPlugins: [...portableSafetyPluginSpecifiers],
   rules: { ...portableSafetyRules },
 });
+
+export default config;
