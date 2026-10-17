@@ -179,3 +179,35 @@ test("first-party quarantine exemptions use exact supported annotations", () => 
     );
   }
 });
+
+test("compiler proofs run manually or for toolchain changes", () => {
+  const proofs = Bun.YAML.parse(
+    read(".github/workflows/typecheck-proofs.yml"),
+  );
+  expect(Object.keys(proofs.on)).toEqual([
+    "workflow_dispatch",
+  ]);
+  expect(proofs.permissions).toEqual({ contents: "read" });
+  const commands = proofs.jobs.parity.steps
+    .map((step: { run?: string }) => step.run)
+    .filter(Boolean);
+  expect(commands).toEqual([
+    "bun install --frozen-lockfile",
+    "bun run check:toolchain",
+    "bun run check:typecheck-parity",
+  ]);
+  const workflow = Bun.YAML.parse(
+    read(".github/workflows/ci.yml"),
+  );
+  const parity = workflow.jobs.checks.steps.filter(
+    (step: { run?: string }) =>
+      step.run === "bun run check:typecheck-parity",
+  );
+  expect(parity).toHaveLength(1);
+  expect(parity.at(0).if).toBe(
+    "needs.check-changes.outputs.toolchain-changed == 'true'",
+  );
+  expect(workflow.jobs["napi-ci"].uses).toContain(
+    "/rust-napi-ci.yml@",
+  );
+});
