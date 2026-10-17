@@ -39,7 +39,7 @@ fn effective_pattern_values(
     let index =
       u32::try_from(index).map_err(|_| Error::PatternIndexDoesNotFit)?;
     if pattern.is_empty() {
-      return Err(Error::EmptyPattern { index });
+      return Err(Error::empty_pattern(index));
     }
     if case_insensitive {
       if pattern.is_ascii() {
@@ -103,30 +103,30 @@ impl SearchCtx {
       };
     }
 
-    let folded = simple_fold_string(haystack);
-    if haystack
-      .chars()
-      .all(|ch| ch.len_utf8() == simple_case_fold(ch).len_utf8())
-    {
+    let mut folded = String::with_capacity(haystack.len());
+    let mut preserves_boundaries = true;
+    for ch in haystack.chars() {
+      let folded_ch = simple_case_fold(ch);
+      preserves_boundaries &= ch.len_utf8() == folded_ch.len_utf8();
+      folded.push(folded_ch);
+    }
+    if preserves_boundaries {
       return Self {
         folded,
         mapping: PosMapping::Identity,
       };
     }
 
-    Self::build_mapped(haystack)
+    Self::build_mapped(haystack, folded)
   }
 
-  fn build_mapped(original: &str) -> Self {
-    let mut folded = String::with_capacity(original.len());
+  fn build_mapped(original: &str, folded: String) -> Self {
     let mut mapping = Vec::with_capacity(original.len().saturating_add(1));
 
-    for (orig_pos, ch) in original.char_indices() {
-      let before = folded.len();
-      folded.push(simple_case_fold(ch));
-      for _ in before..folded.len() {
-        mapping.push(orig_pos);
-      }
+    for ((orig_pos, _), folded_ch) in
+      original.char_indices().zip(folded.chars())
+    {
+      mapping.extend(std::iter::repeat_n(orig_pos, folded_ch.len_utf8()));
     }
     mapping.push(original.len());
 
@@ -447,7 +447,7 @@ fn deserialize_raw_automaton(
     ));
   }
   if let Some(m) = find_iter_raw(Some(&raw), raw.match_kind(), b"").first() {
-    return Err(Error::EmptyPattern { index: m.pattern });
+    return Err(Error::empty_pattern(m.pattern));
   }
   Ok(Some(raw))
 }
@@ -515,8 +515,31 @@ fn is_match_raw(
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::missing_assert_message)]
 mod tests {
-  use super::{CaseFoldingAC, DoubleArrayAhoCorasickBuilder, RawMatchKind};
+  use super::{
+    CaseFoldingAC, DoubleArrayAhoCorasickBuilder, PosMapping, RawMatchKind,
+    SearchCtx,
+  };
   use crate::Error;
+
+  #[test]
+  fn equal_scalar_width_folds_keep_identity_mapping() {
+    let ctx = SearchCtx::new("ÉΩ😀A");
+    assert_eq!(ctx.folded, "éω😀a");
+    assert!(matches!(ctx.mapping, PosMapping::Identity));
+  }
+
+  #[test]
+  fn cancelling_scalar_width_changes_still_map_offsets() {
+    let original = "ȺȺK";
+    let ctx = SearchCtx::new(original);
+    assert_eq!(ctx.folded, "ⱥⱥk");
+    assert_eq!(ctx.folded.len(), original.len());
+    let mapping = match ctx.mapping {
+      PosMapping::Mapped(mapping) => Some(mapping),
+      PosMapping::Identity => None,
+    };
+    assert_eq!(mapping, Some(vec![0, 0, 0, 2, 2, 2, 4, 7]));
+  }
 
   #[test]
   fn prepared_automata_reject_empty_patterns_in_main_and_overlap() {
@@ -546,7 +569,7 @@ mod tests {
       assert_eq!(
         CaseFoldingAC::from_prepared(match_kind, false, &empty_main, overlap)
           .err(),
-        Some(Error::EmptyPattern { index: 7 })
+        Some(Error::empty_pattern(7))
       );
       if matches!(match_kind, RawMatchKind::Standard) {
         continue;
@@ -564,7 +587,7 @@ mod tests {
           Some(&empty_overlap)
         )
         .err(),
-        Some(Error::EmptyPattern { index: 7 })
+        Some(Error::empty_pattern(7))
       );
     }
   }

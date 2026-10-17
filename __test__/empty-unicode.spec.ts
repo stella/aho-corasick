@@ -87,7 +87,7 @@ test("nonempty patterns match a Unicode scalar reference", () => {
       ),
       fc.boolean(),
       (text, generated, longest) => {
-        const chars = [...text];
+        const chars = Array.from(text);
         const patterns = [
           ...generated,
           ...chars.slice(0, 3),

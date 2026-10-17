@@ -259,7 +259,8 @@ type ByteMatch = {
   `StreamMatcher` throw the exported `EmptyPatternError`, a `RangeError`
   with `code === "ERR_EMPTY_PATTERN"` and a zero-based `patternIndex`.
   Named empty patterns and prepared automata containing empty patterns
-  are rejected too. The Rust core reports `Error::EmptyPattern { index }`;
+  are rejected too. The Rust core uses its existing `Error::BuildAutomaton` variant;
+  `error.empty_pattern_index()` returns the rejected input index.
   direct NAPI bindings report `InvalidArg` with an `ERR_EMPTY_PATTERN`
   message. Native and browser APIs use the same validation.
 

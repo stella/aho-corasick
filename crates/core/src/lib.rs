@@ -13,25 +13,47 @@ pub enum Error {
   BuildOverlappingAutomaton(String),
   InvalidPreparedAutomaton(String),
   InvalidUtf8Span,
-  /// A pattern is empty; `index` identifies its original input position.
-  EmptyPattern {
-    index: u32,
-  },
   PatternIndexDoesNotFit,
   PatternCountDoesNotFit,
-  MissingReplacement {
-    pattern: u32,
-  },
-  ReplacementCountMismatch {
-    expected: u32,
-    actual: usize,
-  },
+  MissingReplacement { pattern: u32 },
+  ReplacementCountMismatch { expected: u32, actual: usize },
+}
+
+const EMPTY_PATTERN_PREFIX: &str = "ERR_EMPTY_PATTERN: pattern at index ";
+const EMPTY_PATTERN_SUFFIX: &str = " must not be empty";
+
+impl Error {
+  /// Reject an empty pattern without adding a public enum variant.
+  pub fn empty_pattern(index: u32) -> Self {
+    Self::BuildAutomaton(format!(
+      "{EMPTY_PATTERN_PREFIX}{index}{EMPTY_PATTERN_SUFFIX}"
+    ))
+  }
+
+  /// Return the original input index for a canonical empty-pattern rejection.
+  pub fn empty_pattern_index(&self) -> Option<u32> {
+    let Self::BuildAutomaton(reason) = self else {
+      return None;
+    };
+    let digits = reason
+      .strip_prefix(EMPTY_PATTERN_PREFIX)?
+      .strip_suffix(EMPTY_PATTERN_SUFFIX)?;
+    if !digits.bytes().all(|byte| byte.is_ascii_digit())
+      || (digits.len() > 1 && digits.starts_with('0'))
+    {
+      return None;
+    }
+    digits.parse().ok()
+  }
 }
 
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::BuildAutomaton(reason) => {
+        if self.empty_pattern_index().is_some() {
+          return f.write_str(reason);
+        }
         write!(f, "Failed to build automaton: {reason}")
       }
       Self::BuildOverlappingAutomaton(reason) => {
@@ -42,12 +64,6 @@ impl fmt::Display for Error {
       }
       Self::InvalidUtf8Span => {
         f.write_str("Search produced an invalid UTF-8 span")
-      }
-      Self::EmptyPattern { index } => {
-        write!(
-          f,
-          "ERR_EMPTY_PATTERN: pattern at index {index} must not be empty"
-        )
       }
       Self::PatternIndexDoesNotFit => {
         f.write_str("Pattern index does not fit usize")
@@ -1089,7 +1105,8 @@ mod tests {
       {
         let patterns: Vec<String> =
           patterns.into_iter().map(String::from).collect();
-        let expected = Error::EmptyPattern { index };
+        let expected = Error::empty_pattern(index);
+        assert_eq!(expected.empty_pattern_index(), Some(index));
         assert_eq!(
           AhoCorasick::new(patterns.clone(), options).err(),
           Some(expected.clone())
@@ -1102,8 +1119,54 @@ mod tests {
       }
     }
     assert_eq!(
-      Error::EmptyPattern { index: 2 }.to_string(),
+      Error::empty_pattern(2).to_string(),
       "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty"
+    );
+  }
+
+  #[test]
+  fn empty_pattern_errors_preserve_the_original_exhaustive_variant_set() {
+    let classify = |error: &Error| match error {
+      Error::BuildAutomaton(_) => "build",
+      Error::BuildOverlappingAutomaton(_) => "overlap",
+      Error::InvalidPreparedAutomaton(_) => "prepared",
+      Error::InvalidUtf8Span => "span",
+      Error::PatternIndexDoesNotFit => "index",
+      Error::PatternCountDoesNotFit => "count",
+      Error::MissingReplacement { .. } => "replacement",
+      Error::ReplacementCountMismatch { .. } => "replacement-count",
+    };
+    for index in [0, 2, u32::MAX] {
+      let error = Error::empty_pattern(index);
+      assert_eq!(classify(&error), "build");
+      assert_eq!(error.empty_pattern_index(), Some(index));
+      assert_eq!(
+        error.to_string(),
+        format!(
+          "ERR_EMPTY_PATTERN: pattern at index {index} must not be empty"
+        )
+      );
+    }
+    for reason in [
+      "other failure",
+      "ERR_EMPTY_PATTERN: pattern at index +2 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 02 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 4294967296 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty extra",
+    ] {
+      let error = Error::BuildAutomaton(reason.to_owned());
+      assert_eq!(error.empty_pattern_index(), None);
+      assert_eq!(
+        error.to_string(),
+        format!("Failed to build automaton: {reason}")
+      );
+    }
+    assert_eq!(
+      Error::BuildOverlappingAutomaton(
+        "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty".to_owned()
+      )
+      .empty_pattern_index(),
+      None
     );
   }
 
