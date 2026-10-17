@@ -30,8 +30,12 @@ void test("release schemas accept the actual package and workflow while preservi
     ),
   );
   assert.deepEqual(
-    workflow.targets.map(({ target }) => target).toSorted(),
-    targets.toSorted(),
+    workflow.targets
+      .map(({ target }) => target)
+      .toSorted((left, right) => left.localeCompare(right)),
+    targets.toSorted((left, right) =>
+      left.localeCompare(right),
+    ),
   );
   assert.equal(
     workflow.uploads.find(
