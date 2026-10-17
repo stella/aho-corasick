@@ -33,7 +33,7 @@
         "@monyone/aho-corasick": "^1.1.6",
         "@tanishiking/aho-corasick": "^0.0.1",
         "ahocorasick": "^1.0.2",
-        "modern-ahocorasick": "^2.0.4",
+        "modern-ahocorasick": "^3.3.0",
       },
     },
   },
@@ -632,7 +632,7 @@
 
     "lightningcss-win32-x64-msvc": ["lightningcss-win32-x64-msvc@1.33.0", "", { "os": "win32", "cpu": "x64" }, "sha512-OlEICDx/Xl0FqSp4bry8zFnCvGpig3Gl4gCquvYwHuqJKEC1+n9NgDniFvqHGmMv1ZkqDJrDqKKSykTDX+ehuA=="],
 
-    "modern-ahocorasick": ["modern-ahocorasick@2.0.4", "", {}, "sha512-EFe312CXjDE8/nXOJk/LpzPUTNXzFTZCWazQ6rntodIByicqKg9wSqjBSQt1alcTdzwEbMyeTPXnvw9BIxyiRg=="],
+    "modern-ahocorasick": ["modern-ahocorasick@3.3.0", "", {}, "sha512-OEuPxzKD4fG8Zx2dUX8jDP7ArNhRdlHhjLA00k+ZmtXe49Qb6+E/M/ViDYnXOZ9A3uRbRIb1eTKPesQGKd0USA=="],
 
     "ms": ["ms@2.1.3", "", {}, "sha512-6FlzubTLZG3J2a/NVCAleEhjzq5oxgHyaCU9yYXvcLsvoVaHJq/s5xXI6/XXP6tz7R9xAOtHnSO/tXtF3WRTlA=="],
 
