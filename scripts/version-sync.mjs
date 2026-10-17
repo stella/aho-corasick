@@ -6,24 +6,36 @@ import path from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
+import {
+  parseReleaseManifest,
+  isRecord,
+} from "./release-script-inputs.mjs";
+
 const ROOT = fileURLToPath(new URL("../", import.meta.url));
 
+/** @param {...string} segments */
 function repoPath(...segments) {
   return path.join(ROOT, ...segments);
 }
 
+/** @param {string} filePath */
 function readText(filePath) {
   return fs.readFileSync(filePath, "utf8");
 }
 
+/** @param {string} filePath
+ * @param {string} content */
 function writeText(filePath, content) {
   fs.writeFileSync(filePath, content);
 }
 
+/** @param {string} filePath */
 function readJson(filePath) {
-  return JSON.parse(readText(filePath));
+  return parseReleaseManifest(readText(filePath));
 }
 
+/** @param {string} filePath
+ * @param {unknown} value */
 function writeJson(filePath, value) {
   writeText(
     filePath,
@@ -35,14 +47,20 @@ function readVersion() {
   return readText(repoPath("VERSION")).trim();
 }
 
+/** @param {string} filePath */
 function fileExists(filePath) {
   return fs.existsSync(filePath);
 }
 
+/** @param {string} value */
 function escapeRegex(value) {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
+/** @param {string} content
+ * @param {RegExp} matcher
+ * @param {string} replacement
+ * @param {string} filePath */
 function replaceRequired(
   content,
   matcher,
@@ -57,12 +75,16 @@ function replaceRequired(
   return content.replace(matcher, replacement);
 }
 
+/** @param {string} content
+ * @param {RegExp} matcher
+ * @param {string} replacement */
 function replaceIfPresent(content, matcher, replacement) {
   return matcher.test(content)
     ? content.replace(matcher, replacement)
     : content;
 }
 
+/** @param {string} name */
 function encodedScopedPackageName(name) {
   if (!name.startsWith("@")) {
     return name;
@@ -72,6 +94,8 @@ function encodedScopedPackageName(name) {
   return `%40${scope}/${packageName}`;
 }
 
+/** @param {string} name
+ * @param {string} version */
 function npmPurlCandidates(name, version) {
   return [
     `pkg:npm/${name}@${version}`,
@@ -79,6 +103,7 @@ function npmPurlCandidates(name, version) {
   ];
 }
 
+/** @param {string} name */
 function npmPurlPrefixes(name) {
   return [
     `pkg:npm/${name}@`,
@@ -86,6 +111,8 @@ function npmPurlPrefixes(name) {
   ];
 }
 
+/** @param {string} bunLock
+ * @param {string} packageName */
 function readBunLockVersion(bunLock, packageName) {
   const escaped = escapeRegex(packageName);
   const patterns = [
@@ -103,6 +130,10 @@ function readBunLockVersion(bunLock, packageName) {
   return null;
 }
 
+/** @param {unknown} value
+ * @param {ReadonlySet<string>} expectedPurls
+ * @param {string} expectedVersion
+ * @param {string[]} results */
 function collectSbomVersionDrift(
   value,
   expectedPurls,
@@ -121,17 +152,17 @@ function collectSbomVersionDrift(
     return;
   }
 
-  if (typeof value !== "object" || value === null) {
+  if (!isRecord(value)) {
     return;
   }
 
   if (
-    typeof value.purl === "string" &&
-    expectedPurls.has(value.purl) &&
-    value.version !== expectedVersion
+    typeof value["purl"] === "string" &&
+    expectedPurls.has(value["purl"]) &&
+    value["version"] !== expectedVersion
   ) {
     results.push(
-      `${value.purl}: version=${value.version ?? "<missing>"}`,
+      `${value["purl"]}: version=${String(value["version"] ?? "<missing>")}`,
     );
   }
 
@@ -145,6 +176,9 @@ function collectSbomVersionDrift(
   }
 }
 
+/** @param {string} provenanceSbom
+ * @param {string} purl
+ * @param {string} nextVersion */
 function replaceSbomVersionForPurl(
   provenanceSbom,
   purl,
@@ -166,7 +200,8 @@ function packageMeta() {
   const cargoNameMatch = cargoToml.match(
     /^name = "([^"]+)"$/m,
   );
-  if (!cargoNameMatch) {
+  const cargoName = cargoNameMatch?.at(1);
+  if (cargoName === undefined) {
     throw new Error(
       `Missing Cargo package name in ${cargoTomlPath}`,
     );
@@ -181,7 +216,7 @@ function packageMeta() {
 
   return {
     root,
-    cargoName: cargoNameMatch[1],
+    cargoName,
     optionalPrefix: `${scope}/${baseName}-`,
     packageJsonPath: repoPath("package.json"),
     cargoTomlPath,
@@ -222,18 +257,20 @@ function workspaceCargoTomlPaths() {
   return paths;
 }
 
+/** @param {string[]} cargoTomlPaths */
 function cargoPackageNames(cargoTomlPaths) {
   return cargoTomlPaths.map((cargoTomlPath) => {
     const cargoToml = readText(cargoTomlPath);
     const cargoNameMatch = cargoToml.match(
       /^name = "([^"]+)"$/m,
     );
-    if (!cargoNameMatch) {
+    const cargoName = cargoNameMatch?.at(1);
+    if (cargoName === undefined) {
       throw new Error(
         `Missing Cargo package name in ${cargoTomlPath}`,
       );
     }
-    return cargoNameMatch[1];
+    return cargoName;
   });
 }
 
@@ -259,6 +296,7 @@ function platformPackageManifests() {
     );
 }
 
+/** @param {string} expectedVersion */
 function mismatches(expectedVersion) {
   const meta = packageMeta();
   const platforms = platformPackageManifests();
@@ -369,7 +407,9 @@ function mismatches(expectedVersion) {
       requiredCoreFile,
     );
     if (!fileExists(requiredPath)) {
-      results.push(`${requiredPath}: required for publication`);
+      results.push(
+        `${requiredPath}: required for publication`,
+      );
     }
   }
 
@@ -479,6 +519,7 @@ function mismatches(expectedVersion) {
   return results;
 }
 
+/** @param {{content: string, filePath: string, nextVersion: string, previousVersion: string}} options */
 export function rewriteLoaderVersion({
   content,
   filePath,
@@ -496,6 +537,7 @@ export function rewriteLoaderVersion({
   );
 }
 
+/** @param {{packageVersion: string, requestedVersion: string | undefined, versionFileVersion: string}} options */
 export function resolveSyncVersions({
   packageVersion,
   requestedVersion,
@@ -507,6 +549,7 @@ export function resolveSyncVersions({
   };
 }
 
+/** @param {{nextVersion: string, previousVersion: string}} options */
 function syncVersion({ nextVersion, previousVersion }) {
   const meta = packageMeta();
   const platforms = platformPackageManifests();
@@ -521,7 +564,7 @@ function syncVersion({ nextVersion, previousVersion }) {
 
   writeText(repoPath("VERSION"), `${nextVersion}\n`);
   meta.root.version = nextVersion;
-  if (meta.root.optionalDependencies) {
+  if (meta.root.optionalDependencies !== undefined) {
     const platformPackageNames = new Set(
       platforms.map(({ manifest }) => manifest.name),
     );
@@ -643,6 +686,7 @@ function syncVersion({ nextVersion, previousVersion }) {
 
 function parseArgs() {
   const [command, ...rest] = process.argv.slice(2);
+  /** @type {Map<string, string>} */
   const args = new Map();
   for (let i = 0; i < rest.length; i += 1) {
     const token = rest[i];
@@ -694,18 +738,16 @@ function main() {
     return;
   }
 
-  if (command === "check") {
-    const version = requestedVersion ?? readVersion();
-    const drift = mismatches(version);
-    if (drift.length > 0) {
-      console.error("Version drift detected:");
-      for (const mismatch of drift) {
-        console.error(`- ${mismatch}`);
-      }
-      process.exit(1);
+  const version = requestedVersion ?? readVersion();
+  const drift = mismatches(version);
+  if (drift.length > 0) {
+    console.error("Version drift detected:");
+    for (const mismatch of drift) {
+      console.error(`- ${mismatch}`);
     }
-    return;
+    process.exit(1);
   }
+  return;
 }
 
 if (
