@@ -1,5 +1,6 @@
 use std::panic;
 
+use napi::Status;
 use napi::bindgen_prelude::{Buffer, Error, Result, Uint32Array};
 use napi_derive::napi;
 use stella_aho_corasick_core as core;
@@ -14,6 +15,9 @@ fn panic_to_napi_error(payload: &(dyn std::any::Any + Send)) -> Error {
 }
 
 fn core_to_napi_error(error: &core::Error) -> Error {
+  if error.empty_pattern_index().is_some() {
+    return Error::new(Status::InvalidArg, error.to_string());
+  }
   Error::from_reason(error.to_string())
 }
 

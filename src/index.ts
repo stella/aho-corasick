@@ -13,7 +13,11 @@ const native = require("../index.cjs") as NativeBinding;
 
 initBinding(native);
 
-export { AhoCorasick, StreamMatcher } from "./core";
+export {
+  AhoCorasick,
+  StreamMatcher,
+  EmptyPatternError,
+} from "./core";
 
 export type {
   ByteMatch,
