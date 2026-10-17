@@ -394,6 +394,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "stella-aho-corasick-wasm-single-thread"
+version = "1.1.0"
+dependencies = [
+ "stella-aho-corasick-core",
+]
+
+[[package]]
 name = "strsim"
 version = "0.11.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

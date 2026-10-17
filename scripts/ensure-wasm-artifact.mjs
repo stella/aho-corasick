@@ -15,33 +15,27 @@ const browserPath = fileURLToPath(
     import.meta.url,
   ),
 );
-const buildScriptPath = fileURLToPath(
-  new URL("./build-native.mjs", import.meta.url),
+const singleThreadPath = fileURLToPath(
+  new URL(
+    "../aho-corasick.single-thread.wasm",
+    import.meta.url,
+  ),
 );
+const root = fileURLToPath(new URL("../", import.meta.url));
 
 try {
   await access(wasmPath, constants.F_OK);
   await access(browserPath, constants.F_OK);
+  await access(singleThreadPath, constants.F_OK);
 } catch (error) {
   if (error?.code !== "ENOENT") {
     throw error;
   }
 
-  const result = spawnSync(
-    process.execPath,
-    [
-      buildScriptPath,
-      "--platform",
-      "--target",
-      "wasm32-wasip1-threads",
-      "--dts",
-      "index.d.cts",
-      "--release",
-    ],
-    {
-      stdio: "inherit",
-    },
-  );
+  const result = spawnSync("bun", ["run", "build:wasm"], {
+    cwd: root,
+    stdio: "inherit",
+  });
 
   if (result.error) {
     throw result.error;

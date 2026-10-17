@@ -12,7 +12,7 @@ export type NativeBinding = {
   prepareAhoCorasick(
     patterns: string[],
     options?: Record<string, unknown>,
-  ): Buffer;
+  ): Uint8Array;
   ahoCorasickFromPrepared(
     bytes: Buffer | Uint8Array,
   ): NativeAhoCorasickInstance;
@@ -36,7 +36,7 @@ type NativeAhoCorasickInstance = {
   ): Uint32Array;
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
-  toPrepared(): Buffer;
+  toPrepared(): Uint8Array;
 };
 
 type NativeStreamMatcherInstance = {
@@ -217,6 +217,15 @@ function unpackBuf(packed: Uint32Array): ByteMatch[] {
   return matches;
 }
 
+// Node 18 remains supported; newer runtimes use the native scalar normalization.
+const wellFormed = (text: string): string =>
+  typeof text.toWellFormed === "function"
+    ? text.toWellFormed()
+    : text.replace(
+        /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/gu,
+        "\uFFFD",
+      );
+
 // ── Pattern normalization ───────────────────────
 
 /** An empty pattern is invalid. An empty pattern array remains valid. */
@@ -261,7 +270,7 @@ function normalizePatterns(patterns: readonly unknown[]): {
     if (typeof p === "string") {
       if (p.length === 0)
         throw new EmptyPatternError(strings.length);
-      strings.push(p);
+      strings.push(wellFormed(p));
       names.push(undefined);
       continue;
     }
@@ -280,7 +289,7 @@ function normalizePatterns(patterns: readonly unknown[]): {
 
     if (p.pattern.length === 0)
       throw new EmptyPatternError(strings.length);
-    strings.push(p.pattern);
+    strings.push(wellFormed(p.pattern));
     if (!("name" in p) || p.name === undefined) {
       names.push(undefined);
       continue;
@@ -337,6 +346,10 @@ function normalizePrepared(
  * ```
  */
 export class AhoCorasick {
+  protected static getBinding(): NativeBinding {
+    return binding;
+  }
+
   private _inner: NativeAhoCorasickInstance;
   private _names: (string | undefined)[] | null;
 
@@ -344,7 +357,7 @@ export class AhoCorasick {
     const { strings, names } = normalizePatterns(patterns);
     this._names = names;
 
-    this._inner = new binding.AhoCorasick(
+    this._inner = new (new.target.getBinding().AhoCorasick)(
       strings,
       normalizeOptions(options),
     );
@@ -355,7 +368,7 @@ export class AhoCorasick {
     options?: Options,
   ): PreparedAhoCorasick {
     const { strings, names } = normalizePatterns(patterns);
-    const bytes = binding.prepareAhoCorasick(
+    const bytes = this.getBinding().prepareAhoCorasick(
       strings,
       normalizeOptions(options),
     );
@@ -368,12 +381,13 @@ export class AhoCorasick {
   ): AhoCorasick {
     const normalized = normalizePrepared(prepared, names);
     const instance = Object.create(
-      AhoCorasick.prototype,
+      this.prototype,
     ) as AhoCorasick;
     try {
-      instance._inner = binding.ahoCorasickFromPrepared(
-        normalized.bytes,
-      );
+      instance._inner =
+        this.getBinding().ahoCorasickFromPrepared(
+          normalized.bytes,
+        );
     } catch (error) {
       rethrowBindingError(error);
     }
@@ -390,11 +404,12 @@ export class AhoCorasick {
 
   /** Returns `true` if any pattern matches. */
   isMatch(haystack: string): boolean {
-    return this._inner.isMatch(haystack);
+    return this._inner.isMatch(wellFormed(haystack));
   }
 
   /** Find all non-overlapping matches. */
   findIter(haystack: string): Match[] {
+    haystack = wellFormed(haystack);
     return unpack(
       this._inner._findIterPacked(haystack),
       haystack,
@@ -404,6 +419,7 @@ export class AhoCorasick {
 
   /** Find all overlapping matches. */
   findOverlappingIter(haystack: string): Match[] {
+    haystack = wellFormed(haystack);
     return unpack(
       this._inner._findOverlappingIterPacked(haystack),
       haystack,
@@ -428,7 +444,10 @@ export class AhoCorasick {
           `replacements, got ${replacements.length}`,
       );
     }
-    return this._inner.replaceAll(haystack, replacements);
+    return this._inner.replaceAll(
+      wellFormed(haystack),
+      replacements.map(wellFormed),
+    );
   }
 
   toPrepared(): PreparedAhoCorasick {
@@ -473,14 +492,19 @@ export class AhoCorasick {
  * ```
  */
 export class StreamMatcher {
+  protected static getBinding(): NativeBinding {
+    return binding;
+  }
+
   private _inner: NativeStreamMatcherInstance;
 
   constructor(patterns: string[], options?: Options) {
     const { strings } = normalizePatterns(patterns);
-    this._inner = new binding.StreamMatcher(
-      strings,
-      normalizeOptions(options),
-    );
+    this._inner =
+      new (new.target.getBinding().StreamMatcher)(
+        strings,
+        normalizeOptions(options),
+      );
   }
 
   /** Feed a chunk, get matches with global byte
