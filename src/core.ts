@@ -219,6 +219,32 @@ function unpackBuf(packed: Uint32Array): ByteMatch[] {
 
 // ── Pattern normalization ───────────────────────
 
+/** An empty pattern is invalid. An empty pattern array remains valid. */
+export class EmptyPatternError extends RangeError {
+  override readonly name = "EmptyPatternError";
+  readonly code = "ERR_EMPTY_PATTERN";
+  readonly patternIndex: number;
+
+  constructor(patternIndex: number) {
+    super(
+      `Pattern at index ${patternIndex} must not be empty`,
+    );
+    this.patternIndex = patternIndex;
+  }
+}
+
+const rethrowBindingError = (error: unknown): never => {
+  const index =
+    error instanceof Error
+      ? /^ERR_EMPTY_PATTERN: pattern at index (\d+) must not be empty$/.exec(
+          error.message,
+        )?.[1]
+      : undefined;
+  if (index !== undefined)
+    throw new EmptyPatternError(Number(index));
+  throw error;
+};
+
 function normalizePatterns(patterns: readonly unknown[]): {
   strings: string[];
   names: (string | undefined)[] | null;
@@ -233,6 +259,8 @@ function normalizePatterns(patterns: readonly unknown[]): {
 
   for (const p of patterns) {
     if (typeof p === "string") {
+      if (p.length === 0)
+        throw new EmptyPatternError(strings.length);
       strings.push(p);
       names.push(undefined);
       continue;
@@ -250,6 +278,8 @@ function normalizePatterns(patterns: readonly unknown[]): {
       );
     }
 
+    if (p.pattern.length === 0)
+      throw new EmptyPatternError(strings.length);
     strings.push(p.pattern);
     if (!("name" in p) || p.name === undefined) {
       names.push(undefined);
@@ -340,9 +370,13 @@ export class AhoCorasick {
     const instance = Object.create(
       AhoCorasick.prototype,
     ) as AhoCorasick;
-    instance._inner = binding.ahoCorasickFromPrepared(
-      normalized.bytes,
-    );
+    try {
+      instance._inner = binding.ahoCorasickFromPrepared(
+        normalized.bytes,
+      );
+    } catch (error) {
+      rethrowBindingError(error);
+    }
     instance._names = normalized.names
       ? Array.from(normalized.names)
       : null;
@@ -442,8 +476,9 @@ export class StreamMatcher {
   private _inner: NativeStreamMatcherInstance;
 
   constructor(patterns: string[], options?: Options) {
+    const { strings } = normalizePatterns(patterns);
     this._inner = new binding.StreamMatcher(
-      patterns,
+      strings,
       normalizeOptions(options),
     );
   }

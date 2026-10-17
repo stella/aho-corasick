@@ -38,6 +38,9 @@ fn effective_pattern_values(
   for (index, mut pattern) in patterns.into_iter().enumerate() {
     let index =
       u32::try_from(index).map_err(|_| Error::PatternIndexDoesNotFit)?;
+    if pattern.is_empty() {
+      return Err(Error::EmptyPattern { index });
+    }
     if case_insensitive {
       if pattern.is_ascii() {
         pattern.make_ascii_lowercase();
@@ -101,7 +104,10 @@ impl SearchCtx {
     }
 
     let folded = simple_fold_string(haystack);
-    if folded.len() == haystack.len() {
+    if haystack
+      .chars()
+      .all(|ch| ch.len_utf8() == simple_case_fold(ch).len_utf8())
+    {
       return Self {
         folded,
         mapping: PosMapping::Identity,
@@ -358,11 +364,15 @@ impl CaseFoldingAC {
   }
 
   pub(crate) fn find_iter(&self, prep: &PreparedSearch<'_>) -> Vec<RawMatch> {
-    find_iter_raw(
-      self.raw.as_ref(),
-      self.match_kind,
-      prep.search_text().as_bytes(),
-    )
+    // Bytewise empty matches can fall inside a scalar. Filter in search space
+    // before offset remapping or any string consumer observes them.
+    let text = prep.search_text();
+    find_iter_raw(self.raw.as_ref(), self.match_kind, text.as_bytes())
+      .into_iter()
+      .filter(|m| {
+        text.is_char_boundary(m.start()) && text.is_char_boundary(m.end())
+      })
+      .collect()
   }
 
   pub(crate) fn find_iter_bytes(
@@ -389,10 +399,15 @@ impl CaseFoldingAC {
     prep: &PreparedSearch<'_>,
   ) -> Result<Vec<RawMatch>, Error> {
     let automaton = self.overlapping_ac()?;
-    Ok(overlapping_iter_raw(
-      automaton,
-      prep.search_text().as_bytes(),
-    ))
+    let text = prep.search_text();
+    Ok(
+      overlapping_iter_raw(automaton, text.as_bytes())
+        .into_iter()
+        .filter(|m| {
+          text.is_char_boundary(m.start()) && text.is_char_boundary(m.end())
+        })
+        .collect(),
+    )
   }
 
   fn overlapping_ac(&self) -> Result<Option<&RawAhoCorasick<u32>>, Error> {
@@ -430,6 +445,9 @@ fn deserialize_raw_automaton(
     return Err(Error::InvalidPreparedAutomaton(
       "trailing automaton bytes".to_owned(),
     ));
+  }
+  if let Some(m) = find_iter_raw(Some(&raw), raw.match_kind(), b"").first() {
+    return Err(Error::EmptyPattern { index: m.pattern });
   }
   Ok(Some(raw))
 }
@@ -492,4 +510,62 @@ fn is_match_raw(
   }
 
   raw.leftmost_find_iter(haystack).next().is_some()
+}
+
+#[cfg(test)]
+#[allow(clippy::unwrap_used, clippy::missing_assert_message)]
+mod tests {
+  use super::{CaseFoldingAC, DoubleArrayAhoCorasickBuilder, RawMatchKind};
+  use crate::Error;
+
+  #[test]
+  fn prepared_automata_reject_empty_patterns_in_main_and_overlap() {
+    let empty_overlap = DoubleArrayAhoCorasickBuilder::new()
+      .build_with_values([("", 7_u32)])
+      .unwrap()
+      .serialize();
+    let valid_overlap = DoubleArrayAhoCorasickBuilder::new()
+      .build_with_values([("x", 0_u32)])
+      .unwrap()
+      .serialize();
+    for match_kind in [
+      RawMatchKind::Standard,
+      RawMatchKind::LeftmostFirst,
+      RawMatchKind::LeftmostLongest,
+    ] {
+      let empty_main = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(match_kind)
+        .build_with_values([("", 7_u32)])
+        .unwrap()
+        .serialize();
+      let overlap = if matches!(match_kind, RawMatchKind::Standard) {
+        None
+      } else {
+        Some(valid_overlap.as_slice())
+      };
+      assert_eq!(
+        CaseFoldingAC::from_prepared(match_kind, false, &empty_main, overlap)
+          .err(),
+        Some(Error::EmptyPattern { index: 7 })
+      );
+      if matches!(match_kind, RawMatchKind::Standard) {
+        continue;
+      }
+      let valid_main = DoubleArrayAhoCorasickBuilder::new()
+        .match_kind(match_kind)
+        .build_with_values([("x", 0_u32)])
+        .unwrap()
+        .serialize();
+      assert_eq!(
+        CaseFoldingAC::from_prepared(
+          match_kind,
+          false,
+          &valid_main,
+          Some(&empty_overlap)
+        )
+        .err(),
+        Some(Error::EmptyPattern { index: 7 })
+      );
+    }
+  }
 }
