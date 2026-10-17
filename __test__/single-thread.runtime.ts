@@ -490,6 +490,32 @@ test("single-thread and existing threaded bindings produce identical public API 
   }
   initSync(bytes);
   try {
+    for (const { text, replacement, expected } of [
+      {
+        text: "\uFEFFfoo",
+        replacement: "x",
+        expected: "\uFEFFx",
+      },
+      {
+        text: "foo",
+        replacement: "\uFEFFx",
+        expected: "\uFEFFx",
+      },
+      {
+        text: "\uFEFFabsent",
+        replacement: "x",
+        expected: "\uFEFFabsent",
+      },
+    ]) {
+      const single = new AhoCorasick(["foo"]);
+      const original = new ThreadedMatcher(["foo"]);
+      expect(original.replaceAll(text, [replacement])).toBe(
+        expected,
+      );
+      expect(single.replaceAll(text, [replacement])).toBe(
+        expected,
+      );
+    }
     for (const construct of [
       () => new AhoCorasick([""], { wholeWords: true }),
       () => new ThreadedMatcher([""], { wholeWords: true }),
