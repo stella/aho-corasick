@@ -2,22 +2,13 @@ import { expect, spyOn, test } from "bun:test";
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { mkdtempSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { pathToFileURL } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import { runInNewContext } from "node:vm";
 
 import {
-  AhoCorasick as CoreAhoCorasick,
-  StreamMatcher as CoreStreamMatcher,
-  type NativeBinding,
-  type Options,
-} from "../src/core";
-import {
   AhoCorasick,
-  EmptyPatternError,
-  StreamMatcher,
   init,
   initSync,
 } from "../src/single-thread";
@@ -237,7 +228,15 @@ test("a Response from another realm supplies bytes without fetching", async () =
     ]);
     if (!isResponse(failure))
       throw new Error("Invalid Response fixture");
-    await expect(init(failure)).rejects.toThrow("404");
+    await init(failure).then(
+      () => {
+        throw new Error("Expected HTTP rejection");
+      },
+      (error) => {
+        if (!(error instanceof Error)) throw error;
+        expect(error.message).toContain("404");
+      },
+    );
     expect(
       new AhoCorasick(["still ready"]).isMatch(
         "still ready",
@@ -372,55 +371,57 @@ test("packed inline import, init and match work without SAB, Worker, network or 
 });
 
 // npm.cmd requires a shell on Windows; this packaging check runs on POSIX.
-test.skipIf(process.platform === "win32")("npm tarball contains and runs the single-thread entry and its runtime imports", () => {
-  const directory = mkdtempSync(
-    join(tmpdir(), "aho-single-thread-pack-"),
-  );
-  try {
-    const output = execFileSync(
-      "npm",
-      [
-        "pack",
-        "--json",
-        "--ignore-scripts",
-        "--pack-destination",
-        directory,
-      ],
-      {
-        cwd: new URL("../wasm/", import.meta.url),
-        encoding: "utf8",
-      },
+test.skipIf(process.platform === "win32")(
+  "npm tarball contains and runs the single-thread entry and its runtime imports",
+  () => {
+    const directory = mkdtempSync(
+      join(tmpdir(), "aho-single-thread-pack-"),
     );
-    const [packed] = JSON.parse(output);
-    const files = packed.files.map(
-      (file: { path: string }) => file.path,
-    );
-    for (const expected of [
-      "dist/single-thread.mjs",
-      "dist/single-thread.d.mts",
-      "dist/single-thread-inline.mjs",
-      "dist/single-thread-inline.d.mts",
-      "dist/aho-corasick.single-thread.wasm",
-      "dist/single-thread-size.json",
-    ])
-      expect(files).toContain(expected);
-    execFileSync("tar", [
-      "-xzf",
-      join(directory, packed.filename),
-      "-C",
-      directory,
-    ]);
-    const entry = pathToFileURL(
-      join(
+    try {
+      const output = execFileSync(
+        "npm",
+        [
+          "pack",
+          "--json",
+          "--ignore-scripts",
+          "--pack-destination",
+          directory,
+        ],
+        {
+          cwd: new URL("../wasm/", import.meta.url),
+          encoding: "utf8",
+        },
+      );
+      const [packed] = JSON.parse(output);
+      const files = packed.files.map(
+        (file: { path: string }) => file.path,
+      );
+      for (const expected of [
+        "dist/single-thread.mjs",
+        "dist/single-thread.d.mts",
+        "dist/single-thread-inline.mjs",
+        "dist/single-thread-inline.d.mts",
+        "dist/aho-corasick.single-thread.wasm",
+        "dist/single-thread-size.json",
+      ])
+        expect(files).toContain(expected);
+      execFileSync("tar", [
+        "-xzf",
+        join(directory, packed.filename),
+        "-C",
         directory,
-        "package/dist/single-thread-inline.mjs",
-      ),
-    ).href;
-    const result = Bun.spawnSync(
-      [
-        process.execPath,
-        "-e",
-        `
+      ]);
+      const entry = pathToFileURL(
+        join(
+          directory,
+          "package/dist/single-thread-inline.mjs",
+        ),
+      ).href;
+      const result = Bun.spawnSync(
+        [
+          process.execPath,
+          "-e",
+          `
       globalThis.fetch = () => {throw new Error('unexpected fetch')};
       Reflect.deleteProperty(globalThis, 'SharedArrayBuffer');
       Reflect.deleteProperty(globalThis, 'Worker');
@@ -428,22 +429,29 @@ test.skipIf(process.platform === "win32")("npm tarball contains and runs the sin
       initSync();
       if (!new AhoCorasick(['packed']).isMatch('packed')) throw new Error('packed runtime failed');
     `,
-      ],
-      { cwd: directory },
-    );
-    expect(result.stderr.toString()).toBe("");
-    expect(result.exitCode).toBe(0);
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-});
+        ],
+        { cwd: directory },
+      );
+      expect(result.stderr.toString()).toBe("");
+      expect(result.exitCode).toBe(0);
+    } finally {
+      rmSync(directory, { recursive: true, force: true });
+    }
+  },
+);
 
 test("explicit initialization accepts bytes or a caller URL and reports HTTP errors", async () => {
   const originalFetch = globalThis.fetch;
   const requested: string[] = [];
   try {
     globalThis.fetch = (async (input) => {
-      requested.push(String(input));
+      requested.push(
+        typeof input === "string"
+          ? input
+          : input instanceof URL
+            ? input.href
+            : input.url,
+      );
       return new Response(bytes);
     }) as typeof fetch;
     await init(bytes);
@@ -461,9 +469,17 @@ test("explicit initialization accepts bytes or a caller URL and reports HTTP err
       new Response("missing", {
         status: 404,
       })) as typeof fetch;
-    await expect(
-      init("https://extension.invalid/missing.wasm"),
-    ).rejects.toThrow("404");
+    await init(
+      "https://extension.invalid/missing.wasm",
+    ).then(
+      () => {
+        throw new Error("Expected HTTP rejection");
+      },
+      (error) => {
+        if (!(error instanceof Error)) throw error;
+        expect(error.message).toContain("404");
+      },
+    );
     expect(
       new AhoCorasick(["still initialized"]).isMatch(
         "still initialized",
@@ -474,182 +490,17 @@ test("explicit initialization accepts bytes or a caller URL and reports HTTP err
   }
 });
 
-test("single-thread and existing threaded bindings produce identical public API results", async () => {
-  const require = createRequire(import.meta.url);
-  // SAFETY: generated NAPI loader exposes the shared binding contract, exercised below.
-  const threaded =
-    require("../aho-corasick.wasi.cjs") as NativeBinding;
-  class ThreadedMatcher extends CoreAhoCorasick {
-    protected static override getBinding() {
-      return threaded;
-    }
-  }
-  class ThreadedStream extends CoreStreamMatcher {
-    protected static override getBinding() {
-      return threaded;
-    }
-  }
-  initSync(bytes);
-  try {
-    for (const { text, replacement, expected } of [
-      {
-        text: "\uFEFFfoo",
-        replacement: "x",
-        expected: "\uFEFFx",
-      },
-      {
-        text: "foo",
-        replacement: "\uFEFFx",
-        expected: "\uFEFFx",
-      },
-      {
-        text: "\uFEFFabsent",
-        replacement: "x",
-        expected: "\uFEFFabsent",
-      },
-    ]) {
-      const single = new AhoCorasick(["foo"]);
-      const original = new ThreadedMatcher(["foo"]);
-      expect(original.replaceAll(text, [replacement])).toBe(
-        expected,
-      );
-      expect(single.replaceAll(text, [replacement])).toBe(
-        expected,
-      );
-    }
-    for (const construct of [
-      () => new AhoCorasick([""], { wholeWords: true }),
-      () => new ThreadedMatcher([""], { wholeWords: true }),
-      () => AhoCorasick.prepare([""]),
-      () => ThreadedMatcher.prepare([""]),
-      () => new StreamMatcher([""]),
-      () => new ThreadedStream([""]),
-    ]) {
-      expect(construct).toThrow(EmptyPatternError);
-    }
-    const corpus = [
-      { patterns: ["he", "she", "his"], text: "ushers" },
-      {
-        patterns: ["foo", "foobar", "bar", "foo"],
-        text: "foobar foo",
-      },
-      {
-        patterns: ["😀", "é", "中", "İ"],
-        text: "😀é中 İ i",
-      },
-      { patterns: [], text: "anything" },
-      { patterns: ["absent"], text: "" },
-      {
-        patterns: ["\ud800", "\udfff"],
-        text: "a\ud800b\udfff",
-      },
-    ];
-    for (const matchKind of [
-      "leftmost-first",
-      "leftmost-longest",
-    ] as const) {
-      for (const caseInsensitive of [false, true]) {
-        for (const wholeWords of [false, true]) {
-          for (const unicodeBoundaries of [false, true]) {
-            for (const dfa of [false, true]) {
-              const options: Options = {
-                matchKind,
-                caseInsensitive,
-                wholeWords,
-                unicodeBoundaries,
-                dfa,
-              };
-              for (const { patterns, text } of corpus) {
-                const single = new AhoCorasick(
-                  patterns,
-                  options,
-                );
-                const original = new ThreadedMatcher(
-                  patterns,
-                  options,
-                );
-                expect(single.patternCount).toBe(
-                  original.patternCount,
-                );
-                expect(single.findIter(text)).toEqual(
-                  original.findIter(text),
-                );
-                expect(
-                  single.findOverlappingIter(text),
-                ).toEqual(
-                  original.findOverlappingIter(text),
-                );
-                expect(single.isMatch(text)).toBe(
-                  original.isMatch(text),
-                );
-                const replacements = patterns.map(
-                  (_, index) => `[${index}]`,
-                );
-                expect(
-                  single.replaceAll(text, replacements),
-                ).toBe(
-                  original.replaceAll(text, replacements),
-                );
-                const encoded = new TextEncoder().encode(
-                  text,
-                );
-                expect(single.findIterBuf(encoded)).toEqual(
-                  original.findIterBuf(encoded),
-                );
-                expect(single.isMatchBuf(encoded)).toBe(
-                  original.isMatchBuf(encoded),
-                );
-                expect(
-                  AhoCorasick.fromPrepared(
-                    original.toPrepared(),
-                  ).findIter(text),
-                ).toEqual(original.findIter(text));
-                expect(
-                  ThreadedMatcher.fromPrepared(
-                    single.toPrepared(),
-                  ).findIter(text),
-                ).toEqual(single.findIter(text));
-              }
-            }
-          }
-        }
-      }
-    }
-    const named = [{ pattern: "foo", name: "first" }];
-    expect(new AhoCorasick(named).findIter("foo")).toEqual(
-      new ThreadedMatcher(named).findIter("foo"),
-    );
-    const stream = new StreamMatcher(["foobar"]);
-    const originalStream = new ThreadedStream(["foobar"]);
-    for (const chunk of ["xxfo", "obarxx"]) {
-      const encoded = new TextEncoder().encode(chunk);
-      expect(stream.write(encoded)).toEqual(
-        originalStream.write(encoded),
-      );
-    }
-    expect(stream.flush()).toEqual(originalStream.flush());
-    stream.reset();
-    originalStream.reset();
-    expect(
-      stream.write(new TextEncoder().encode("foobar")),
-    ).toEqual(
-      originalStream.write(
-        new TextEncoder().encode("foobar"),
+test("single-thread and existing threaded bindings produce identical public API results", () => {
+  execFileSync(
+    "node",
+    [
+      fileURLToPath(
+        new URL(
+          "./single-thread-parity.runtime.mjs",
+          import.meta.url,
+        ),
       ),
-    );
-    // Reinitializing the single entry never rebinds constructors of the threaded entry.
-    await init(bytes);
-    expect(
-      new ThreadedMatcher(["old"]).isMatch("old"),
-    ).toBe(true);
-    expect(new AhoCorasick(["new"]).isMatch("new")).toBe(
-      true,
-    );
-  } finally {
-    const dispose = Reflect.get(
-      threaded,
-      Symbol.for("napi.rs.wasi.dispose"),
-    );
-    if (typeof dispose === "function") await dispose();
-  }
+    ],
+    { timeout: 60_000 },
+  );
 });
