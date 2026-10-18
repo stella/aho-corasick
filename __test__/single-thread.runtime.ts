@@ -371,7 +371,8 @@ test("packed inline import, init and match work without SAB, Worker, network or 
   expect(result.exitCode).toBe(0);
 });
 
-test("npm tarball contains and runs the single-thread entry and its runtime imports", () => {
+// npm.cmd requires a shell on Windows; this packaging check runs on POSIX.
+test.skipIf(process.platform === "win32")("npm tarball contains and runs the single-thread entry and its runtime imports", () => {
   const directory = mkdtempSync(
     join(tmpdir(), "aho-single-thread-pack-"),
   );
