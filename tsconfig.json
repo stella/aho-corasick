@@ -1,7 +1,8 @@
 {
   "extends": "@stll/typescript-config/library.json",
   "compilerOptions": {
-    "allowImportingTsExtensions": true
+    "allowImportingTsExtensions": true,
+    "lib": ["ESNext", "DOM"]
   },
   "include": [
     "*.d.ts",
