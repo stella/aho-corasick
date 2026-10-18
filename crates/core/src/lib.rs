@@ -24,6 +24,7 @@ const EMPTY_PATTERN_SUFFIX: &str = " must not be empty";
 
 impl Error {
   /// Reject an empty pattern without adding a public enum variant.
+  #[must_use]
   pub fn empty_pattern(index: u32) -> Self {
     Self::BuildAutomaton(format!(
       "{EMPTY_PATTERN_PREFIX}{index}{EMPTY_PATTERN_SUFFIX}"
@@ -31,6 +32,7 @@ impl Error {
   }
 
   /// Return the original input index for a canonical empty-pattern rejection.
+  #[must_use]
   pub fn empty_pattern_index(&self) -> Option<u32> {
     let Self::BuildAutomaton(reason) = self else {
       return None;
