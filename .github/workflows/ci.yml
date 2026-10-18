@@ -17,6 +17,8 @@ on:
         ready_for_review,
         labeled,
       ]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
@@ -51,7 +53,7 @@ jobs:
       - name: Detect toolchain changes
         id: toolchain
         env:
-          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'origin/main' }}
         run: |
           result=$(bunx --no-install stll-toolchain-changed --since "$BASE_REF")
           echo "$result"
@@ -59,6 +61,7 @@ jobs:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          base: ${{ github.event.merge_group.base_sha || github.event.repository.default_branch }}
           filters: |
             rust:
               - 'package.json'
@@ -192,7 +195,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: bun run check:toolchain
       - run: bun run test:tooling
-      - run: bun test scripts/shared-policy.test.ts
+      - run: bun test scripts/shared-policy.test.ts scripts/ci-result.test.ts
       - run: bun run typecheck
       - run: bun run check:typecheck-parity
         if: needs.check-changes.outputs.toolchain-changed == 'true'
@@ -253,3 +256,44 @@ jobs:
           echo "$install_dir" >> "$GITHUB_PATH"
       - name: Check internal Rust visibility
         run: bun run rust:hawk
+
+  ci-result:
+    if: always()
+    needs: [check-changes, trust-check, changeset, checks, napi-ci, hawk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Require every selected validation job
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DETECTOR_RESULT: ${{ needs.check-changes.result }}
+          TRUST_RESULT: ${{ needs.trust-check.result }}
+          TRUSTED: ${{ needs.trust-check.outputs.trusted }}
+          CHANGESET_RESULT: ${{ needs.changeset.result }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          NAPI_RESULT: ${{ needs.napi-ci.result }}
+          HAWK_RESULT: ${{ needs.hawk.result }}
+          RUST_CHANGED: ${{ needs.check-changes.outputs.rust-changed }}
+        run: |
+          test "$DETECTOR_RESULT" = success
+          test "$CHECKS_RESULT" = success
+          test "$NAPI_RESULT" = success
+          if [ "$EVENT_NAME" = pull_request ]; then
+            test "$TRUST_RESULT" = success
+            test "$TRUSTED" = true
+            test "$CHANGESET_RESULT" = success
+          else
+            case "$TRUST_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+            case "$CHANGESET_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          fi
+          if [ "$HAWK_RESULT" != success ]; then
+            test "$RUST_CHANGED" = false
+            test "$HAWK_RESULT" = skipped
+          fi
