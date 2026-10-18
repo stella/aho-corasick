@@ -2,13 +2,15 @@ import { expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
+import { validateWasmBuildCommands } from "./wasm-build-command.mjs";
+
 const read = (path) =>
   readFileSync(new URL(path, import.meta.url), "utf8");
 const { scripts } = JSON.parse(read("../package.json"));
 
 test("the shared WASM build emits both artifacts before JavaScript packaging", () => {
   expect(scripts["build:wasm"]).toBe(
-    "node scripts/build-single-thread.mjs && node scripts/build-native.mjs --platform --target wasm32-wasip1-threads --dts index.d.cts --release",
+    "node scripts/build-wasm.mjs",
   );
   expect(scripts["build:js"]).toMatch(
     /^node scripts\/ensure-wasm-artifact\.mjs && .*node scripts\/pack-single-thread\.mjs$/,
@@ -21,6 +23,21 @@ test("the shared WASM build emits both artifacts before JavaScript packaging", (
     'spawnSync("bun", ["run", "build:wasm"]',
   );
   expect(ensure).not.toContain("build-native.mjs");
+});
+
+test("the release contract accepts only the declared WASM build wrapper", () => {
+  expect(() =>
+    validateWasmBuildCommands(scripts),
+  ).not.toThrow();
+  expect(() =>
+    validateWasmBuildCommands({
+      ...scripts,
+      "build:wasm":
+        "node scripts/build-single-thread.mjs && node scripts/build-native.mjs --platform --target wasm32-wasip1-threads --dts index.d.cts --release",
+    }),
+  ).toThrow(
+    "build:wasm must be exactly node scripts/build-wasm.mjs",
+  );
 });
 
 test("the single-thread build installs its target explicitly", () => {
@@ -70,7 +87,9 @@ test("changeset policy covers every workspace crate source and manifest", () => 
       .map((pattern) => new Bun.Glob(pattern));
   const release = globs("release-paths");
   const generated = globs("generated-paths");
-  const root = fileURLToPath(new URL("../", import.meta.url));
+  const root = fileURLToPath(
+    new URL("../", import.meta.url),
+  );
   for (const pattern of [
     "crates/*/src/**/*.rs",
     "crates/*/Cargo.toml",
