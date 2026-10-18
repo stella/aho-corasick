@@ -19,10 +19,43 @@ pub enum Error {
   ReplacementCountMismatch { expected: u32, actual: usize },
 }
 
+const EMPTY_PATTERN_PREFIX: &str = "ERR_EMPTY_PATTERN: pattern at index ";
+const EMPTY_PATTERN_SUFFIX: &str = " must not be empty";
+
+impl Error {
+  /// Reject an empty pattern without adding a public enum variant.
+  #[must_use]
+  pub fn empty_pattern(index: u32) -> Self {
+    Self::BuildAutomaton(format!(
+      "{EMPTY_PATTERN_PREFIX}{index}{EMPTY_PATTERN_SUFFIX}"
+    ))
+  }
+
+  /// Return the original input index for a canonical empty-pattern rejection.
+  #[must_use]
+  pub fn empty_pattern_index(&self) -> Option<u32> {
+    let Self::BuildAutomaton(reason) = self else {
+      return None;
+    };
+    let digits = reason
+      .strip_prefix(EMPTY_PATTERN_PREFIX)?
+      .strip_suffix(EMPTY_PATTERN_SUFFIX)?;
+    if !digits.bytes().all(|byte| byte.is_ascii_digit())
+      || (digits.len() > 1 && digits.starts_with('0'))
+    {
+      return None;
+    }
+    digits.parse().ok()
+  }
+}
+
 impl fmt::Display for Error {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
     match self {
       Self::BuildAutomaton(reason) => {
+        if self.empty_pattern_index().is_some() {
+          return f.write_str(reason);
+        }
         write!(f, "Failed to build automaton: {reason}")
       }
       Self::BuildOverlappingAutomaton(reason) => {
@@ -1023,7 +1056,7 @@ impl StreamMatcher {
 #[cfg(test)]
 #[allow(clippy::unwrap_used, clippy::missing_assert_message)]
 mod tests {
-  use super::{AhoCorasick, MatchKind, Options};
+  use super::{AhoCorasick, Error, MatchKind, Options, StreamMatcher};
 
   #[test]
   fn options_builder_preserves_defaults_and_overrides() {
@@ -1060,6 +1093,147 @@ mod tests {
       ac.find_overlapping_iter_packed_bytes("äb").unwrap(),
       vec![0, 2, 3]
     );
+  }
+
+  #[test]
+  fn empty_patterns_are_rejected_at_their_original_index() {
+    for case_insensitive in [false, true] {
+      let options = Options {
+        case_insensitive,
+        ..Options::default()
+      };
+      for (patterns, index) in
+        [(vec![""], 0), (vec!["a", "a", ""], 2), (vec!["", "a"], 0)]
+      {
+        let patterns: Vec<String> =
+          patterns.into_iter().map(String::from).collect();
+        let expected = Error::empty_pattern(index);
+        assert_eq!(expected.empty_pattern_index(), Some(index));
+        assert_eq!(
+          AhoCorasick::new(patterns.clone(), options).err(),
+          Some(expected.clone())
+        );
+        assert_eq!(
+          AhoCorasick::prepare(patterns.clone(), options).err(),
+          Some(expected.clone())
+        );
+        assert_eq!(StreamMatcher::new(patterns, options).err(), Some(expected));
+      }
+    }
+    assert_eq!(
+      Error::empty_pattern(2).to_string(),
+      "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty"
+    );
+  }
+
+  #[test]
+  fn empty_pattern_errors_preserve_the_original_exhaustive_variant_set() {
+    let classify = |error: &Error| match error {
+      Error::BuildAutomaton(_) => "build",
+      Error::BuildOverlappingAutomaton(_) => "overlap",
+      Error::InvalidPreparedAutomaton(_) => "prepared",
+      Error::InvalidUtf8Span => "span",
+      Error::PatternIndexDoesNotFit => "index",
+      Error::PatternCountDoesNotFit => "count",
+      Error::MissingReplacement { .. } => "replacement",
+      Error::ReplacementCountMismatch { .. } => "replacement-count",
+    };
+    for index in [0, 2, u32::MAX] {
+      let error = Error::empty_pattern(index);
+      assert_eq!(classify(&error), "build");
+      assert_eq!(error.empty_pattern_index(), Some(index));
+      assert_eq!(
+        error.to_string(),
+        format!(
+          "ERR_EMPTY_PATTERN: pattern at index {index} must not be empty"
+        )
+      );
+    }
+    for reason in [
+      "other failure",
+      "ERR_EMPTY_PATTERN: pattern at index +2 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 02 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 4294967296 must not be empty",
+      "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty extra",
+    ] {
+      let error = Error::BuildAutomaton(reason.to_owned());
+      assert_eq!(error.empty_pattern_index(), None);
+      assert_eq!(
+        error.to_string(),
+        format!("Failed to build automaton: {reason}")
+      );
+    }
+    assert_eq!(
+      Error::BuildOverlappingAutomaton(
+        "ERR_EMPTY_PATTERN: pattern at index 2 must not be empty".to_owned()
+      )
+      .empty_pattern_index(),
+      None
+    );
+  }
+
+  #[test]
+  fn nonempty_patterns_preserve_unicode_boundaries() {
+    for match_kind in [MatchKind::LeftmostFirst, MatchKind::LeftmostLongest] {
+      for case_insensitive in [false, true] {
+        for whole_words in [false, true] {
+          for unicode_boundaries in [false, true] {
+            let options = Options {
+              match_kind,
+              case_insensitive,
+              whole_words,
+              unicode_boundaries,
+              ..Options::default()
+            };
+            for patterns in [vec!["😀"], vec!["é", "İ"], vec!["Ⱥ", "K", "İ"]]
+            {
+              let patterns: Vec<String> =
+                patterns.into_iter().map(String::from).collect();
+              let direct = AhoCorasick::new(patterns.clone(), options).unwrap();
+              let bytes = direct.to_prepared().unwrap();
+              let prepared = AhoCorasick::from_prepared(&bytes).unwrap();
+              for haystack in ["", "😀", "é😀İ", " 😀 İ ", "ȺȺK"] {
+                for ac in [&direct, &prepared] {
+                  for (byte_matches, utf16_matches) in [
+                    (
+                      ac.find_iter_packed_bytes(haystack).unwrap(),
+                      ac.find_iter_packed(haystack).unwrap(),
+                    ),
+                    (
+                      ac.find_overlapping_iter_packed_bytes(haystack).unwrap(),
+                      ac.find_overlapping_iter_packed(haystack).unwrap(),
+                    ),
+                  ] {
+                    let mut expected = Vec::new();
+                    for m in byte_matches.chunks_exact(3) {
+                      let start = usize::try_from(m[1]).unwrap();
+                      let end = usize::try_from(m[2]).unwrap();
+                      assert!(haystack.get(start..end).is_some());
+                      expected.push(m[0]);
+                      expected.push(
+                        u32::try_from(haystack[..start].encode_utf16().count())
+                          .unwrap(),
+                      );
+                      expected.push(
+                        u32::try_from(haystack[..end].encode_utf16().count())
+                          .unwrap(),
+                      );
+                    }
+                    assert_eq!(utf16_matches, expected);
+                  }
+                  let replacements = vec![String::from("_"); patterns.len()];
+                  assert!(ac.replace_all(haystack, &replacements).is_ok());
+                }
+                assert_eq!(
+                  direct.find_iter_packed(haystack).unwrap(),
+                  prepared.find_iter_packed(haystack).unwrap()
+                );
+              }
+            }
+          }
+        }
+      }
+    }
   }
 
   #[test]
