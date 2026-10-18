@@ -7,6 +7,9 @@ import { validateWasmBuildCommands } from "./wasm-build-command.mjs";
 const read = (path) =>
   readFileSync(new URL(path, import.meta.url), "utf8");
 const { scripts } = JSON.parse(read("../package.json"));
+const wasmPackage = JSON.parse(
+  read("../wasm/package.json"),
+);
 
 test("the shared WASM build emits both artifacts before JavaScript packaging", () => {
   expect(scripts["build:wasm"]).toBe(
@@ -23,6 +26,12 @@ test("the shared WASM build emits both artifacts before JavaScript packaging", (
     'spawnSync("bun", ["run", "build:wasm"]',
   );
   expect(ensure).not.toContain("build-native.mjs");
+});
+
+test("packing the WASM package builds the single-thread artifact first", () => {
+  expect(wasmPackage.scripts?.prepack).toBe(
+    "cd .. && bun run build:wasm && bun run build:js",
+  );
 });
 
 test("the release contract accepts only the declared WASM build wrapper", () => {
