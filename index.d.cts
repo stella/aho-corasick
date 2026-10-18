@@ -43,3 +43,6 @@ export interface Options {
 }
 
 export declare function prepareAhoCorasick(patterns: Array<string>, options?: Options | undefined | null): Buffer
+
+declare const binding: import('./src/core').NativeBinding
+export default binding
