@@ -34,11 +34,26 @@ const temporaryRoot = await mkdtemp(
 const expectedOutput =
   '[{"pattern":0,"start":0,"end":3,"text":"foo"}]';
 
-const run = (command, args) =>
-  spawnSync(command, args, {
+// The probe must find the addon inside the executable, never through a
+// loader override that points back at a file on disk.
+const probeEnvironment = Object.fromEntries(
+  Object.entries(process.env).filter(
+    ([name]) =>
+      name !== "NAPI_RS_NATIVE_LIBRARY_PATH" &&
+      name !== "NAPI_RS_FORCE_WASI",
+  ),
+);
+
+const run = (command, args, timeout) => {
+  const result = spawnSync(command, args, {
     cwd: temporaryRoot,
     encoding: "utf8",
+    env: probeEnvironment,
+    timeout,
   });
+  assert.ifError(result.error);
+  return result;
+};
 
 try {
   const stagedPackageRoot = path.join(
@@ -118,16 +133,6 @@ try {
     "no built native platform package found",
   );
 
-  const builtEntry = await readFile(
-    path.join(repositoryRoot, "dist/index.mjs"),
-    "utf8",
-  );
-  assert.match(
-    builtEntry,
-    /import\s+[^;]+from\s*["']\.\.\/index\.cjs["']/,
-  );
-  assert.doesNotMatch(builtEntry, /createRequire/);
-
   await writeFile(
     path.join(temporaryRoot, "probe.ts"),
     `import { AhoCorasick } from ${JSON.stringify(packageName)};\nconsole.log(JSON.stringify(new AhoCorasick(["foo"]).findIter("foo")));\n`,
@@ -138,7 +143,7 @@ try {
     "probe.ts",
     "--outfile",
     "probe",
-  ]);
+  ], 120_000);
   assert.equal(
     build.status,
     0,
@@ -150,13 +155,24 @@ try {
   });
   await rm(path.join(temporaryRoot, "probe.ts"));
 
-  const probe = run("./probe", []);
+  const probe = run("./probe", [], 30_000);
   assert.equal(
     probe.status,
     0,
     probe.stderr || probe.stdout,
   );
   assert.equal(probe.stdout.trim(), expectedOutput);
+
+  // Checked after the boot so a regression is reported by the binary itself.
+  const builtEntry = await readFile(
+    path.join(repositoryRoot, "dist/index.mjs"),
+    "utf8",
+  );
+  assert.match(
+    builtEntry,
+    /import\s+[^;]+from\s*["']\.\.\/index\.cjs["']/,
+  );
+  assert.doesNotMatch(builtEntry, /createRequire/);
   console.log("compiled smoke ok");
 } finally {
   await rm(temporaryRoot, { force: true, recursive: true });
