@@ -530,7 +530,7 @@ mod tests {
 
   #[test]
   fn cancelling_scalar_width_changes_still_map_offsets() {
-    let original = "ȺȺK";
+    let original = "ȺȺ\u{212A}";
     let ctx = SearchCtx::new(original);
     assert_eq!(ctx.folded, "ⱥⱥk");
     assert_eq!(ctx.folded.len(), original.len());
