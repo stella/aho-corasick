@@ -95,7 +95,7 @@
     "bun-types": "1.4.3",
     "emnapi": "2.0.0-alpha.5",
     "fast-check": "^4.10.2",
-    "modern-ahocorasick": "2.0.4",
+    "modern-ahocorasick": "3.3.0",
     "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2003",
