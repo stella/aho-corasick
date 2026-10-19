@@ -2525,6 +2525,62 @@
     {
       "authors": [
         {
+          "name": "GitHub Inc."
+        }
+      ],
+      "bom-ref": "pkg:npm/semver@7.8.5",
+      "description": "The semantic version parser used by npm.",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/semver/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/semver/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "scripts/engine-ranges.test.mjs#5"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/npm/node-semver.git"
+        }
+      ],
+      "group": "",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "url": "https://opensource.org/licenses/ISC"
+          }
+        }
+      ],
+      "name": "semver",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/semver/package.json"
+        }
+      ],
+      "purl": "pkg:npm/semver@7.8.5",
+      "scope": "required",
+      "type": "library",
+      "version": "7.8.5"
+    },
+    {
+      "authors": [
+        {
           "name": "Evan You"
         }
       ],
