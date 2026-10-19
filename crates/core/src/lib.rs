@@ -1185,14 +1185,16 @@ mod tests {
               unicode_boundaries,
               ..Options::default()
             };
-            for patterns in [vec!["😀"], vec!["é", "İ"], vec!["Ⱥ", "K", "İ"]]
+            for patterns in
+              [vec!["😀"], vec!["é", "İ"], vec!["Ⱥ", "\u{212A}", "İ"]]
             {
               let patterns: Vec<String> =
                 patterns.into_iter().map(String::from).collect();
               let direct = AhoCorasick::new(patterns.clone(), options).unwrap();
               let bytes = direct.to_prepared().unwrap();
               let prepared = AhoCorasick::from_prepared(&bytes).unwrap();
-              for haystack in ["", "😀", "é😀İ", " 😀 İ ", "ȺȺK"] {
+              for haystack in ["", "😀", "é😀İ", " 😀 İ ", "ȺȺ\u{212A}"]
+              {
                 for ac in [&direct, &prepared] {
                   for (byte_matches, utf16_matches) in [
                     (
@@ -1205,17 +1207,49 @@ mod tests {
                     ),
                   ] {
                     let mut expected = Vec::new();
-                    for m in byte_matches.chunks_exact(3) {
-                      let start = usize::try_from(m[1]).unwrap();
-                      let end = usize::try_from(m[2]).unwrap();
-                      assert!(haystack.get(start..end).is_some());
-                      expected.push(m[0]);
+                    for packed_match in byte_matches.chunks_exact(3) {
+                      let mut fields = packed_match.iter().copied();
+                      let pattern = fields.next();
+                      assert!(
+                        pattern.is_some(),
+                        "packed match must contain a pattern index"
+                      );
+                      let start = fields.next();
+                      assert!(
+                        start.is_some(),
+                        "packed match must contain a start offset"
+                      );
+                      let end = fields.next();
+                      assert!(
+                        end.is_some(),
+                        "packed match must contain an end offset"
+                      );
+                      let pattern = pattern.unwrap();
+                      let start = usize::try_from(start.unwrap()).unwrap();
+                      let end = usize::try_from(end.unwrap()).unwrap();
+                      assert!(
+                        haystack.get(start..end).is_some(),
+                        "match offsets must be valid UTF-8 boundaries"
+                      );
+                      let prefix_to_start = haystack.get(..start);
+                      assert!(
+                        prefix_to_start.is_some(),
+                        "match start must be a valid UTF-8 boundary"
+                      );
+                      let prefix_to_end = haystack.get(..end);
+                      assert!(
+                        prefix_to_end.is_some(),
+                        "match end must be a valid UTF-8 boundary"
+                      );
+                      let prefix_to_start = prefix_to_start.unwrap();
+                      let prefix_to_end = prefix_to_end.unwrap();
+                      expected.push(pattern);
                       expected.push(
-                        u32::try_from(haystack[..start].encode_utf16().count())
+                        u32::try_from(prefix_to_start.encode_utf16().count())
                           .unwrap(),
                       );
                       expected.push(
-                        u32::try_from(haystack[..end].encode_utf16().count())
+                        u32::try_from(prefix_to_end.encode_utf16().count())
                           .unwrap(),
                       );
                     }
@@ -1292,7 +1326,10 @@ mod tests {
 
     assert_eq!(prepared.pattern_count(), 0);
     assert!(!prepared.is_match("anything").unwrap());
-    assert!(prepared.find_iter_packed("anything").unwrap().is_empty());
+    assert_eq!(
+      prepared.find_iter_packed("anything").unwrap(),
+      Vec::<u32>::new()
+    );
   }
 
   #[test]
