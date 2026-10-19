@@ -17,6 +17,8 @@ on:
         ready_for_review,
         labeled,
       ]
+  merge_group:
+    types: [checks_requested]
   workflow_dispatch:
 
 concurrency:
@@ -51,7 +53,7 @@ jobs:
       - name: Detect toolchain changes
         id: toolchain
         env:
-          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.before || 'origin/main' }}
+          BASE_REF: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha || github.event.before || 'origin/main' }}
         run: |
           result=$(bunx --no-install stll-toolchain-changed --since "$BASE_REF")
           echo "$result"
@@ -59,6 +61,7 @@ jobs:
       - uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4
         id: filter
         with:
+          base: ${{ github.event.merge_group.base_sha || github.event.repository.default_branch }}
           filters: |
             rust:
               - 'package.json'
@@ -170,7 +173,7 @@ jobs:
           package-files: package.json
 
   checks:
-    name: Typecheck and parity
+    name: Tooling checks
     if: >-
       always()
       && !cancelled()
@@ -185,23 +188,20 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
-          fetch-depth: 0
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run check:toolchain
       - run: bun run test:tooling
-      - run: bun test scripts/shared-policy.test.ts
-      - run: bun run typecheck
-      - run: bun run check:typecheck-parity
-        if: needs.check-changes.outputs.toolchain-changed == 'true'
+      - run: bun test scripts/shared-policy.test.ts scripts/ci-result.test.ts
 
   napi-ci:
     if: ${{ always() && !cancelled() && needs.check-changes.result == 'success' && (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true') }}
     needs: [check-changes, trust-check]
     uses: stella/.github/.github/workflows/rust-napi-ci.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6
     with:
+      typecheck: true
       node-version: "26.10.0"
       trusted: ${{ (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true') && 'true' || 'false' }}
       rust-changed: ${{ needs.check-changes.outputs.rust-changed }}
@@ -253,3 +253,52 @@ jobs:
           echo "$install_dir" >> "$GITHUB_PATH"
       - name: Check internal Rust visibility
         run: bun run rust:hawk
+
+  ci-result:
+    if: always()
+    needs: [check-changes, trust-check, changeset, checks, napi-ci, hawk]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Reject untrusted pull requests
+        if: >-
+          github.event_name == 'pull_request'
+          && needs.trust-check.outputs.trusted != 'true'
+        run: exit 1
+      - name: Require every selected validation job
+        if: >-
+          github.event_name != 'pull_request'
+          || needs.trust-check.outputs.trusted == 'true'
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DETECTOR_RESULT: ${{ needs.check-changes.result }}
+          TRUST_RESULT: ${{ needs.trust-check.result }}
+          TRUSTED: ${{ needs.trust-check.outputs.trusted }}
+          CHANGESET_RESULT: ${{ needs.changeset.result }}
+          CHECKS_RESULT: ${{ needs.checks.result }}
+          NAPI_RESULT: ${{ needs.napi-ci.result }}
+          HAWK_RESULT: ${{ needs.hawk.result }}
+          RUST_CHANGED: ${{ needs.check-changes.outputs.rust-changed }}
+        run: |
+          test "$DETECTOR_RESULT" = success
+          test "$CHECKS_RESULT" = success
+          test "$NAPI_RESULT" = success
+          if [ "$EVENT_NAME" = pull_request ]; then
+            test "$TRUST_RESULT" = success
+            test "$TRUSTED" = true
+            test "$CHANGESET_RESULT" = success
+          else
+            case "$TRUST_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+            case "$CHANGESET_RESULT" in
+              success|skipped) ;;
+              *) exit 1 ;;
+            esac
+          fi
+          if [ "$HAWK_RESULT" != success ]; then
+            test "$RUST_CHANGED" = false
+            test "$HAWK_RESULT" = skipped
+          fi
