@@ -3,6 +3,8 @@ import { execFile } from "node:child_process";
 import {
   mkdtemp,
   mkdir,
+  readFile,
+  readdir,
   writeFile,
 } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -11,6 +13,7 @@ import { test } from "node:test";
 import { promisify } from "node:util";
 
 import {
+  engineSupportDecisions,
   engineSupportDecision,
   releaseOwners,
 } from "./check-engine-support.mjs";
@@ -208,37 +211,84 @@ void test("checks each published manifest against the git base", async () => {
   );
 });
 
-void test("accepts this branch's committed changesets for its real engine diff", async () => {
-  const root = new URL("../", import.meta.url).pathname;
-  const { stdout: engineCommit } = await execFileAsync(
-    "git",
-    [
-      "log",
-      "-S",
-      '"node": "^20.19.0 || ^22.13.0 || >=23.5.0"',
-      "--format=%H",
-      "--",
-      "package.json",
-    ],
-    { cwd: root },
-  );
-  const changedAt = engineCommit.trim().split("\n").at(0);
-  assert.ok(
-    changedAt,
-    "expected the engine-range commit in repository history",
-  );
-  const { stdout: base } = await execFileAsync(
-    "git",
-    ["rev-parse", `${changedAt}^`],
-    { cwd: root },
-  );
-  const script = new URL(
-    "./check-engine-support.mjs",
+const fixtureManifestPaths = [
+  "package.json",
+  "wasm/package.json",
+  "npm/darwin-arm64/package.json",
+  "npm/darwin-x64/package.json",
+  "npm/linux-arm64-gnu/package.json",
+  "npm/linux-x64-gnu/package.json",
+  "npm/wasm32-wasi/package.json",
+  "npm/win32-x64-msvc/package.json",
+];
+
+const fixtureDecisions = async (name) => {
+  const root = new URL(
+    `./fixtures/check-engine-support/${name}/`,
     import.meta.url,
-  ).pathname;
-  await execFileAsync(
-    process.execPath,
-    [script, "--base", base.trim()],
-    { cwd: root },
+  );
+  const readJson = async (relativePath) =>
+    JSON.parse(
+      await readFile(new URL(relativePath, root), "utf8"),
+    );
+  const readManifests = (side) =>
+    Promise.all(
+      fixtureManifestPaths.map(async (manifestPath) => [
+        manifestPath,
+        await readJson(
+          `${side}/${manifestPath.replace(/package\.json$/u, "manifest.json")}`,
+        ),
+      ]),
+    );
+  const changesetDirectory = new URL(".changeset/", root);
+  const changesetNames = await readdir(changesetDirectory);
+  const changesets = await Promise.all(
+    changesetNames
+      .filter(
+        (filename) =>
+          filename.endsWith(".md") &&
+          filename !== "README.md",
+      )
+      .map((filename) =>
+        readFile(
+          new URL(filename, changesetDirectory),
+          "utf8",
+        ),
+      ),
+  );
+
+  return engineSupportDecisions({
+    baseManifests: await readManifests("base"),
+    headManifests: await readManifests("head"),
+    changesets,
+    changesetsConfig: await readJson(
+      ".changeset/config.json",
+    ),
+  });
+};
+
+void test("accepts the fixture engine reduction with its pending major changeset", async () => {
+  const decisions = await fixtureDecisions("pending-major");
+  assert.equal(
+    decisions.filter(({ supportReduced }) => supportReduced)
+      .length,
+    fixtureManifestPaths.length,
+  );
+  assert.equal(
+    decisions.every(({ allowed }) => allowed === true),
+    true,
+  );
+});
+
+void test("accepts an already released engine reduction without a pending changeset", async () => {
+  const decisions = await fixtureDecisions(
+    "already-released",
+  );
+  assert.equal(
+    decisions.every(
+      ({ allowed, supportReduced }) =>
+        allowed === true && supportReduced === false,
+    ),
+    true,
   );
 });

@@ -185,6 +185,35 @@ export const releaseOwners = ({
   );
 };
 
+export const engineSupportDecisions = ({
+  baseManifests,
+  headManifests,
+  changesets,
+  changesetsConfig,
+}) => {
+  const baseByPath = new Map(baseManifests);
+  const releases = changesetReleases(changesets);
+  const owners = releaseOwners({
+    manifests: headManifests,
+    changesetsConfig,
+  });
+
+  return headManifests.map(
+    ([manifestPath, headManifest]) => {
+      const baseManifest =
+        baseByPath.get(manifestPath) ?? {};
+      return engineSupportDecision({
+        packageName: headManifest.name,
+        baseRange: baseManifest.engines?.node,
+        headRange: headManifest.engines?.node,
+        releaseType: releases.get(
+          owners.get(headManifest.name),
+        ),
+      });
+    },
+  );
+};
+
 const main = async () => {
   const baseFlag = process.argv.indexOf("--base");
   const base = process.argv.at(baseFlag + 1);
@@ -204,26 +233,22 @@ const main = async () => {
         "utf8",
       ).then(JSON.parse),
     ]);
-  const releases = changesetReleases(changesets);
-  const owners = releaseOwners({
-    manifests,
+  const baseManifests = await Promise.all(
+    manifests.map(async ([manifestPath]) => [
+      manifestPath,
+      await manifestAt(base, manifestPath).catch(
+        () => ({}),
+      ),
+    ]),
+  );
+  const decisions = engineSupportDecisions({
+    baseManifests,
+    headManifests: manifests,
+    changesets,
     changesetsConfig,
   });
-  for (const [manifestPath, headManifest] of manifests) {
-    const baseManifest = await manifestAt(
-      base,
-      manifestPath,
-    ).catch(() => ({}));
-    const decision = engineSupportDecision({
-      packageName: headManifest.name,
-      baseRange: baseManifest.engines?.node,
-      headRange: headManifest.engines?.node,
-      releaseType: releases.get(
-        owners.get(headManifest.name),
-      ),
-    });
-
-    if (!decision.allowed) {
+  for (const decision of decisions) {
+    if (decision.allowed === false) {
       throw new Error(decision.reason);
     }
   }
