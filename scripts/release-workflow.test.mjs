@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const workflow = readFileSync(
   new URL(
@@ -8,6 +8,23 @@ const workflow = readFileSync(
   ),
   "utf8",
 );
+
+// Every stella/.github reference must be a full commit sha; returns the distinct revisions.
+const sharedRevisions = (sources) => {
+  const revisions = new Set();
+  for (const source of sources) {
+    for (const match of source.matchAll(
+      /uses:\s*["']?(stella\/\.github\/[^@\s"']+@([^\s"']+))/gu,
+    )) {
+      if (!/^[0-9a-f]{40}$/u.test(match[2]))
+        throw new Error(`floating shared reference: ${match[1]}`);
+      revisions.add(match[2]);
+    }
+  }
+  if (revisions.size === 0)
+    throw new Error("no stella/.github references found");
+  return revisions;
+};
 
 const readJob = (name) => {
   const marker = `  ${name}:\n`;
@@ -92,4 +109,60 @@ test("privileged shared publishers match the release policy pin", () => {
   expect(publishers).toHaveLength(3);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(pin);
+});
+
+test("all shared workflows and actions use one immutable revision", () => {
+  const github = new URL("../.github/", import.meta.url);
+  const files = ["workflows", "actions"]
+    .filter((directory) =>
+      existsSync(new URL(directory, github)),
+    )
+    .flatMap((directory) =>
+      [
+        ...new Bun.Glob("**/*.{yml,yaml}").scanSync({
+          cwd: new URL(directory, github).pathname,
+          onlyFiles: true,
+        }),
+      ].map(
+        (file) => new URL(`${directory}/${file}`, github),
+      ),
+    );
+  const revisions = sharedRevisions(
+    files.map((file) => readFileSync(file, "utf8")),
+  );
+
+  expect(revisions.size).toBe(1);
+});
+
+test("a floating shared reference is rejected even beside pinned ones", () => {
+  const pinned =
+    "uses: stella/.github/.github/workflows/a.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6";
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      "uses: stella/.github/actions/provenance-check@main",
+    ]),
+  ).toThrow("stella/.github/actions/provenance-check@main");
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      "uses: stella/.github/.github/workflows/b.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6 # v1\n" +
+        "  uses: stella/.github/.github/workflows/c.yml@v3",
+    ]),
+  ).toThrow("@v3");
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      `    uses: "stella/.github/.github/workflows/x.yml@main"`,
+      `    uses: 'stella/.github/actions/provenance-check@v1'`,
+    ]),
+  ).toThrow("stella/.github/.github/workflows/x.yml@main");
+  expect(
+    sharedRevisions([
+      `uses: "stella/.github/.github/workflows/x.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"`,
+    ]),
+  ).toEqual(new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]));
+  expect(sharedRevisions([pinned])).toEqual(
+    new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]),
+  );
 });
