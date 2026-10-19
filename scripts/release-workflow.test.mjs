@@ -71,6 +71,8 @@ describe("Rust release recovery", () => {
 });
 
 test("privileged shared publishers match the release policy pin", () => {
+  const expectedPin =
+    "07debc754995bab35e446511859f1d93e1ad127a";
   const policy = readFileSync(
     new URL(
       "../.github/workflows/release-policy.yml",
@@ -84,6 +86,7 @@ test("privileged shared publishers match the release policy pin", () => {
   const pin = policyUse?.at(1);
   if (pin === undefined)
     throw new Error("Missing immutable release policy pin");
+  expect(pin).toBe(expectedPin);
   const publishers = [
     ...workflow.matchAll(
       /uses: stella\/\.github\/\.github\/workflows\/(?:crates-io-publish|npm-version-finalize)\.yml@([0-9a-f]{40})/gu,
@@ -91,5 +94,5 @@ test("privileged shared publishers match the release policy pin", () => {
   ];
   expect(publishers).toHaveLength(3);
   for (const publisher of publishers)
-    expect(publisher.at(1)).toBe(pin);
+    expect(publisher.at(1)).toBe(expectedPin);
 });

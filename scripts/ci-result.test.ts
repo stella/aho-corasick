@@ -92,7 +92,7 @@ test("CI and CLA handle merge groups with the immutable merged base and verifier
   const cla = readWorkflow("cla");
   if (!record(cla["on"]) || !record(cla["jobs"]) || !record(cla["jobs"]["cla"])) throw new Error("Missing CLA contract");
   expect(cla["on"]["merge_group"]).toEqual({ types: ["checks_requested"] });
-  expect(cla["jobs"]["cla"]["uses"]).toBe("stella/.github/.github/workflows/cla.yml@caa3ee1c2d02ef807994fdd3907c55ba104aff00");
+  expect(cla["jobs"]["cla"]["uses"]).toBe("stella/.github/.github/workflows/cla.yml@07debc754995bab35e446511859f1d93e1ad127a");
   expect(cla["jobs"]["cla"]["if"]).toContain("github.event_name == 'merge_group'");
   expect(cla["permissions"]).toEqual({ contents: "read", issues: "write", "pull-requests": "read", checks: "write" });
 });
