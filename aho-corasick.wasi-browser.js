@@ -507,6 +507,28 @@ function __armWasmRuntimePollStallBackup(pace) {
   }
 }
 
+function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
+  let finishedDuringScheduling = false
+  let scheduling = true
+  const finish = () => {
+    if (scheduling) {
+      finishedDuringScheduling = true
+      return
+    }
+    settle()
+  }
+  try {
+    schedule(finish)
+  } catch (error) {
+    reject(error)
+    return
+  }
+  scheduling = false
+  if (finishedDuringScheduling) {
+    settle()
+  }
+}
+
 /**
  * One turn of the runtime-work poll.
  *
@@ -546,33 +568,25 @@ function __yieldWasmRuntimePollTurn(pace) {
       }
       resolve()
     }
-    __scheduleTimer(() => {
-      pace.arrivals++
-      settle()
-    }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)
+    __invokeWasmCleanupPollScheduler(
+      (finish) => {
+        __scheduleTimer(() => {
+          pace.arrivals++
+          finish()
+        }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)
+      },
+      settle,
+      reject,
+    )
     // Read next to the arming it describes; see
     // `__armWasmRuntimePollStallBackup` for what the two due times mean.
     const turnTimerDueAt = Date.now() + __WASM_RUNTIME_WORK_POLL_INTERVAL_MS
     if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
-      let finishedDuringScheduling = false
-      let scheduling = true
-      const finish = () => {
-        if (scheduling) {
-          finishedDuringScheduling = true
-          return
-        }
-        settle()
-      }
-      try {
-        __scheduleMacrotask(finish)
-      } catch (error) {
-        reject(error)
-        return
-      }
-      scheduling = false
-      if (finishedDuringScheduling) {
-        settle()
-      }
+      __invokeWasmCleanupPollScheduler(
+        __scheduleMacrotask,
+        settle,
+        reject,
+      )
       return
     }
     // Paced by the timer alone from here; the backup is what ends this turn if
@@ -761,25 +775,11 @@ function __drainWasmEnvCleanup() {
     let queued = 0
     for (let turn = 0; turn < limit; turn++) {
       await new Promise((resolve, reject) => {
-        let finishedDuringScheduling = false
-        let scheduling = true
-        const finish = () => {
-          if (scheduling) {
-            finishedDuringScheduling = true
-            return
-          }
-          resolve()
-        }
-        try {
-          __scheduleMacrotask(finish)
-        } catch (error) {
-          reject(error)
-          return
-        }
-        scheduling = false
-        if (finishedDuringScheduling) {
-          resolve()
-        }
+        __invokeWasmCleanupPollScheduler(
+          __scheduleMacrotask,
+          resolve,
+          reject,
+        )
       })
       if (!observable) {
         continue

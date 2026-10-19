@@ -1,5 +1,8 @@
+/* oxlint-disable typescript/strict-boolean-expressions -- Normalizer patterns and AST fixture nodes are untyped generated-source data. */
+import { parse } from "acorn";
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
+import { readdirSync } from "node:fs";
 
 import { normalizeGeneratedLoader } from "./generated-loader-normalization.mjs";
 
@@ -28,6 +31,92 @@ const extractFunction = (source, name) => {
   throw new Error(`${name} is incomplete`);
 };
 
+const schedulerNames = new Set([
+  "__scheduleMacrotask",
+  "__scheduleTimer",
+  "setTimeout",
+  "setImmediate",
+  "queueMicrotask",
+]);
+const cleanupPollFunctions = new Set([
+  "__yieldWasmRuntimePollTurn",
+  "__drainWasmEnvCleanup",
+]);
+
+const schedulerCallsOutsideHandshake = (source) => {
+  const ast = parse(source, {
+    ecmaVersion: "latest",
+    sourceType: "module",
+  });
+  const aliases = new Set(schedulerNames);
+  const visitAliases = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (
+      node.type === "VariableDeclarator" &&
+      node.id?.type === "Identifier" &&
+      (aliases.has(node.init?.name) ||
+        (node.init?.type === "MemberExpression" &&
+          !node.init.computed &&
+          schedulerNames.has(node.init.property?.name)))
+    ) {
+      aliases.add(node.id.name);
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "start" || key === "end") continue;
+      if (Array.isArray(value)) {
+        for (const child of value) visitAliases(child);
+      } else {
+        visitAliases(value);
+      }
+    }
+  };
+  visitAliases(ast);
+
+  const violations = [];
+  const visitCalls = (node, ancestors, inTarget) => {
+    if (!node || typeof node !== "object") return;
+    const entersTarget =
+      node.type === "FunctionDeclaration" &&
+      cleanupPollFunctions.has(node.id?.name);
+    const target = inTarget || entersTarget;
+    if (target && node.type === "CallExpression") {
+      const isNamedScheduler =
+        node.callee.type === "Identifier" &&
+        aliases.has(node.callee.name);
+      const isMessagePost =
+        node.callee.type === "MemberExpression" &&
+        !node.callee.computed &&
+        node.callee.property?.name === "postMessage";
+      if (isNamedScheduler || isMessagePost) {
+        const guarded = ancestors.some(
+          (ancestor) =>
+            ancestor.type === "CallExpression" &&
+            ancestor.callee?.type === "Identifier" &&
+            ancestor.callee.name ===
+              "__invokeWasmCleanupPollScheduler",
+        );
+        if (!guarded) {
+          violations.push(
+            source.slice(node.start, node.end),
+          );
+        }
+      }
+    }
+    const nextAncestors = [...ancestors, node];
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "start" || key === "end") continue;
+      if (Array.isArray(value)) {
+        for (const child of value)
+          visitCalls(child, nextAncestors, target);
+      } else {
+        visitCalls(value, nextAncestors, target);
+      }
+    }
+  };
+  visitCalls(ast, [], false);
+  return violations;
+};
+
 describe("generated loader normalization", () => {
   test("keeps the generated typecheck opt-out while removing other directives", () => {
     const source = `/* eslint-disable */
@@ -51,6 +140,14 @@ const binding = load()
     test(`${fileName} retries live cleanup after scheduling throws`, async () => {
       const source = read(fileName);
       expect(source).toContain(generatedTypecheckOptOut);
+      const schedulerHandshake = extractFunction(
+        source,
+        "__invokeWasmCleanupPollScheduler",
+      );
+      const scheduleTimer = extractFunction(
+        source,
+        "__scheduleTimer",
+      );
       const yieldTurn = extractFunction(
         source,
         "__yieldWasmRuntimePollTurn",
@@ -60,7 +157,9 @@ const binding = load()
         "__prepareWasmEnvCleanupWithTurns",
       );
       // oxlint-disable-next-line typescript/no-implied-eval -- Executes functions extracted from the real generated loader.
-      const createHarness = Function(`${yieldTurn}
+      const createHarness = Function(`${schedulerHandshake}
+${scheduleTimer}
+${yieldTurn}
 ${prepare}
 let __emnapiWasmEnvCleanupPrepared = false
 let __emnapiWasmEnvCleanupPreparing = false
@@ -79,7 +178,7 @@ const __napiInstance = { exports: {
 } }
 const __createWasmRuntimePollPace = () => ({ arrivals: 0 })
 const __armWasmRuntimePollStallBackup = () => {}
-const __scheduleTimer = () => {}
+const globalThis = { setTimeout: undefined }
 const __prepareWasmEnvCleanup = () => {}
 const __abortWasiDisposalIfThreadCrashed = () => {}
 const __scheduleMacrotask = (callback) => {
@@ -116,15 +215,78 @@ return {
     });
   }
 
-  test("published WASM runtime versions match the build manifest", () => {
+  test("all cleanup poll scheduler calls use the safe handshake", () => {
+    for (const fileName of [
+      "aho-corasick.wasi-browser.js",
+      "aho-corasick.wasi.cjs",
+    ]) {
+      expect(
+        schedulerCallsOutsideHandshake(read(fileName)),
+      ).toEqual([]);
+    }
+
+    const unsafeFixture = `
+function __yieldWasmRuntimePollTurn() {
+  const timer = __scheduleTimer
+  timer(() => {}, 1)
+}
+`;
+    expect(
+      schedulerCallsOutsideHandshake(unsafeFixture),
+    ).toEqual(["timer(() => {}, 1)"]);
+  });
+
+  test("published runtime versions match the build manifest", () => {
     const rootManifest = JSON.parse(read("package.json"));
-    const wasmManifest = JSON.parse(
-      read("wasm/package.json"),
-    );
-    for (const packageName of runtimePackages) {
-      expect(wasmManifest.dependencies[packageName]).toBe(
-        rootManifest.devDependencies[packageName],
+    const manifests = ["package.json"];
+    for (const directory of ["npm", "wasm"]) {
+      for (const entry of readdirSync(
+        new URL(directory, root),
+        {
+          withFileTypes: true,
+        },
+      )) {
+        if (entry.isDirectory()) {
+          manifests.push(
+            `${directory}/${entry.name}/package.json`,
+          );
+        } else if (entry.name === "package.json") {
+          manifests.push(`${directory}/package.json`);
+        }
+      }
+    }
+    const expected = rootManifest.devDependencies;
+    for (const manifestPath of manifests) {
+      const manifest = JSON.parse(read(manifestPath));
+      const declared = {
+        ...manifest.devDependencies,
+        ...manifest.dependencies,
+      };
+      for (const packageName of [
+        ...runtimePackages,
+        "emnapi",
+      ]) {
+        if (declared[packageName] === undefined) continue;
+        expect(
+          declared[packageName],
+          `${manifestPath}: ${packageName}`,
+        ).toBe(expected[packageName]);
+      }
+    }
+  });
+
+  test("keeps artifact metadata on the first line", () => {
+    for (const fileName of [
+      "aho-corasick.wasi-browser.js",
+      "aho-corasick.wasi.cjs",
+    ]) {
+      const lines = read(fileName).split("\n");
+      const metadata = lines.find((line) =>
+        line.startsWith("// napi-rs-artifact-metadata:"),
       );
+      if (metadata !== undefined) {
+        expect(lines[0]).toBe(metadata);
+      }
     }
   });
 });
