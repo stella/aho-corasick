@@ -9,6 +9,23 @@ const workflow = readFileSync(
   "utf8",
 );
 
+// Every stella/.github reference must be a full commit sha; returns the distinct revisions.
+const sharedRevisions = (sources) => {
+  const revisions = new Set();
+  for (const source of sources) {
+    for (const match of source.matchAll(
+      /uses:\s*(stella\/\.github\/[^@\s]+@(\S+))/gu,
+    )) {
+      if (!/^[0-9a-f]{40}$/u.test(match[2]))
+        throw new Error(`floating shared reference: ${match[1]}`);
+      revisions.add(match[2]);
+    }
+  }
+  if (revisions.size === 0)
+    throw new Error("no stella/.github references found");
+  return revisions;
+};
+
 const readJob = (name) => {
   const marker = `  ${name}:\n`;
   const start = workflow.indexOf(marker);
@@ -110,17 +127,30 @@ test("all shared workflows and actions use one immutable revision", () => {
         (file) => new URL(`${directory}/${file}`, github),
       ),
     );
-  const pins = files.flatMap((file) =>
-    Array.from(
-      readFileSync(file, "utf8").matchAll(
-        /uses: stella\/\.github\/[^@\s]+@([0-9a-f]{40})/gu,
-      ),
-      (match) => match.at(1),
-    ),
+  const revisions = sharedRevisions(
+    files.map((file) => readFileSync(file, "utf8")),
   );
 
-  expect(pins.length).toBeGreaterThan(0);
-  expect(new Set(pins)).toEqual(
+  expect(revisions.size).toBe(1);
+});
+
+test("a floating shared reference is rejected even beside pinned ones", () => {
+  const pinned =
+    "uses: stella/.github/.github/workflows/a.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6";
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      "uses: stella/.github/actions/provenance-check@main",
+    ]),
+  ).toThrow("stella/.github/actions/provenance-check@main");
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      "uses: stella/.github/.github/workflows/b.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6 # v1\n" +
+        "  uses: stella/.github/.github/workflows/c.yml@v3",
+    ]),
+  ).toThrow("@v3");
+  expect(sharedRevisions([pinned])).toEqual(
     new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]),
   );
 });
