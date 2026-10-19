@@ -15,7 +15,9 @@ const jobs = workflow["jobs"];
 if (!record(jobs)) throw new Error("Missing CI jobs");
 const gate = jobs["ci-result"];
 if (!record(gate) || !Array.isArray(gate["steps"])) throw new Error("Missing gate");
-const step = gate["steps"].find((value: unknown) => record(value) && typeof value["run"] === "string");
+const rejectStep = gate["steps"].find((value: unknown) => record(value) && value["name"] === "Reject untrusted pull requests");
+if (!record(rejectStep)) throw new Error("Missing untrusted pull request rejection");
+const step = gate["steps"].find((value: unknown) => record(value) && value["name"] === "Require every selected validation job");
 if (!record(step) || !record(step["env"]) || typeof step["run"] !== "string") throw new Error("Missing verdict");
 const run = step["run"];
 const env = step["env"];
@@ -27,9 +29,7 @@ const resultVariables = Object.entries(env).flatMap(([name, expression]) => {
 });
 
 test("the always-running gate covers every caller job and its complete reusable result", () => {
-  expect(String(gate["if"]).trim().replace(/\s+/gu, " ")).toBe(
-    "always() && (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true')",
-  );
+  expect(gate["if"]).toBe("always()");
   const otherJobs = Object.keys(jobs).filter((name) => name !== "ci-result");
   const dependencies = gate["needs"];
   if (!Array.isArray(dependencies) || !dependencies.every((value: unknown) => typeof value === "string")) throw new Error("Invalid gate dependencies");
@@ -39,6 +39,13 @@ test("the always-running gate covers every caller job and its complete reusable 
   expect(env["EVENT_NAME"]).toBe("${{ github.event_name }}");
   expect(env["TRUSTED"]).toBe("${{ needs.trust-check.outputs.trusted }}");
   expect(env["RUST_CHANGED"]).toBe("${{ needs.check-changes.outputs.rust-changed }}");
+  expect(String(rejectStep["if"]).trim().replace(/\s+/gu, " ")).toBe(
+    "github.event_name == 'pull_request' && needs.trust-check.outputs.trusted != 'true'",
+  );
+  expect(rejectStep["run"]).toBe("exit 1");
+  expect(String(step["if"]).trim().replace(/\s+/gu, " ")).toBe(
+    "github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true'",
+  );
 });
 
 test("the actual verdict rejects every failure, cancellation, and unselected skip", () => {
