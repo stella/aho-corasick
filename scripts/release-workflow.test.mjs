@@ -14,7 +14,7 @@ const sharedRevisions = (sources) => {
   const revisions = new Set();
   for (const source of sources) {
     for (const match of source.matchAll(
-      /uses:\s*(stella\/\.github\/[^@\s]+@(\S+))/gu,
+      /uses:\s*["']?(stella\/\.github\/[^@\s"']+@([^\s"']+))/gu,
     )) {
       if (!/^[0-9a-f]{40}$/u.test(match[2]))
         throw new Error(`floating shared reference: ${match[1]}`);
@@ -150,6 +150,18 @@ test("a floating shared reference is rejected even beside pinned ones", () => {
         "  uses: stella/.github/.github/workflows/c.yml@v3",
     ]),
   ).toThrow("@v3");
+  expect(() =>
+    sharedRevisions([
+      pinned,
+      `    uses: "stella/.github/.github/workflows/x.yml@main"`,
+      `    uses: 'stella/.github/actions/provenance-check@v1'`,
+    ]),
+  ).toThrow("stella/.github/.github/workflows/x.yml@main");
+  expect(
+    sharedRevisions([
+      `uses: "stella/.github/.github/workflows/x.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"`,
+    ]),
+  ).toEqual(new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]));
   expect(sharedRevisions([pinned])).toEqual(
     new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]),
   );

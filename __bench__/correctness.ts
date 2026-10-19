@@ -51,16 +51,10 @@ const runAll = (
   // modern-ahocorasick
   try {
     const ac = new ModernAC(patterns);
-    const ms = ac.search(haystack) as [number, string[]][];
-    const flat: { text: string; start: number }[] = [];
-    for (const [endIdx, keywords] of ms) {
-      for (const kw of keywords) {
-        flat.push({
-          text: kw,
-          start: endIdx - kw.length + 1,
-        });
-      }
-    }
+    // v3 reports UTF-16 [start, end) ranges, one object per match.
+    const flat = ac
+      .search(haystack)
+      .map((m) => ({ text: m.pattern, start: m.start }));
     results.push({
       name: "modern-ahocorasick",
       matches: flat,
