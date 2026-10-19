@@ -1155,8 +1155,11 @@ function __yieldWasmRuntimePollTurn(pace) {
  * an idle disposal synchronous.
  */
 function __prepareWasmEnvCleanupWithTurns() {
-  if (__emnapiWasmEnvCleanupPrepared || __emnapiWasmEnvCleanupPreparing) {
+  if (__emnapiWasmEnvCleanupPrepared) {
     return
+  }
+  if (__emnapiWasmEnvCleanupPreparing) {
+    return __finishParkedWasmEnvCleanup?.retry?.()
   }
   const exports = __napiInstance?.exports
   const begin = exports?.napi_prepare_wasm_env_cleanup_begin
@@ -1218,7 +1221,7 @@ function __prepareWasmEnvCleanupWithTurns() {
     }
     finishCleanup()
   }
-  return (async () => {
+  const pollCleanup = () => (async () => {
     // Unbounded, exactly like the async-work drain below. The wait ends when
     // the addon reports its runtime work finished; the turns spent here are
     // what let that happen at all.
@@ -1236,7 +1239,9 @@ function __prepareWasmEnvCleanupWithTurns() {
         return
       }
     }
-  })().then(finishCleanupUnlessCrashed, finishCleanupUnlessCrashed)
+  })().then(finishCleanupUnlessCrashed)
+  finishCleanup.retry = pollCleanup
+  return pollCleanup()
 }
 
 // Turns to wait for while the addon still reports queued settlements. Reaching
