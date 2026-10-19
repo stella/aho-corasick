@@ -108,6 +108,83 @@ const publishedManifests = async (root) => {
   );
 };
 
+const workspacePatterns = (manifest) => {
+  if (Array.isArray(manifest.workspaces)) {
+    return manifest.workspaces;
+  }
+  return manifest.workspaces?.packages ?? [];
+};
+
+const workspacePatternMatches = (pattern, manifestPath) => {
+  const directory = manifestPath.replace(
+    /\/package\.json$/u,
+    "",
+  );
+  const escaped = pattern
+    .replace(/[.+?^${}()|[\]\\]/gu, "\\$&")
+    .replaceAll("**", "\0")
+    .replaceAll("*", "[^/]*")
+    .replaceAll("\0", ".*");
+  return new RegExp(`^${escaped}$`, "u").test(directory);
+};
+
+/**
+ * Return the Changesets package whose release determines each manifest's
+ * version. Changesets owns the root and declared workspaces. This repository's
+ * configured post-Changesets version synchronizer makes the root release own
+ * the remaining generated N-API manifests.
+ */
+export const releaseOwners = ({
+  manifests,
+  changesetsConfig,
+}) => {
+  const [, rootManifest] = manifests.find(
+    ([manifestPath]) => manifestPath === "package.json",
+  ) ?? [undefined, undefined];
+  if (rootManifest === undefined) {
+    throw new Error(
+      "package.json is not a published manifest",
+    );
+  }
+
+  const ignored = new Set(changesetsConfig.ignore ?? []);
+  const patterns = workspacePatterns(rootManifest);
+  const managed = new Set(
+    manifests
+      .filter(
+        ([manifestPath, manifest]) =>
+          !ignored.has(manifest.name) &&
+          (manifestPath === "package.json" ||
+            patterns.some((pattern) =>
+              workspacePatternMatches(
+                pattern,
+                manifestPath,
+              ),
+            )),
+      )
+      .map(([, manifest]) => manifest.name),
+  );
+  const synchronizesDerivedVersions =
+    rootManifest.scripts?.["changeset:version"]?.includes(
+      "version-sync.mjs sync",
+    ) === true && rootManifest.napi !== undefined;
+
+  return new Map(
+    manifests.map(([, manifest]) => {
+      if (managed.has(manifest.name)) {
+        return [manifest.name, manifest.name];
+      }
+      if (
+        synchronizesDerivedVersions &&
+        manifest.version === rootManifest.version
+      ) {
+        return [manifest.name, rootManifest.name];
+      }
+      return [manifest.name, manifest.name];
+    }),
+  );
+};
+
 const main = async () => {
   const baseFlag = process.argv.indexOf("--base");
   const base = process.argv.at(baseFlag + 1);
@@ -118,11 +195,20 @@ const main = async () => {
   }
 
   const root = process.cwd();
-  const [manifests, changesets] = await Promise.all([
-    publishedManifests(root),
-    pendingChangesets(root),
-  ]);
+  const [manifests, changesets, changesetsConfig] =
+    await Promise.all([
+      publishedManifests(root),
+      pendingChangesets(root),
+      readFile(
+        nodePath.join(root, ".changeset", "config.json"),
+        "utf8",
+      ).then(JSON.parse),
+    ]);
   const releases = changesetReleases(changesets);
+  const owners = releaseOwners({
+    manifests,
+    changesetsConfig,
+  });
   for (const [manifestPath, headManifest] of manifests) {
     const baseManifest = await manifestAt(
       base,
@@ -132,7 +218,9 @@ const main = async () => {
       packageName: headManifest.name,
       baseRange: baseManifest.engines?.node,
       headRange: headManifest.engines?.node,
-      releaseType: releases.get(headManifest.name),
+      releaseType: releases.get(
+        owners.get(headManifest.name),
+      ),
     });
 
     if (!decision.allowed) {
