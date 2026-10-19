@@ -13,6 +13,7 @@ const config: OxlintConfig = library({
     "index.cjs",
     "index.d.cts",
     "*.wasi.cjs",
+    "*.wasi.d.cts",
     "*.wasi-browser.js",
     "browser.js",
     "wasi-worker.mjs",

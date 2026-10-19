@@ -1,5 +1,9 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import {
+  existsSync,
+  readFileSync,
+  readdirSync,
+} from "node:fs";
 
 const workflow = readFileSync(
   new URL(
@@ -8,6 +12,45 @@ const workflow = readFileSync(
   ),
   "utf8",
 );
+
+const sharedReference =
+  /stella\/\.github\/[^\s"']+?@([A-Za-z0-9._/-]+)/gu;
+
+const sharedRevisions = (contents) => {
+  const revisions = [
+    ...contents.matchAll(sharedReference),
+  ].map((match) => match.at(1));
+  if (revisions.length === 0)
+    throw new Error("Missing stella/.github reference");
+  if (
+    !revisions.every((revision) =>
+      /^[0-9a-f]{40}$/u.test(revision),
+    )
+  )
+    throw new Error(
+      "Shared references must use full commit SHAs",
+    );
+  if (new Set(revisions).size !== 1)
+    throw new Error(
+      "Shared references must use one revision",
+    );
+  return revisions.at(0);
+};
+
+const filesBelow = (directory) => {
+  if (!existsSync(directory)) return [];
+  return readdirSync(directory, {
+    recursive: true,
+    withFileTypes: true,
+  })
+    .filter((entry) => entry.isFile())
+    .map((entry) =>
+      readFileSync(
+        `${entry.parentPath}/${entry.name}`,
+        "utf8",
+      ),
+    );
+};
 
 const readJob = (name) => {
   const marker = `  ${name}:\n`;
@@ -92,4 +135,28 @@ test("privileged shared publishers match the release policy pin", () => {
   expect(publishers).toHaveLength(3);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(pin);
+});
+
+test("all shared workflow and action references use one immutable revision", () => {
+  const github = new URL("../.github/", import.meta.url);
+  const contents = [
+    ...filesBelow(new URL("workflows/", github)),
+    ...filesBelow(new URL("actions/", github)),
+  ].join("\n");
+  expect(sharedRevisions(contents)).toMatch(
+    /^[0-9a-f]{40}$/u,
+  );
+});
+
+test("shared reference validation rejects tags beside pinned references", () => {
+  const pin = "0123456789abcdef0123456789abcdef01234567";
+  for (const mutable of ["main", "v1.2.3"]) {
+    const fixture = [
+      `uses: stella/.github/.github/workflows/ci.yml@${pin}`,
+      `uses: "stella/.github/.github/actions/check@${mutable}"`,
+    ].join("\n");
+    expect(() => sharedRevisions(fixture)).toThrow(
+      "Shared references must use full commit SHAs",
+    );
+  }
 });

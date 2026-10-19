@@ -51,19 +51,13 @@ const runAll = (
   // modern-ahocorasick
   try {
     const ac = new ModernAC(patterns);
-    const ms = ac.search(haystack) as [number, string[]][];
-    const flat: { text: string; start: number }[] = [];
-    for (const [endIdx, keywords] of ms) {
-      for (const kw of keywords) {
-        flat.push({
-          text: kw,
-          start: endIdx - kw.length + 1,
-        });
-      }
-    }
+    const ms = ac.search(haystack);
     results.push({
       name: "modern-ahocorasick",
-      matches: flat,
+      matches: ms.map((m) => ({
+        text: m.pattern,
+        start: m.start,
+      })),
     });
   } catch (e) {
     results.push({
