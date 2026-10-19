@@ -145,6 +145,10 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile --ignore-scripts
       - uses: stella/.github/.github/actions/changeset-policy@07debc754995bab35e446511859f1d93e1ad127a
         with:
           release-paths: |
@@ -171,6 +175,10 @@ jobs:
             provenance/report.json
             provenance/sbom.cdx.json
           package-files: package.json
+      - name: Check Node engine support policy
+        env:
+          BASE_REF: ${{ github.event.pull_request.base.sha }}
+        run: node scripts/check-engine-support.mjs --base "$BASE_REF"
 
   checks:
     name: Tooling checks
