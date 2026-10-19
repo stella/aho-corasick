@@ -38,9 +38,11 @@ const schedulerNames = new Set([
   "setImmediate",
   "queueMicrotask",
 ]);
-const cleanupPollFunctions = new Set([
-  "__yieldWasmRuntimePollTurn",
-  "__drainWasmEnvCleanup",
+const schedulerDefinitionNames = new Set([
+  "__armWasmRuntimePollStallBackup",
+  "__invokeWasmCleanupPollScheduler",
+  "__scheduleTimer",
+  "__wasiSetImmediate",
 ]);
 
 const schedulerCallsOutsideHandshake = (source) => {
@@ -48,18 +50,29 @@ const schedulerCallsOutsideHandshake = (source) => {
     ecmaVersion: "latest",
     sourceType: "module",
   });
-  const aliases = new Set(schedulerNames);
+  const aliasCandidates = new Map();
   const visitAliases = (node) => {
     if (!node || typeof node !== "object") return;
     if (
       node.type === "VariableDeclarator" &&
       node.id?.type === "Identifier" &&
-      (aliases.has(node.init?.name) ||
+      (schedulerNames.has(node.init?.name) ||
         (node.init?.type === "MemberExpression" &&
           !node.init.computed &&
           schedulerNames.has(node.init.property?.name)))
     ) {
-      aliases.add(node.id.name);
+      aliasCandidates.set(node.id.name, [
+        ...(aliasCandidates.get(node.id.name) ?? []),
+        true,
+      ]);
+    } else if (
+      node.type === "VariableDeclarator" &&
+      node.id?.type === "Identifier"
+    ) {
+      aliasCandidates.set(node.id.name, [
+        ...(aliasCandidates.get(node.id.name) ?? []),
+        false,
+      ]);
     }
     for (const [key, value] of Object.entries(node)) {
       if (key === "start" || key === "end") continue;
@@ -71,22 +84,44 @@ const schedulerCallsOutsideHandshake = (source) => {
     }
   };
   visitAliases(ast);
+  const aliases = new Set(schedulerNames);
+  for (const [name, declarations] of aliasCandidates) {
+    if (declarations.every(Boolean)) aliases.add(name);
+  }
 
   const violations = [];
-  const visitCalls = (node, ancestors, inTarget) => {
+  const scheduleMacrotaskDefinition = ast.body.find(
+    (node) =>
+      node.type === "VariableDeclaration" &&
+      node.declarations.some(
+        (declaration) =>
+          declaration.id.name === "__scheduleMacrotask",
+      ),
+  );
+  const visitCalls = (
+    node,
+    ancestors,
+    inSchedulerDefinition,
+  ) => {
     if (!node || typeof node !== "object") return;
-    const entersTarget =
+    const entersNamedDefinition =
       node.type === "FunctionDeclaration" &&
-      cleanupPollFunctions.has(node.id?.name);
-    const target = inTarget || entersTarget;
-    if (target && node.type === "CallExpression") {
+      schedulerDefinitionNames.has(node.id?.name);
+    const definition =
+      inSchedulerDefinition ||
+      entersNamedDefinition ||
+      node === scheduleMacrotaskDefinition;
+    if (!definition && node.type === "CallExpression") {
       const isNamedScheduler =
         node.callee.type === "Identifier" &&
         aliases.has(node.callee.name);
       const isMessagePost =
         node.callee.type === "MemberExpression" &&
         !node.callee.computed &&
-        node.callee.property?.name === "postMessage";
+        node.callee.property?.name === "postMessage" &&
+        source
+          .slice(node.callee.start, node.callee.end)
+          .includes(".port");
       if (isNamedScheduler || isMessagePost) {
         const guarded = ancestors.some(
           (ancestor) =>
@@ -107,9 +142,9 @@ const schedulerCallsOutsideHandshake = (source) => {
       if (key === "start" || key === "end") continue;
       if (Array.isArray(value)) {
         for (const child of value)
-          visitCalls(child, nextAncestors, target);
+          visitCalls(child, nextAncestors, definition);
       } else {
-        visitCalls(value, nextAncestors, target);
+        visitCalls(value, nextAncestors, definition);
       }
     }
   };
@@ -213,9 +248,98 @@ return {
         workIsPending: false,
       });
     });
+
+    test(`${fileName} reports a timer throw after its callback ran`, () => {
+      const source = read(fileName);
+      const scheduleTimer = extractFunction(
+        source,
+        "__scheduleTimer",
+      );
+      // oxlint-disable-next-line typescript/no-implied-eval -- Executes a function extracted from the real generated loader.
+      const run = Function(`${scheduleTimer}
+let fallbackCalls = 0
+const __scheduleMacrotask = () => { fallbackCalls++ }
+const globalThis = { setTimeout: (callback) => {
+  callback()
+  throw new Error("timer failed after callback")
+} }
+return () => {
+  let callbackCalls = 0
+  let error
+  try { __scheduleTimer(() => { callbackCalls++ }, 0) } catch (caught) { error = caught }
+  return { callbackCalls, fallbackCalls, error }
+}`)();
+
+      const result = run();
+      expect(result.callbackCalls).toBe(1);
+      expect(result.fallbackCalls).toBe(0);
+      expect(result.error).toBeInstanceOf(Error);
+      expect(result.error.message).toBe(
+        "timer failed after callback",
+      );
+    });
+
+    test(`${fileName} bounds a failed async-work drain and retries`, async () => {
+      const source = read(fileName);
+      const schedulerHandshake = extractFunction(
+        source,
+        "__invokeWasmCleanupPollScheduler",
+      );
+      const scheduleTimer = extractFunction(
+        source,
+        "__scheduleTimer",
+      );
+      const drain = extractFunction(
+        source,
+        "__drainWasiAsyncWork",
+      );
+      // oxlint-disable-next-line typescript/no-implied-eval -- Executes functions extracted from the real generated loader.
+      const createHarness = Function(`${schedulerHandshake}
+${scheduleTimer}
+${drain}
+let __wasiAsyncWorkDrainPromise
+let pending = 1
+let schedulerThrows = true
+let cancelCalls = 0
+const __WASI_ASYNC_WORK_POLL_INTERVAL_MS = 1
+const __keepEventLoopAliveUntil = (work) => work
+const globalThis = { setTimeout: undefined, WebAssembly }
+const __scheduleMacrotask = (callback) => {
+  callback()
+  if (schedulerThrows) throw new Error("macrotask failed after callback")
+}
+const __napiInstance = { exports: {
+  napi_wasm_async_work_pending: () => pending,
+  napi_wasm_cancel_pending_async_work: () => { cancelCalls++ },
+} }
+return {
+  drain: __drainWasiAsyncWork,
+  recover: () => { schedulerThrows = false; pending = 0 },
+  cancelCalls: () => cancelCalls,
+}`);
+      const harness = createHarness();
+      const boundedDrain = Promise.race([
+        harness.drain(),
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(new Error("drain timed out")),
+            100,
+          ),
+        ),
+      ]);
+
+      // oxlint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- Function-created fixture types are opaque to the type-aware linter.
+      await expect(boundedDrain).rejects.toThrow(
+        "macrotask failed after callback",
+      );
+      expect(harness.cancelCalls()).toBe(1);
+      harness.recover();
+      harness.drain();
+      expect(harness.cancelCalls()).toBe(1);
+    });
   }
 
-  test("all cleanup poll scheduler calls use the safe handshake", () => {
+  test("all scheduler calls use the safe handshake", () => {
     for (const fileName of [
       "aho-corasick.wasi-browser.js",
       "aho-corasick.wasi.cjs",
@@ -234,6 +358,31 @@ function __yieldWasmRuntimePollTurn() {
     expect(
       schedulerCallsOutsideHandshake(unsafeFixture),
     ).toEqual(["timer(() => {}, 1)"]);
+
+    const unsafePromiseFixture = `
+function drain() {
+  return new Promise((resolve) => {
+    __scheduleTimer(resolve, 1)
+  })
+}
+`;
+    expect(
+      schedulerCallsOutsideHandshake(unsafePromiseFixture),
+    ).toEqual(["__scheduleTimer(resolve, 1)"]);
+
+    const unsafeFallbackFixture = `
+function __scheduleTimer(callback, delay) {
+  const setTimer = globalThis.setTimeout
+  try {
+    setTimer(callback, delay)
+  } catch {
+    __scheduleMacrotask(callback)
+  }
+}
+`;
+    expect(
+      normalizeGeneratedLoader(unsafeFallbackFixture),
+    ).not.toContain("catch {");
   });
 
   test("published runtime versions match the build manifest", () => {

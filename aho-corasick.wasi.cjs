@@ -938,9 +938,16 @@ function __scheduleTimer(callback, delay) {
     __scheduleMacrotask(callback)
     return
   }
+  let callbackInvoked = false
   try {
-    setTimer(callback, delay)
-  } catch {
+    setTimer(() => {
+      callbackInvoked = true
+      callback()
+    }, delay)
+  } catch (error) {
+    if (callbackInvoked) {
+      throw error
+    }
     __scheduleMacrotask(callback)
   }
 }
@@ -1599,8 +1606,14 @@ function __drainWasiAsyncWork() {
   const drainPromise = __keepEventLoopAliveUntil(
     (async () => {
       while (readPending()) {
-        await new Promise((resolve) => {
-          __scheduleTimer(resolve, __WASI_ASYNC_WORK_POLL_INTERVAL_MS)
+        await new Promise((resolve, reject) => {
+          __invokeWasmCleanupPollScheduler(
+            (finish) => {
+              __scheduleTimer(finish, __WASI_ASYNC_WORK_POLL_INTERVAL_MS)
+            },
+            resolve,
+            reject,
+          )
         })
         __abortWasiDisposalIfThreadCrashed()
       }

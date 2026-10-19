@@ -90,6 +90,39 @@ const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       reject,
     )`;
 
+const UNSAFE_TIMER_FALLBACK = `try {
+    setTimer(callback, delay)
+  } catch {
+    __scheduleMacrotask(callback)
+  }`;
+
+const SAFE_TIMER_FALLBACK = `let callbackInvoked = false
+  try {
+    setTimer(() => {
+      callbackInvoked = true
+      callback()
+    }, delay)
+  } catch (error) {
+    if (callbackInvoked) {
+      throw error
+    }
+    __scheduleMacrotask(callback)
+  }`;
+
+const UNSAFE_ASYNC_WORK_POLL = `await new Promise((resolve) => {
+          __scheduleTimer(resolve, __WASI_ASYNC_WORK_POLL_INTERVAL_MS)
+        })`;
+
+const SAFE_ASYNC_WORK_POLL = `await new Promise((resolve, reject) => {
+          __invokeWasmCleanupPollScheduler(
+            (finish) => {
+              __scheduleTimer(finish, __WASI_ASYNC_WORK_POLL_INTERVAL_MS)
+            },
+            resolve,
+            reject,
+          )
+        })`;
+
 const UNSAFE_RUNTIME_POLL_SCHEDULE = `let finishedDuringScheduling = false
       let scheduling = true
       const finish = () => {
@@ -169,6 +202,8 @@ export const normalizeGeneratedLoader = (
       UNSAFE_RUNTIME_POLL_TIMER,
       SAFE_RUNTIME_POLL_TIMER,
     )
+    .replace(UNSAFE_TIMER_FALLBACK, SAFE_TIMER_FALLBACK)
+    .replace(UNSAFE_ASYNC_WORK_POLL, SAFE_ASYNC_WORK_POLL)
     .replace(
       UNSAFE_RUNTIME_POLL_SCHEDULE,
       SAFE_RUNTIME_POLL_SCHEDULE,
