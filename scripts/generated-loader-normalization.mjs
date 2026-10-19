@@ -34,6 +34,19 @@ const SAFE_SCHEDULER_HELPER = `function __invokeWasmCleanupPollScheduler(schedul
 const RUNTIME_POLL_MARKER =
   "/**\n * One turn of the runtime-work poll.";
 
+const RUNTIME_POLL_DOCUMENTATION = `/**
+ * One turn of the runtime-work poll.
+ *
+ * Select exactly one scheduler before entering the handshake. Timers pace
+ * ordinary hosts; the macrotask scheduler is used only when timers are absent.
+ */`;
+
+const GENERATED_RUNTIME_POLL_DOCUMENTATION =
+  /\/\*\*\n \* One turn of the runtime-work poll\.[\s\S]*? \*\/\n(?=function __yieldWasmRuntimePollTurn)/u;
+
+const LEGACY_RUNTIME_POLL_PACING =
+  /    \/\/ Read next to the arming it describes; see\n    \/\/ `__armWasmRuntimePollStallBackup` for what the two due times mean\.\n    const turnTimerDueAt = Date\.now\(\) \+ __WASM_RUNTIME_WORK_POLL_INTERVAL_MS\n\n    \/\/ Paced by the timer alone from here; the backup is what ends this turn if\n    \/\/ the timer never arrives\.\n    pace\.settleTurn = settle\n    pace\.turnTimerDueAt = turnTimerDueAt\n/u;
+
 const UNSAFE_CLEANUP_HANDSHAKE = `await new Promise((resolve) => {
         __scheduleMacrotask(resolve)
       })`;
@@ -80,6 +93,18 @@ const UNSAFE_RUNTIME_POLL_TIMER = `__scheduleTimer(() => {
     }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)`;
 
 const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
+      typeof globalThis.setTimeout === "function"
+        ? (finish) =>
+            globalThis.setTimeout(
+              finish,
+              __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
+            )
+        : __scheduleMacrotask,
+      settle,
+      reject,
+    )`;
+
+const LEGACY_SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       (finish) => {
         __scheduleTimer(() => {
           pace.arrivals++
@@ -123,7 +148,8 @@ const SAFE_ASYNC_WORK_POLL = `await new Promise((resolve, reject) => {
           )
         })`;
 
-const UNSAFE_RUNTIME_POLL_SCHEDULE = `let finishedDuringScheduling = false
+const UNSAFE_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      let finishedDuringScheduling = false
       let scheduling = true
       const finish = () => {
         if (scheduling) {
@@ -142,17 +168,22 @@ const UNSAFE_RUNTIME_POLL_SCHEDULE = `let finishedDuringScheduling = false
       if (finishedDuringScheduling) {
         settle()
       }
-      return`;
+      return
+    }`;
 
-const UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE = `__scheduleMacrotask(settle)
-      return`;
+const UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      __scheduleMacrotask(settle)
+      return
+    }`;
 
-const SAFE_RUNTIME_POLL_SCHEDULE = `__invokeWasmCleanupPollScheduler(
+const LEGACY_SAFE_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      __invokeWasmCleanupPollScheduler(
         __scheduleMacrotask,
         settle,
         reject,
       )
-      return`;
+      return
+    }`;
 
 const RETRYABLE_RUNTIME_CLEANUP =
   /\}\)\(\)\.then\((finishCleanup(?:UnlessCrashed)?), \1\)/gu;
@@ -202,20 +233,37 @@ export const normalizeGeneratedLoader = (
       UNSAFE_RUNTIME_POLL_TIMER,
       SAFE_RUNTIME_POLL_TIMER,
     )
+    .replace(
+      LEGACY_SAFE_RUNTIME_POLL_TIMER,
+      SAFE_RUNTIME_POLL_TIMER,
+    )
     .replace(UNSAFE_TIMER_FALLBACK, SAFE_TIMER_FALLBACK)
     .replace(UNSAFE_ASYNC_WORK_POLL, SAFE_ASYNC_WORK_POLL)
-    .replace(
-      UNSAFE_RUNTIME_POLL_SCHEDULE,
-      SAFE_RUNTIME_POLL_SCHEDULE,
-    )
-    .replace(
-      UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE,
-      SAFE_RUNTIME_POLL_SCHEDULE,
-    )
+    .replace(UNSAFE_RUNTIME_POLL_SCHEDULE, "")
+    .replace(UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE, "")
+    .replace(LEGACY_SAFE_RUNTIME_POLL_SCHEDULE, "")
     .replace(
       RETRYABLE_RUNTIME_CLEANUP,
       makeRuntimeCleanupRetryable,
     )
+    .replace(
+      GENERATED_RUNTIME_POLL_DOCUMENTATION,
+      `${RUNTIME_POLL_DOCUMENTATION}\n`,
+    )
+    .replace(
+      "function __yieldWasmRuntimePollTurn(pace) {\n  // Armed before the turn yields, and by every turn: what rescues a parked\n  // turn has to have been armed while the host's timers still worked, and the\n  // turn that parks is the one whose own timer is already dead.\n  __armWasmRuntimePollStallBackup(pace)\n",
+      "function __yieldWasmRuntimePollTurn() {\n",
+    )
+    .replace(
+      `      if (pace.settleTurn === settle) {
+        // Nothing is parked any more: a backup running later must not read a
+        // due time this turn has already answered.
+        pace.settleTurn = undefined
+      }
+`,
+      "",
+    )
+    .replace(LEGACY_RUNTIME_POLL_PACING, "")
     .replace(/[ \t]+$/gmu, "");
 
   const withSchedulerHelper = normalized.includes(
@@ -227,7 +275,12 @@ export const normalizeGeneratedLoader = (
         `${SAFE_SCHEDULER_HELPER}${RUNTIME_POLL_MARKER}`,
       );
 
+  const withoutLegacyPacing = withSchedulerHelper.replace(
+    LEGACY_RUNTIME_POLL_PACING,
+    "",
+  );
+
   return keepGeneratedTypecheckOptOut
-    ? addTypecheckHeader(withSchedulerHelper)
-    : withSchedulerHelper;
+    ? addTypecheckHeader(withoutLegacyPacing)
+    : withoutLegacyPacing;
 };

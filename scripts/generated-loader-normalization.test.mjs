@@ -337,6 +337,180 @@ return {
       harness.drain();
       expect(harness.cancelCalls()).toBe(1);
     });
+
+    test(`${fileName} handles every poll scheduler behaviour`, async () => {
+      const source = read(fileName);
+      const schedulerHandshake = extractFunction(
+        source,
+        "__invokeWasmCleanupPollScheduler",
+      );
+      const yieldTurn = extractFunction(
+        source,
+        "__yieldWasmRuntimePollTurn",
+      );
+      const prepare = extractFunction(
+        source,
+        "__prepareWasmEnvCleanupWithTurns",
+      );
+      const behaviours = [
+        "unavailable",
+        "async-return",
+        "sync-return",
+        "sync-throw-after",
+        "throw-before",
+      ];
+      const throwingBehaviours = new Set([
+        "unavailable",
+        "sync-throw-after",
+        "throw-before",
+      ]);
+      // oxlint-disable-next-line typescript/no-implied-eval -- Executes functions extracted from each real generated loader.
+      const createHarness = Function(
+        "nativeSetTimeout",
+        "timerBehaviour",
+        "macrotaskBehaviour",
+        "requiredTurns",
+        `${schedulerHandshake}
+${yieldTurn}
+${prepare}
+let __emnapiWasmEnvCleanupPrepared = false
+let __emnapiWasmEnvCleanupPreparing = false
+let __emnapiWasmEnvCleanupRan = false
+let __emnapiWasmEnvCleanupYielding = false
+let __finishParkedWasmEnvCleanup
+let finishCount = 0
+let healthyTurns = 0
+let timerCalls = 0
+let macrotaskCalls = 0
+const __WASM_RUNTIME_WORK_POLL_INTERVAL_MS = 0
+const makeScheduler = (behaviour, countCall) => {
+  if (behaviour === "unavailable") return undefined
+  return (callback) => {
+    countCall()
+    if (behaviour === "throw-before") throw new Error("scheduler threw before callback")
+    if (behaviour === "async-return") {
+      nativeSetTimeout(callback, 0)
+      healthyTurns++
+      return
+    }
+    callback()
+    if (behaviour === "sync-throw-after") throw new Error("scheduler threw after callback")
+    healthyTurns++
+  }
+}
+let timer = makeScheduler(timerBehaviour, () => { timerCalls++ })
+let __scheduleMacrotask = makeScheduler(macrotaskBehaviour, () => { macrotaskCalls++ })
+const globalThis = { get setTimeout() { return timer } }
+const workIsPending = () => healthyTurns < requiredTurns
+const __napiInstance = { exports: {
+  napi_prepare_wasm_env_cleanup_begin: () => true,
+  napi_prepare_wasm_env_cleanup_finish: () => {
+    if (workIsPending()) throw new Error("finish called while work was pending")
+    finishCount++
+  },
+  napi_wasm_runtime_work_pending: workIsPending,
+} }
+const __createWasmRuntimePollPace = () => ({})
+const __prepareWasmEnvCleanup = () => {}
+const __abortWasiDisposalIfThreadCrashed = () => {}
+return {
+  dispose: __prepareWasmEnvCleanupWithTurns,
+  recover: () => {
+    timer = makeScheduler("sync-return", () => { timerCalls++ })
+    __scheduleMacrotask = makeScheduler("sync-return", () => { macrotaskCalls++ })
+  },
+  state: () => ({ finishCount, pending: workIsPending(), timerCalls, macrotaskCalls }),
+}`,
+      );
+      const withTimeout = (promise, label) =>
+        Promise.race([
+          Promise.resolve(promise),
+          new Promise((_, reject) =>
+            setTimeout(
+              () =>
+                reject(new Error(`timed out: ${label}`)),
+              500,
+            ),
+          ),
+        ]);
+
+      for (const timerBehaviour of behaviours) {
+        for (const macrotaskBehaviour of behaviours) {
+          for (const requiredTurns of [1, 2]) {
+            const label = `${timerBehaviour}/${macrotaskBehaviour}/${requiredTurns}`;
+            const harness = createHarness(
+              setTimeout,
+              timerBehaviour,
+              macrotaskBehaviour,
+              requiredTurns,
+            );
+            const selectedBehaviour =
+              timerBehaviour === "unavailable"
+                ? macrotaskBehaviour
+                : timerBehaviour;
+            const shouldReject = throwingBehaviours.has(
+              selectedBehaviour,
+            );
+
+            if (shouldReject) {
+              // oxlint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- Function-created fixture types are opaque to the type-aware linter.
+              await expect(
+                withTimeout(harness.dispose(), label),
+              ).rejects.toThrow();
+              expect(harness.state()).toMatchObject({
+                finishCount: 0,
+                pending: true,
+              });
+              const failedState = harness.state();
+              if (timerBehaviour === "unavailable") {
+                expect(failedState.timerCalls, label).toBe(
+                  0,
+                );
+                if (macrotaskBehaviour !== "unavailable") {
+                  expect(
+                    failedState.macrotaskCalls,
+                    label,
+                  ).toBe(1);
+                }
+              } else {
+                expect(failedState.timerCalls, label).toBe(
+                  1,
+                );
+                expect(
+                  failedState.macrotaskCalls,
+                  label,
+                ).toBe(0);
+              }
+              harness.recover();
+              await withTimeout(
+                harness.dispose(),
+                `${label}/retry`,
+              );
+            } else {
+              await withTimeout(harness.dispose(), label);
+            }
+
+            const state = harness.state();
+            expect(state.finishCount, label).toBe(1);
+            expect(state.pending, label).toBe(false);
+            if (
+              !shouldReject &&
+              timerBehaviour === "unavailable"
+            ) {
+              expect(state.timerCalls, label).toBe(0);
+              expect(state.macrotaskCalls, label).toBe(
+                requiredTurns,
+              );
+            } else if (!shouldReject) {
+              expect(state.timerCalls, label).toBe(
+                requiredTurns,
+              );
+              expect(state.macrotaskCalls, label).toBe(0);
+            }
+          }
+        }
+      }
+    }, 10_000);
   }
 
   test("all scheduler calls use the safe handshake", () => {

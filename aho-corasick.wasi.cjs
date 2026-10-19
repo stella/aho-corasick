@@ -1100,28 +1100,10 @@ function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
 /**
  * One turn of the runtime-work poll.
  *
- * `__scheduleTimer` falls back to the macrotask scheduler when `setTimeout` is
- * missing or throws, but not when it is present, returns a handle and never
- * fires — fake timers in a test suite that disposes from an `afterEach`, or a
- * host whose timers belong to an IO context that is already gone. That host
- * would park this poll forever, and the poll is unbounded, so nothing would
- * ever call `…_finish`.
- *
- * Arm both primitives until timers armed by this poll have arrived twice, and
- * let whichever lands first end the turn; the loser resolves nothing. A host
- * with working timers therefore pays the double arming for the first turn or
- * two — the macrotask wins the race, but the timers behind it still arrive and
- * are counted — and paces on the timer alone from then on, instead of spinning
- * the loop on a zero-delay queue. A host whose timers never arrive keeps both,
- * and the macrotask is what keeps the poll moving. A host whose timers stop
- * after proving themselves is caught by `__armWasmRuntimePollStallBackup`,
- * which ends the parked turn and puts this poll back on both.
+ * Select exactly one scheduler before entering the handshake. Timers pace
+ * ordinary hosts; the macrotask scheduler is used only when timers are absent.
  */
-function __yieldWasmRuntimePollTurn(pace) {
-  // Armed before the turn yields, and by every turn: what rescues a parked
-  // turn has to have been armed while the host's timers still worked, and the
-  // turn that parks is the one whose own timer is already dead.
-  __armWasmRuntimePollStallBackup(pace)
+function __yieldWasmRuntimePollTurn() {
   return new Promise((resolve, reject) => {
     let settled = false
     const settle = () => {
@@ -1129,38 +1111,19 @@ function __yieldWasmRuntimePollTurn(pace) {
         return
       }
       settled = true
-      if (pace.settleTurn === settle) {
-        // Nothing is parked any more: a backup running later must not read a
-        // due time this turn has already answered.
-        pace.settleTurn = undefined
-      }
       resolve()
     }
     __invokeWasmCleanupPollScheduler(
-      (finish) => {
-        __scheduleTimer(() => {
-          pace.arrivals++
-          finish()
-        }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)
-      },
+      typeof globalThis.setTimeout === "function"
+        ? (finish) =>
+            globalThis.setTimeout(
+              finish,
+              __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
+            )
+        : __scheduleMacrotask,
       settle,
       reject,
     )
-    // Read next to the arming it describes; see
-    // `__armWasmRuntimePollStallBackup` for what the two due times mean.
-    const turnTimerDueAt = Date.now() + __WASM_RUNTIME_WORK_POLL_INTERVAL_MS
-    if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
-      __invokeWasmCleanupPollScheduler(
-        __scheduleMacrotask,
-        settle,
-        reject,
-      )
-      return
-    }
-    // Paced by the timer alone from here; the backup is what ends this turn if
-    // the timer never arrives.
-    pace.settleTurn = settle
-    pace.turnTimerDueAt = turnTimerDueAt
   })
 }
 
