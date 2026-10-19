@@ -7,6 +7,83 @@ const GENERATED_TYPECHECK_OPT_OUT =
 const ARTIFACT_METADATA_PREFIX =
   "// napi-rs-artifact-metadata:";
 
+const GENERATED_WASI_WORKER_FACTORY = `function __createWasiWorker(filename) {
+  let __workerExecArgv = __getWasiWorkerExecArgv()
+  while (true) {
+    try {
+      return new Worker(filename, {
+        env: process.env,
+        execArgv: __workerExecArgv,
+        workerData: {
+          hostRoot: __hostRoot,
+          rootDir: __rootDir,
+          crashFlag: __wasiThreadCrashFlag,
+          crashReport: __wasiThreadCrashReport,
+          addonCrashFlag: __wasiAddonCrashFlag,
+        },
+      })
+    } catch (error) {
+      if (!error || error.code !== 'ERR_WORKER_INVALID_EXEC_ARGV') {
+        throw error
+      }
+      const __nextWorkerExecArgv =
+        __removeInvalidWasiWorkerExecArgv(__workerExecArgv, error)
+      if (!__nextWorkerExecArgv) {
+        throw error
+      }
+      __workerExecArgv = __nextWorkerExecArgv
+    }
+  }
+}`;
+
+const NORMALIZED_WASI_WORKER_FACTORY = `function __createWasiWorker(filename) {
+  const __workerData = {
+    hostRoot: __hostRoot,
+    rootDir: __rootDir,
+    crashFlag: __wasiThreadCrashFlag,
+    crashReport: __wasiThreadCrashReport,
+    addonCrashFlag: __wasiAddonCrashFlag,
+  }
+  const __workerOptions = {
+    env: process.env,
+    execArgv: __getWasiWorkerExecArgv(),
+    workerData: __workerData,
+  }
+  while (true) {
+    try {
+      return new Worker(filename, __workerOptions)
+    } catch (error) {
+      if (!error || error.code !== 'ERR_WORKER_INVALID_EXEC_ARGV') {
+        throw error
+      }
+      const __nextWorkerExecArgv = __removeInvalidWasiWorkerExecArgv(
+        __workerOptions.execArgv,
+        error,
+      )
+      if (!__nextWorkerExecArgv) {
+        throw error
+      }
+      __workerOptions.execArgv = __nextWorkerExecArgv
+    }
+  }
+}`;
+
+const GENERATED_BROWSER_WORKER = `const worker = new Worker(new URL('./wasi-worker-browser.mjs', import.meta.url), {
+        type: 'module',
+      })`;
+
+const NORMALIZED_BROWSER_WORKER = `const __workerData = {
+        addonCrashFlag: __wasiAddonCrashFlag,
+      }
+      const __workerOptions = {
+        type: 'module',
+        workerData: __workerData,
+      }
+      const worker = new Worker(
+        new URL('./wasi-worker-browser.mjs', import.meta.url),
+        __workerOptions,
+      )`;
+
 const SAFE_SCHEDULER_HELPER = `function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
   let finishedDuringScheduling = false
   let scheduling = true
@@ -245,6 +322,14 @@ export const normalizeGeneratedLoader = (
     .replace(
       RETRYABLE_RUNTIME_CLEANUP,
       makeRuntimeCleanupRetryable,
+    )
+    .replace(
+      GENERATED_WASI_WORKER_FACTORY,
+      NORMALIZED_WASI_WORKER_FACTORY,
+    )
+    .replace(
+      GENERATED_BROWSER_WORKER,
+      NORMALIZED_BROWSER_WORKER,
     )
     .replace(
       GENERATED_RUNTIME_POLL_DOCUMENTATION,

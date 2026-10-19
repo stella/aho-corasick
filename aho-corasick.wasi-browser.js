@@ -1416,9 +1416,17 @@ try {
     ],
     wasi: __wasi,
     onCreateWorker() {
-      const worker = new Worker(new URL('./wasi-worker-browser.mjs', import.meta.url), {
+      const __workerData = {
+        addonCrashFlag: __wasiAddonCrashFlag,
+      }
+      const __workerOptions = {
         type: 'module',
-      })
+        workerData: __workerData,
+      }
+      const worker = new Worker(
+        new URL('./wasi-worker-browser.mjs', import.meta.url),
+        __workerOptions,
+      )
       __wasiWorkers.add(worker)
       __shareWasiAddonCrashFlag(worker)
 

@@ -133,30 +133,33 @@ function __removeInvalidWasiWorkerExecArgv(execArgv, error) {
 }
 
 function __createWasiWorker(filename) {
-  let __workerExecArgv = __getWasiWorkerExecArgv()
+  const __workerData = {
+    hostRoot: __hostRoot,
+    rootDir: __rootDir,
+    crashFlag: __wasiThreadCrashFlag,
+    crashReport: __wasiThreadCrashReport,
+    addonCrashFlag: __wasiAddonCrashFlag,
+  }
+  const __workerOptions = {
+    env: process.env,
+    execArgv: __getWasiWorkerExecArgv(),
+    workerData: __workerData,
+  }
   while (true) {
     try {
-      return new Worker(filename, {
-        env: process.env,
-        execArgv: __workerExecArgv,
-        workerData: {
-          hostRoot: __hostRoot,
-          rootDir: __rootDir,
-          crashFlag: __wasiThreadCrashFlag,
-          crashReport: __wasiThreadCrashReport,
-          addonCrashFlag: __wasiAddonCrashFlag,
-        },
-      })
+      return new Worker(filename, __workerOptions)
     } catch (error) {
       if (!error || error.code !== 'ERR_WORKER_INVALID_EXEC_ARGV') {
         throw error
       }
-      const __nextWorkerExecArgv =
-        __removeInvalidWasiWorkerExecArgv(__workerExecArgv, error)
+      const __nextWorkerExecArgv = __removeInvalidWasiWorkerExecArgv(
+        __workerOptions.execArgv,
+        error,
+      )
       if (!__nextWorkerExecArgv) {
         throw error
       }
-      __workerExecArgv = __nextWorkerExecArgv
+      __workerOptions.execArgv = __nextWorkerExecArgv
     }
   }
 }

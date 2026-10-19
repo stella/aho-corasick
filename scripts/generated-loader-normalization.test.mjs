@@ -152,6 +152,75 @@ const schedulerCallsOutsideHandshake = (source) => {
   return violations;
 };
 
+const workerConstructionsWithoutSharedData = (source) => {
+  const ast = parse(source, {
+    ecmaVersion: "latest",
+    sourceType: "module",
+  });
+  const declarations = new Map();
+  const workers = [];
+  const visit = (node) => {
+    if (!node || typeof node !== "object") return;
+    if (
+      node.type === "VariableDeclarator" &&
+      node.id?.type === "Identifier"
+    ) {
+      declarations.set(node.id.name, node.init);
+    }
+    if (
+      node.type === "NewExpression" &&
+      node.callee?.type === "Identifier" &&
+      node.callee.name === "Worker"
+    ) {
+      workers.push(node);
+    }
+    for (const [key, value] of Object.entries(node)) {
+      if (key === "start" || key === "end") continue;
+      if (Array.isArray(value)) {
+        for (const child of value) visit(child);
+      } else {
+        visit(value);
+      }
+    }
+  };
+  visit(ast);
+
+  const dataSources = new Set();
+  const violations = [];
+  for (const worker of workers) {
+    const optionsArgument = worker.arguments[1];
+    const options =
+      optionsArgument?.type === "Identifier"
+        ? declarations.get(optionsArgument.name)
+        : optionsArgument;
+    const workerDataProperty = options?.properties?.find(
+      (property) =>
+        !property.computed &&
+        property.key?.name === "workerData",
+    );
+    if (workerDataProperty?.value?.type !== "Identifier") {
+      violations.push(
+        source.slice(worker.start, worker.end),
+      );
+      continue;
+    }
+    const dataSource = declarations.get(
+      workerDataProperty.value.name,
+    );
+    if (dataSource?.type !== "ObjectExpression") {
+      violations.push(
+        source.slice(worker.start, worker.end),
+      );
+      continue;
+    }
+    dataSources.add(workerDataProperty.value.name);
+  }
+  if (dataSources.size > 1) {
+    violations.push("multiple workerData sources");
+  }
+  return violations;
+};
+
 describe("generated loader normalization", () => {
   test("keeps the generated typecheck opt-out while removing other directives", () => {
     const source = `/* eslint-disable */
@@ -557,6 +626,94 @@ function __scheduleTimer(callback, delay) {
     expect(
       normalizeGeneratedLoader(unsafeFallbackFixture),
     ).not.toContain("catch {");
+  });
+
+  test("every generated Worker construction shares workerData", () => {
+    for (const fileName of [
+      "aho-corasick.wasi-browser.js",
+      "aho-corasick.wasi.cjs",
+    ]) {
+      expect(
+        workerConstructionsWithoutSharedData(
+          read(fileName),
+        ),
+      ).toEqual([]);
+    }
+
+    const missingFallbackData = `
+const workerData = { crashFlag, crashReport }
+const workerOptions = { workerData }
+try {
+  new Worker(path, workerOptions)
+} catch {
+  new Worker(path)
+}
+`;
+    expect(
+      workerConstructionsWithoutSharedData(
+        missingFallbackData,
+      ),
+    ).toEqual(["new Worker(path)"]);
+  });
+
+  test("the execArgv retry preserves crash workerData", () => {
+    const source = read("aho-corasick.wasi.cjs");
+    const getExecArgv = extractFunction(
+      source,
+      "__getWasiWorkerExecArgv",
+    );
+    const identifiesInvalidArgument = extractFunction(
+      source,
+      "__isInvalidWasiWorkerExecArgv",
+    );
+    const removeInvalidArgument = extractFunction(
+      source,
+      "__removeInvalidWasiWorkerExecArgv",
+    );
+    const createWorker = extractFunction(
+      source,
+      "__createWasiWorker",
+    );
+    const attempts = [];
+    // oxlint-disable-next-line typescript/no-implied-eval -- Executes the worker factory extracted from the real generated loader.
+    const run = Function(
+      "attempts",
+      `${getExecArgv}
+${identifiesInvalidArgument}
+${removeInvalidArgument}
+${createWorker}
+const __hostRoot = "/host"
+const __rootDir = "/"
+const __wasiThreadCrashFlag = new Int32Array(new SharedArrayBuffer(4))
+const __wasiThreadCrashReport = new SharedArrayBuffer(64)
+const __wasiAddonCrashFlag = new Int32Array(new SharedArrayBuffer(4))
+const process = { env: {}, execArgv: ["--invalid-worker-flag"] }
+function Worker(filename, options) {
+  attempts.push({ filename, options })
+  if (attempts.length === 1) {
+    const error = new Error("Initiated Worker with invalid execArgv flags: --invalid-worker-flag")
+    error.code = "ERR_WORKER_INVALID_EXEC_ARGV"
+    throw error
+  }
+  return { filename, options }
+}
+return __createWasiWorker("worker.mjs")
+`,
+    );
+
+    const worker = run(attempts);
+    expect(attempts).toHaveLength(2);
+    expect(attempts[0].options.workerData).toBe(
+      attempts[1].options.workerData,
+    );
+    expect(worker.options.workerData).toMatchObject({
+      hostRoot: "/host",
+      rootDir: "/",
+      crashFlag: expect.any(Int32Array),
+      crashReport: expect.any(SharedArrayBuffer),
+      addonCrashFlag: expect.any(Int32Array),
+    });
+    expect(worker.options.execArgv).toEqual([]);
   });
 
   test("published runtime versions match the build manifest", () => {
