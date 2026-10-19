@@ -66,7 +66,6 @@ If your change affects performance, include
 benchmark results:
 
 ```bash
-bun run bench:install   # one-time
 bun run bench:download  # one-time
 bun run bench:all
 ```

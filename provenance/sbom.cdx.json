@@ -1910,7 +1910,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",
       "evidence": {
         "identity": [
           {
@@ -1935,12 +1935,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+      "purl": "pkg:cargo/stella-aho-corasick-core@1.1.1",
       "type": "library",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
       "evidence": {
         "identity": [
           {
@@ -1965,9 +1965,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
+      "purl": "pkg:cargo/stella-aho-corasick@1.1.1",
       "type": "library",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "bom-ref": "pkg:cargo/strsim@0.11.1",
@@ -2410,6 +2410,66 @@
     {
       "authors": [
         {
+          "name": "Kevin Deng <sxzz@sxzz.moe>"
+        }
+      ],
+      "bom-ref": "pkg:npm/@quansync/fs@1.1.0",
+      "description": "Filesystem utilities for Quansync",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/@quansync/fs/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/@quansync/fs/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "index.cjs#6"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/quansync-dev/fs#readme"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/quansync-dev/fs.git"
+        }
+      ],
+      "group": "@quansync",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+          }
+        }
+      ],
+      "name": "fs",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/@quansync/fs/package.json"
+        }
+      ],
+      "purl": "pkg:npm/%40quansync/fs@1.1.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
+      "authors": [
+        {
           "name": "Evan You"
         }
       ],
@@ -2474,7 +2534,7 @@
   "compositions": [
     {
       "aggregate": "incomplete",
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0"
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.1"
     }
   ],
   "dependencies": [
@@ -2750,9 +2810,9 @@
         "pkg:cargo/napi-build@2.6.0",
         "pkg:cargo/napi-derive@3.6.12",
         "pkg:cargo/napi@3.14.2",
-        "pkg:cargo/stella-aho-corasick-core@1.1.0"
+        "pkg:cargo/stella-aho-corasick-core@1.1.1"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick@1.1.0"
+      "ref": "pkg:cargo/stella-aho-corasick@1.1.1"
     },
     {
       "dependsOn": [
@@ -2760,7 +2820,7 @@
         "pkg:cargo/daachorse@5.0.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-core@1.1.0"
+      "ref": "pkg:cargo/stella-aho-corasick-core@1.1.1"
     },
     {
       "dependsOn": [],
@@ -2796,7 +2856,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:npm/@stll/aho-corasick@1.1.0"
+      "ref": "pkg:npm/@stll/aho-corasick@1.1.1"
     }
   ],
   "metadata": {
@@ -2806,10 +2866,10 @@
       }
     ],
     "component": {
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0",
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.1",
       "components": [
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -2826,12 +2886,12 @@
             }
           ],
           "name": "stella-aho-corasick",
-          "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
+          "purl": "pkg:cargo/stella-aho-corasick@1.1.1",
           "type": "application",
-          "version": "1.1.0"
+          "version": "1.1.1"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -2852,9 +2912,9 @@
             }
           ],
           "name": "stella-aho-corasick-core",
-          "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+          "purl": "pkg:cargo/stella-aho-corasick-core@1.1.1",
           "type": "library",
-          "version": "1.1.0"
+          "version": "1.1.1"
         }
       ],
       "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -2878,9 +2938,9 @@
         }
       ],
       "name": "aho-corasick",
-      "purl": "pkg:npm/%40stll/aho-corasick@1.1.0",
+      "purl": "pkg:npm/%40stll/aho-corasick@1.1.1",
       "type": "application",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     "lifecycles": [
       {
