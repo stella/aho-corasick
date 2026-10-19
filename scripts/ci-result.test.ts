@@ -27,10 +27,13 @@ const resultVariables = Object.entries(env).flatMap(([name, expression]) => {
 });
 
 test("the always-running gate covers every caller job and its complete reusable result", () => {
-  expect(gate["if"]).toBe("always()");
+  expect(String(gate["if"]).trim().replace(/\s+/gu, " ")).toBe(
+    "always() && (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true')",
+  );
   const otherJobs = Object.keys(jobs).filter((name) => name !== "ci-result");
   const dependencies = gate["needs"];
   if (!Array.isArray(dependencies) || !dependencies.every((value: unknown) => typeof value === "string")) throw new Error("Invalid gate dependencies");
+  expect(dependencies).toContain("trust-check");
   expect(new Set(dependencies)).toEqual(new Set(otherJobs));
   expect(new Set(resultVariables.map(({ job }) => job))).toEqual(new Set(otherJobs));
   expect(env["EVENT_NAME"]).toBe("${{ github.event_name }}");

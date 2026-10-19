@@ -255,7 +255,10 @@ jobs:
         run: bun run rust:hawk
 
   ci-result:
-    if: always()
+    if: >-
+      always()
+      && (github.event_name != 'pull_request'
+          || needs.trust-check.outputs.trusted == 'true')
     needs: [check-changes, trust-check, changeset, checks, napi-ci, hawk]
     runs-on: ubuntu-latest
     permissions:
