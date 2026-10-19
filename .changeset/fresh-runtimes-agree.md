@@ -1,6 +1,6 @@
 ---
-"@stll/aho-corasick": patch
-"@stll/aho-corasick-wasm": patch
+"@stll/aho-corasick": major
 ---
 
-Require the Node.js versions supported by the installed WASM runtime.
+Requires Node 20.19+ / 22.13+ / 23.5+.
+Updates the WebAssembly runtime to emnapi 2.
