@@ -19,6 +19,10 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 
 import config from "../oxlint.config";
 
+// This test spawns a full tsc run.
+const DECLARATION_TEST_TIMEOUT_MS = 60_000;
+const DECLARATION_TSC_TIMEOUT_MS = 55_000;
+
 test("the lint configuration emits a portable declaration", () => {
   const root = new URL("../", import.meta.url);
   const fixture = mkdtempSync(
@@ -53,11 +57,15 @@ test("the lint configuration emits a portable declaration", () => {
         "--project",
         project,
       ],
-      { cwd: root, encoding: "utf8" },
+      {
+        cwd: root,
+        encoding: "utf8",
+        timeout: DECLARATION_TSC_TIMEOUT_MS,
+      },
     );
     expect(
       result.status,
-      result.stdout + result.stderr,
+      `tsc exited with signal ${result.signal ?? "none"}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
     ).toBe(0);
     const declaration = readFileSync(
       join(fixture, "types/oxlint.config.d.ts"),
@@ -68,7 +76,7 @@ test("the lint configuration emits a portable declaration", () => {
   } finally {
     rmSync(fixture, { recursive: true, force: true });
   }
-});
+}, DECLARATION_TEST_TIMEOUT_MS);
 
 test("the shared portable safety pack stays active in every preset scope", () => {
   expect(config.jsPlugins).toEqual(
