@@ -27,7 +27,7 @@ if (result.status !== 0) {
   process.exit(result.status ?? 1);
 }
 
-async function normalizeGeneratedFile(fileName) {
+async function normalizeGeneratedFile(fileName, options) {
   const fileUrl = new URL(
     `../${fileName}`,
     import.meta.url,
@@ -36,7 +36,7 @@ async function normalizeGeneratedFile(fileName) {
     const content = await readFile(fileUrl, "utf8");
     await writeFile(
       fileUrl,
-      normalizeGeneratedLoader(content),
+      normalizeGeneratedLoader(content, options),
     );
   } catch (error) {
     if (error?.code !== "ENOENT") {
@@ -47,7 +47,11 @@ async function normalizeGeneratedFile(fileName) {
 
 await normalizeGeneratedFile(
   "aho-corasick.wasi-browser.js",
+  { keepGeneratedTypecheckOptOut: true },
 );
+await normalizeGeneratedFile("aho-corasick.wasi.cjs", {
+  keepGeneratedTypecheckOptOut: true,
+});
 await normalizeGeneratedFile("wasi-worker-browser.mjs");
 await normalizeGeneratedFile("wasi-worker.mjs");
 
