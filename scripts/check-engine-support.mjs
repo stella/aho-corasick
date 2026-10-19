@@ -73,12 +73,35 @@ const pendingChangesets = async (root) => {
   );
 };
 
-const manifestAt = async (base, path) => {
-  const { stdout } = await execFileAsync("git", [
-    "show",
-    `${base}:${path}`,
-  ]);
-  return JSON.parse(stdout);
+const missingPathError = (error, base, path) => {
+  const stderr = String(error?.stderr ?? "");
+  return (
+    stderr.includes(
+      `path '${path}' does not exist in '${base}'`,
+    ) ||
+    stderr.includes(
+      `path '${path}' exists on disk, but not in '${base}'`,
+    )
+  );
+};
+
+export const manifestAt = async (
+  base,
+  path,
+  runGit = execFileAsync,
+) => {
+  try {
+    const { stdout } = await runGit("git", [
+      "show",
+      `${base}:${path}`,
+    ]);
+    return JSON.parse(stdout);
+  } catch (error) {
+    if (missingPathError(error, base, path)) {
+      return undefined;
+    }
+    throw error;
+  }
 };
 
 const publishedManifests = async (root) => {
@@ -198,18 +221,20 @@ export const engineSupportDecisions = ({
     changesetsConfig,
   });
 
-  return headManifests.map(
+  return headManifests.flatMap(
     ([manifestPath, headManifest]) => {
-      const baseManifest =
-        baseByPath.get(manifestPath) ?? {};
-      return engineSupportDecision({
-        packageName: headManifest.name,
-        baseRange: baseManifest.engines?.node,
-        headRange: headManifest.engines?.node,
-        releaseType: releases.get(
-          owners.get(headManifest.name),
-        ),
-      });
+      const baseManifest = baseByPath.get(manifestPath);
+      if (baseManifest === undefined) return [];
+      return [
+        engineSupportDecision({
+          packageName: headManifest.name,
+          baseRange: baseManifest.engines?.node,
+          headRange: headManifest.engines?.node,
+          releaseType: releases.get(
+            owners.get(headManifest.name),
+          ),
+        }),
+      ];
     },
   );
 };
@@ -236,9 +261,7 @@ const main = async () => {
   const baseManifests = await Promise.all(
     manifests.map(async ([manifestPath]) => [
       manifestPath,
-      await manifestAt(base, manifestPath).catch(
-        () => ({}),
-      ),
+      await manifestAt(base, manifestPath),
     ]),
   );
   const decisions = engineSupportDecisions({

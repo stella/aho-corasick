@@ -15,6 +15,7 @@ import { promisify } from "node:util";
 import {
   engineSupportDecisions,
   engineSupportDecision,
+  manifestAt,
   releaseOwners,
 } from "./check-engine-support.mjs";
 
@@ -94,6 +95,56 @@ void test("removing an engine range widens support", () => {
   );
 });
 
+void test("a manifest absent from the base has no support reduction", () => {
+  assert.deepEqual(
+    engineSupportDecisions({
+      baseManifests: [["package.json", { name: "root" }]],
+      headManifests: [
+        ["package.json", { name: "root" }],
+        [
+          "packages/new/package.json",
+          {
+            name: "new-package",
+            engines: { node: ">=20" },
+          },
+        ],
+      ],
+      changesets: [],
+      changesetsConfig: { ignore: [] },
+    }),
+    [{ allowed: true, supportReduced: false }],
+  );
+});
+
+void test("manifest reads only suppress a path missing from the base", async () => {
+  const absent = Object.assign(
+    new Error("git show failed"),
+    {
+      stderr:
+        "fatal: path 'new/package.json' does not exist in 'HEAD'\n",
+    },
+  );
+  assert.equal(
+    await manifestAt("HEAD", "new/package.json", () =>
+      Promise.reject(absent),
+    ),
+    undefined,
+  );
+
+  const failure = Object.assign(
+    new Error("git show failed"),
+    {
+      stderr: "fatal: unable to read tree deadbeef\n",
+    },
+  );
+  await assert.rejects(
+    manifestAt("HEAD", "package.json", () =>
+      Promise.reject(failure),
+    ),
+    /git show failed/u,
+  );
+});
+
 void test("derived manifests use their configured release owner", () => {
   const manifests = [
     [
@@ -138,6 +189,10 @@ void test("checks each published manifest against the git base", async () => {
   );
   const run = (command, arguments_) =>
     execFileAsync(command, arguments_, { cwd: root });
+  const script = new URL(
+    "./check-engine-support.mjs",
+    import.meta.url,
+  ).pathname;
   const writeManifest = (manifestPath, manifest) =>
     writeFile(
       path.join(root, manifestPath),
@@ -146,6 +201,7 @@ void test("checks each published manifest against the git base", async () => {
 
   await Promise.all([
     mkdir(path.join(root, ".changeset")),
+    mkdir(path.join(root, "existing-package")),
     mkdir(path.join(root, "wasm")),
   ]);
   await writeFile(
@@ -171,6 +227,10 @@ void test("checks each published manifest against the git base", async () => {
     version: "1.0.0",
     engines: { node: ">=18" },
   });
+  await writeManifest("existing-package/package.json", {
+    name: "existing-fixture",
+    version: "1.0.0",
+  });
   await run("git", ["init"]);
   await run("git", [
     "config",
@@ -180,16 +240,69 @@ void test("checks each published manifest against the git base", async () => {
   await run("git", ["config", "user.name", "Fixture"]);
   await run("git", ["add", "."]);
   await run("git", ["commit", "-m", "fixture base"]);
+
+  await mkdir(path.join(root, "new-package"));
+  await writeManifest("new-package/package.json", {
+    name: "new-fixture",
+    version: "1.0.0",
+    engines: { node: ">=22" },
+  });
+  await run("git", ["add", "new-package/package.json"]);
+  await run(process.execPath, [script, "--base", "HEAD"]);
+
+  await writeManifest("existing-package/package.json", {
+    name: "existing-fixture",
+    version: "1.0.0",
+    engines: { node: ">=20" },
+  });
+  await assert.rejects(
+    run(process.execPath, [script, "--base", "HEAD"]),
+    /existing-fixture reduces engines\.node support/u,
+  );
+  await writeManifest("existing-package/package.json", {
+    name: "existing-fixture",
+    version: "1.0.0",
+  });
+
+  await writeManifest("package.json", {
+    name: "root-fixture",
+    version: "1.0.0",
+    napi: { targets: ["wasm32-wasi"] },
+    scripts: {
+      "changeset:version":
+        "changeset version && node scripts/version-sync.mjs sync",
+    },
+    engines: { node: ">=20" },
+  });
+  await assert.rejects(
+    run(process.execPath, [script, "--base", "HEAD"]),
+    /root-fixture reduces engines\.node support/u,
+  );
+  await assert.rejects(
+    run(process.execPath, [
+      script,
+      "--base",
+      "missing-ref",
+    ]),
+    /invalid object name|unknown revision/u,
+  );
+
+  await writeManifest("package.json", {
+    name: "root-fixture",
+    version: "1.0.0",
+    napi: { targets: ["wasm32-wasi"] },
+    scripts: {
+      "changeset:version":
+        "changeset version && node scripts/version-sync.mjs sync",
+    },
+    engines: { node: ">=18" },
+  });
   await writeManifest("wasm/package.json", {
     name: "wasm-fixture",
     version: "1.0.0",
     engines: { node: ">=20" },
   });
 
-  const script = new URL(
-    "./check-engine-support.mjs",
-    import.meta.url,
-  ).pathname;
   await assert.rejects(
     run(process.execPath, [script, "--base", "HEAD"]),
     /wasm-fixture reduces engines\.node support/u,
