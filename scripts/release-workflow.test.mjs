@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 
 const workflow = readFileSync(
   new URL(
@@ -92,4 +92,35 @@ test("privileged shared publishers match the release policy pin", () => {
   expect(publishers).toHaveLength(3);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(pin);
+});
+
+test("all shared workflows and actions use one immutable revision", () => {
+  const github = new URL("../.github/", import.meta.url);
+  const files = ["workflows", "actions"]
+    .filter((directory) =>
+      existsSync(new URL(directory, github)),
+    )
+    .flatMap((directory) =>
+      [
+        ...new Bun.Glob("**/*.{yml,yaml}").scanSync({
+          cwd: new URL(directory, github).pathname,
+          onlyFiles: true,
+        }),
+      ].map(
+        (file) => new URL(`${directory}/${file}`, github),
+      ),
+    );
+  const pins = files.flatMap((file) =>
+    Array.from(
+      readFileSync(file, "utf8").matchAll(
+        /uses: stella\/\.github\/[^@\s]+@([0-9a-f]{40})/gu,
+      ),
+      (match) => match.at(1),
+    ),
+  );
+
+  expect(pins.length).toBeGreaterThan(0);
+  expect(new Set(pins)).toEqual(
+    new Set(["8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6"]),
+  );
 });
