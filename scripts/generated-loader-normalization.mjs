@@ -111,45 +111,9 @@ const SAFE_SCHEDULER_HELPER = `function __invokeWasmCleanupPollScheduler(schedul
 const RUNTIME_POLL_MARKER =
   "/**\n * One turn of the runtime-work poll.";
 
-const RUNTIME_POLL_DOCUMENTATION = `/**
- * One turn of the runtime-work poll.
- *
- * Arm the timer first, then a macrotask backup. The first callback ends the
- * turn; a scheduling error rejects the turn even if a callback ran inline.
- */`;
-
-const GENERATED_RUNTIME_POLL_DOCUMENTATION =
-  /\/\*\*\n \* One turn of the runtime-work poll\.[\s\S]*? \*\/\n(?=function __yieldWasmRuntimePollTurn)/u;
-
-const LEGACY_RUNTIME_POLL_PACING =
-  /    \/\/ Read next to the arming it describes; see\n    \/\/ `__armWasmRuntimePollStallBackup` for what the two due times mean\.\n    const turnTimerDueAt = Date\.now\(\) \+ __WASM_RUNTIME_WORK_POLL_INTERVAL_MS\n\n    \/\/ Paced by the timer alone from here; the backup is what ends this turn if\n    \/\/ the timer never arrives\.\n    pace\.settleTurn = settle\n    pace\.turnTimerDueAt = turnTimerDueAt\n/u;
-
 const UNSAFE_CLEANUP_HANDSHAKE = `await new Promise((resolve) => {
         __scheduleMacrotask(resolve)
       })`;
-
-const LEGACY_SAFE_CLEANUP_HANDSHAKE = `await new Promise((resolve, reject) => {
-        let finishedDuringScheduling = false
-        let scheduling = true
-        const finish = () => {
-          if (scheduling) {
-            finishedDuringScheduling = true
-            return
-          }
-          resolve()
-        }
-        try {
-          __scheduleMacrotask(finish)
-        } catch (error) {
-          reject(error)
-          return
-        }
-        scheduling = false
-        if (finishedDuringScheduling) {
-          resolve()
-        }
-      })`;
-
 const SAFE_CLEANUP_HANDSHAKE = `await new Promise((resolve, reject) => {
         __invokeWasmCleanupPollScheduler(
           __scheduleMacrotask,
@@ -157,48 +121,15 @@ const SAFE_CLEANUP_HANDSHAKE = `await new Promise((resolve, reject) => {
           reject,
         )
       })`;
-
 const UNSAFE_RUNTIME_POLL_PROMISE = `return new Promise((resolve) => {
     let settled = false`;
-
 const SAFE_RUNTIME_POLL_PROMISE = `return new Promise((resolve, reject) => {
     let settled = false`;
-
 const UNSAFE_RUNTIME_POLL_TIMER = `__scheduleTimer(() => {
       pace.arrivals++
       settle()
     }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)`;
-
-const SINGLE_SCHEDULER_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
-      typeof globalThis.setTimeout === "function"
-        ? (finish) =>
-            globalThis.setTimeout(
-              finish,
-              __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
-            )
-        : __scheduleMacrotask,
-      settle,
-      reject,
-    )`;
-
 const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
-      (finish) => {
-        if (typeof globalThis.setTimeout === "function") {
-          globalThis.setTimeout(
-            finish,
-            __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
-          )
-        }
-        __scheduleMacrotask(finish)
-      },
-      settle,
-      reject,
-    )`;
-
-const LEGACY_RUNTIME_POLL_STALL_BACKUP =
-  /\/\/ Arrivals it takes before the poll paces[\s\S]*?(?=function __invokeWasmCleanupPollScheduler|\/\*\*\n \* One turn of the runtime-work poll\.)/u;
-
-const LEGACY_SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       (finish) => {
         __scheduleTimer(() => {
           pace.arrivals++
@@ -208,30 +139,21 @@ const LEGACY_SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       settle,
       reject,
     )`;
-
-const UNSAFE_TIMER_FALLBACK = `try {
-    setTimer(callback, delay)
-  } catch {
-    __scheduleMacrotask(callback)
-  }`;
-
-const SAFE_TIMER_FALLBACK = `let callbackInvoked = false
-  try {
-    setTimer(() => {
-      callbackInvoked = true
-      callback()
-    }, delay)
-  } catch (error) {
-    if (callbackInvoked) {
-      throw error
-    }
-    __scheduleMacrotask(callback)
-  }`;
-
+const UNSAFE_RUNTIME_POLL_MACROTASK = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      __scheduleMacrotask(settle)
+      return
+    }`;
+const SAFE_RUNTIME_POLL_MACROTASK = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      __invokeWasmCleanupPollScheduler(
+        __scheduleMacrotask,
+        settle,
+        reject,
+      )
+      return
+    }`;
 const UNSAFE_ASYNC_WORK_POLL = `await new Promise((resolve) => {
           __scheduleTimer(resolve, __WASI_ASYNC_WORK_POLL_INTERVAL_MS)
         })`;
-
 const SAFE_ASYNC_WORK_POLL = `await new Promise((resolve, reject) => {
           __invokeWasmCleanupPollScheduler(
             (finish) => {
@@ -242,46 +164,8 @@ const SAFE_ASYNC_WORK_POLL = `await new Promise((resolve, reject) => {
           )
         })`;
 
-const UNSAFE_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
-      let finishedDuringScheduling = false
-      let scheduling = true
-      const finish = () => {
-        if (scheduling) {
-          finishedDuringScheduling = true
-          return
-        }
-        settle()
-      }
-      try {
-        __scheduleMacrotask(finish)
-      } catch (error) {
-        reject(error)
-        return
-      }
-      scheduling = false
-      if (finishedDuringScheduling) {
-        settle()
-      }
-      return
-    }`;
-
-const UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
-      __scheduleMacrotask(settle)
-      return
-    }`;
-
-const LEGACY_SAFE_RUNTIME_POLL_SCHEDULE = `if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
-      __invokeWasmCleanupPollScheduler(
-        __scheduleMacrotask,
-        settle,
-        reject,
-      )
-      return
-    }`;
-
 const RETRYABLE_RUNTIME_CLEANUP =
   /\}\)\(\)\.then\((finishCleanup(?:UnlessCrashed)?), \1\)/gu;
-
 const makeRuntimeCleanupRetryable = (
   _match,
   finishCleanup,
@@ -304,81 +188,21 @@ const addTypecheckHeader = (source) => {
   return `${source.slice(0, lineEnd + 1)}${GENERATED_TYPECHECK_OPT_OUT}\n${source.slice(lineEnd + 1)}`;
 };
 
-/** Normalize directives and cleanup scheduling emitted by the NAPI generator. */
+/** Preserve generated scheduling and add only retry and crash-reporting guards. */
 export const normalizeGeneratedLoader = (
   source,
   { keepGeneratedTypecheckOptOut = false } = {},
 ) => {
   const normalized = source
     .replace(GENERATOR_DIRECTIVE, "")
-    .replaceAll(
-      UNSAFE_CLEANUP_HANDSHAKE,
-      SAFE_CLEANUP_HANDSHAKE,
-    )
-    .replaceAll(
-      LEGACY_SAFE_CLEANUP_HANDSHAKE,
-      SAFE_CLEANUP_HANDSHAKE,
-    )
-    .replace(
-      UNSAFE_RUNTIME_POLL_PROMISE,
-      SAFE_RUNTIME_POLL_PROMISE,
-    )
-    .replace(
-      UNSAFE_RUNTIME_POLL_TIMER,
-      SAFE_RUNTIME_POLL_TIMER,
-    )
-    .replace(
-      LEGACY_SAFE_RUNTIME_POLL_TIMER,
-      SAFE_RUNTIME_POLL_TIMER,
-    )
-    .replace(
-      SINGLE_SCHEDULER_RUNTIME_POLL_TIMER,
-      SAFE_RUNTIME_POLL_TIMER,
-    )
-    .replace(UNSAFE_TIMER_FALLBACK, SAFE_TIMER_FALLBACK)
+    .replaceAll(UNSAFE_CLEANUP_HANDSHAKE, SAFE_CLEANUP_HANDSHAKE)
+    .replace(UNSAFE_RUNTIME_POLL_PROMISE, SAFE_RUNTIME_POLL_PROMISE)
+    .replace(UNSAFE_RUNTIME_POLL_TIMER, SAFE_RUNTIME_POLL_TIMER)
+    .replace(UNSAFE_RUNTIME_POLL_MACROTASK, SAFE_RUNTIME_POLL_MACROTASK)
     .replace(UNSAFE_ASYNC_WORK_POLL, SAFE_ASYNC_WORK_POLL)
-    .replace(UNSAFE_RUNTIME_POLL_SCHEDULE, "")
-    .replace(UNSAFE_DIRECT_RUNTIME_POLL_SCHEDULE, "")
-    .replace(LEGACY_SAFE_RUNTIME_POLL_SCHEDULE, "")
-    .replace(
-      RETRYABLE_RUNTIME_CLEANUP,
-      makeRuntimeCleanupRetryable,
-    )
-    .replace(
-      GENERATED_WASI_WORKER_FACTORY,
-      NORMALIZED_WASI_WORKER_FACTORY,
-    )
-    .replace(
-      GENERATED_BROWSER_WORKER,
-      NORMALIZED_BROWSER_WORKER,
-    )
-    .replace(
-      GENERATED_RUNTIME_POLL_DOCUMENTATION,
-      `${RUNTIME_POLL_DOCUMENTATION}\n`,
-    )
-    .replace(
-      "function __yieldWasmRuntimePollTurn(pace) {\n  // Armed before the turn yields, and by every turn: what rescues a parked\n  // turn has to have been armed while the host's timers still worked, and the\n  // turn that parks is the one whose own timer is already dead.\n  __armWasmRuntimePollStallBackup(pace)\n",
-      "function __yieldWasmRuntimePollTurn() {\n",
-    )
-    .replace(
-      `      if (pace.settleTurn === settle) {
-        // Nothing is parked any more: a backup running later must not read a
-        // due time this turn has already answered.
-        pace.settleTurn = undefined
-      }
-`,
-      "",
-    )
-    .replace(LEGACY_RUNTIME_POLL_PACING, "")
-    .replace(LEGACY_RUNTIME_POLL_STALL_BACKUP, "")
-    .replace(
-      "    const pace = __createWasmRuntimePollPace()\n",
-      "",
-    )
-    .replaceAll(
-      "await __yieldWasmRuntimePollTurn(pace)",
-      "await __yieldWasmRuntimePollTurn()",
-    )
+    .replace(RETRYABLE_RUNTIME_CLEANUP, makeRuntimeCleanupRetryable)
+    .replace(GENERATED_WASI_WORKER_FACTORY, NORMALIZED_WASI_WORKER_FACTORY)
+    .replace(GENERATED_BROWSER_WORKER, NORMALIZED_BROWSER_WORKER)
     .replace(/[ \t]+$/gmu, "");
 
   const withSchedulerHelper = normalized.includes(
@@ -390,12 +214,7 @@ export const normalizeGeneratedLoader = (
         `${SAFE_SCHEDULER_HELPER}${RUNTIME_POLL_MARKER}`,
       );
 
-  const withoutLegacyPacing = withSchedulerHelper.replace(
-    LEGACY_RUNTIME_POLL_PACING,
-    "",
-  );
-
   return keepGeneratedTypecheckOptOut
-    ? addTypecheckHeader(withoutLegacyPacing)
-    : withoutLegacyPacing;
+    ? addTypecheckHeader(withSchedulerHelper)
+    : withSchedulerHelper;
 };

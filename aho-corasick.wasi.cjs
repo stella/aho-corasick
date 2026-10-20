@@ -941,16 +941,9 @@ function __scheduleTimer(callback, delay) {
     __scheduleMacrotask(callback)
     return
   }
-  let callbackInvoked = false
   try {
-    setTimer(() => {
-      callbackInvoked = true
-      callback()
-    }, delay)
-  } catch (error) {
-    if (callbackInvoked) {
-      throw error
-    }
+    setTimer(callback, delay)
+  } catch {
     __scheduleMacrotask(callback)
   }
 }
@@ -960,6 +953,124 @@ function __scheduleTimer(callback, delay) {
 // interleaving with the @emnapi/core dispatch, so a zero-delay turn would spin
 // the loop instead of yielding it.
 const __WASM_RUNTIME_WORK_POLL_INTERVAL_MS = 1
+// Arrivals it takes before the poll paces on the host's timers alone. One
+// proves nothing: a timer armed before the host's timers stopped still fires.
+const __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS = 2
+// How long a parked turn's own timer must already have been due before a
+// backup that runs calls it dropped. Slack, not a deadline: a timer is due
+// against the event loop's clock, which is read once per iteration, while
+// these are `Date.now()` readings taken part-way through one, so the two
+// drift apart by however long the loop has been inside the current iteration.
+const __WASM_RUNTIME_WORK_POLL_STALL_MS = 50
+// How long a backup itself waits. What is left of it after the slack and one
+// interval — 149 ms — has to cover the *two* poll turns that can separate a
+// parked turn from the last backup armed while the host's timers still
+// worked, so the ceiling on a single turn is half of it. See the invariant on
+// `__armWasmRuntimePollStallBackup`.
+const __WASM_RUNTIME_WORK_POLL_BACKUP_MS = 200
+
+/**
+ * Pacing state for one runtime-work poll.
+ *
+ * Per poll, never per module: whether the host's timers arrive is not a
+ * property of the module. A host can lose its timers between two disposals,
+ * and in the deferred shape every instance shares this module — one healthy
+ * instance must not disarm the fallback for the next one.
+ */
+function __createWasmRuntimePollPace() {
+  return {
+    // Timers armed by *this* poll that have actually arrived.
+    arrivals: 0,
+    // The turn waiting on a timer alone *right now* — undefined whenever no
+    // turn is parked — and when that turn's own timer came due.
+    settleTurn: undefined,
+    turnTimerDueAt: 0,
+  }
+}
+
+/**
+ * The backup that ends a turn whose timer is never going to arrive.
+ *
+ * Once the poll paces on the timer alone it has nothing left to fall back on
+ * if the host's timers stop mid-poll: the turn that armed the dead timer is
+ * the turn that parks, and a parked poll schedules nothing that could notice.
+ * So every turn arms one of these before it yields, and each one compares due
+ * times instead of measuring how long the parked turn has been waiting.
+ *
+ * Invariant: a parked turn is ended by the newest backup that was armed while
+ * the host's timers still worked, and a backup ends a turn only when that
+ * turn's own timer was already due a whole window before the backup itself.
+ * Neither half turns on how far apart the arms happen to fall — what bounds
+ * the rescue is how far back that newest live backup is:
+ *
+ * - *Ends it.* Hosts run timers in due order, so a backup that runs while a
+ *   turn due a whole window earlier is still parked proves that turn's timer
+ *   was dropped rather than merely late. That same comparison is what leaves a
+ *   healthy host alone: there the turn's timer has already run and cleared
+ *   `settleTurn` before any backup due after it can look.
+ * - *Two turns back, not one.* A turn that ended does not prove its own timer
+ *   arrived: until `…_TRUSTED_ARRIVALS` is reached every turn arms both
+ *   primitives and the macrotask wins, so such a turn can end with its own
+ *   timer — and the backup armed one line before it — already dead. The
+ *   arrival that then flips the poll onto the timer alone can itself be a
+ *   timer armed before the host's timers died. So the turn that parks can sit
+ *   two turns past the last live arm, and the newest live backup is due
+ *   `…_BACKUP_MS` less *two* turn lengths after that turn's own timer.
+ *   Arming on every turn is what holds it to two, rather than however far back
+ *   a throttle last let one through.
+ * - *Ceiling.* Coverage therefore holds while two consecutive poll turns fit
+ *   inside `…_BACKUP_MS` less the slack and one interval: 149 ms, so 74 ms
+ *   per turn (measured: a 74 ms turn is still rescued, a 75 ms one parks).
+ *   Past that the turn stays parked and the disposal promise never settles.
+ *   The bound is deliberate: reaching it takes a host that drops timers
+ *   mid-poll *and* keeps every poll turn busy for more than 74 ms, and neither
+ *   Node nor WebContainer — the hosts that run the threaded artifact — does
+ *   the second.
+ *
+ * The poll then goes back to arming both primitives until two fresh arrivals
+ * prove the timers again. A host that stops running the timers it has
+ * *already* accepted leaves nothing to fire, and the disposal promise stays
+ * pending rather than wedging the thread — the same outcome as a blocking
+ * closure that never returns. Unreferenced wherever the host allows it: the
+ * poll's own turn timers are what keep the loop alive, never these.
+ */
+function __armWasmRuntimePollStallBackup(pace) {
+  const setTimer = globalThis.setTimeout
+  if (typeof setTimer !== 'function') {
+    // Nothing to back up: `__scheduleTimer` is on the macrotask channel
+    // already, and that one cannot park.
+    return
+  }
+  // Read before arming, so this never claims to be due earlier than the timer
+  // actually is: a backup ends a turn only when it is provably due after it.
+  const dueAt = Date.now() + __WASM_RUNTIME_WORK_POLL_BACKUP_MS
+  let handle
+  try {
+    handle = setTimer(() => {
+      const settleTurn = pace.settleTurn
+      if (
+        !settleTurn ||
+        pace.turnTimerDueAt > dueAt - __WASM_RUNTIME_WORK_POLL_STALL_MS
+      ) {
+        // No turn is parked, or the parked one's timer came due too close to
+        // this backup to call it dropped — it may still arrive, and the turn
+        // that armed it armed a backup due a whole window after *that*.
+        return
+      }
+      pace.arrivals = 0
+      pace.settleTurn = undefined
+      settleTurn()
+    }, __WASM_RUNTIME_WORK_POLL_BACKUP_MS)
+  } catch {
+    return
+  }
+  if (handle && typeof handle.unref === 'function') {
+    try {
+      handle.unref()
+    } catch {}
+  }
+}
+
 function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
   let finishedDuringScheduling = false
   let scheduling = true
@@ -985,10 +1096,28 @@ function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
 /**
  * One turn of the runtime-work poll.
  *
- * Arm the timer first, then a macrotask backup. The first callback ends the
- * turn; a scheduling error rejects the turn even if a callback ran inline.
+ * `__scheduleTimer` falls back to the macrotask scheduler when `setTimeout` is
+ * missing or throws, but not when it is present, returns a handle and never
+ * fires — fake timers in a test suite that disposes from an `afterEach`, or a
+ * host whose timers belong to an IO context that is already gone. That host
+ * would park this poll forever, and the poll is unbounded, so nothing would
+ * ever call `…_finish`.
+ *
+ * Arm both primitives until timers armed by this poll have arrived twice, and
+ * let whichever lands first end the turn; the loser resolves nothing. A host
+ * with working timers therefore pays the double arming for the first turn or
+ * two — the macrotask wins the race, but the timers behind it still arrive and
+ * are counted — and paces on the timer alone from then on, instead of spinning
+ * the loop on a zero-delay queue. A host whose timers never arrive keeps both,
+ * and the macrotask is what keeps the poll moving. A host whose timers stop
+ * after proving themselves is caught by `__armWasmRuntimePollStallBackup`,
+ * which ends the parked turn and puts this poll back on both.
  */
-function __yieldWasmRuntimePollTurn() {
+function __yieldWasmRuntimePollTurn(pace) {
+  // Armed before the turn yields, and by every turn: what rescues a parked
+  // turn has to have been armed while the host's timers still worked, and the
+  // turn that parks is the one whose own timer is already dead.
+  __armWasmRuntimePollStallBackup(pace)
   return new Promise((resolve, reject) => {
     let settled = false
     const settle = () => {
@@ -996,21 +1125,38 @@ function __yieldWasmRuntimePollTurn() {
         return
       }
       settled = true
+      if (pace.settleTurn === settle) {
+        // Nothing is parked any more: a backup running later must not read a
+        // due time this turn has already answered.
+        pace.settleTurn = undefined
+      }
       resolve()
     }
     __invokeWasmCleanupPollScheduler(
       (finish) => {
-        if (typeof globalThis.setTimeout === "function") {
-          globalThis.setTimeout(
-            finish,
-            __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
-          )
-        }
-        __scheduleMacrotask(finish)
+        __scheduleTimer(() => {
+          pace.arrivals++
+          finish()
+        }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)
       },
       settle,
       reject,
     )
+    // Read next to the arming it describes; see
+    // `__armWasmRuntimePollStallBackup` for what the two due times mean.
+    const turnTimerDueAt = Date.now() + __WASM_RUNTIME_WORK_POLL_INTERVAL_MS
+    if (pace.arrivals < __WASM_RUNTIME_WORK_POLL_TRUSTED_ARRIVALS) {
+      __invokeWasmCleanupPollScheduler(
+        __scheduleMacrotask,
+        settle,
+        reject,
+      )
+      return
+    }
+    // Paced by the timer alone from here; the backup is what ends this turn if
+    // the timer never arrives.
+    pace.settleTurn = settle
+    pace.turnTimerDueAt = turnTimerDueAt
   })
 }
 
@@ -1112,8 +1258,9 @@ function __prepareWasmEnvCleanupWithTurns() {
     // Unbounded, exactly like the async-work drain below. The wait ends when
     // the addon reports its runtime work finished; the turns spent here are
     // what let that happen at all.
+    const pace = __createWasmRuntimePollPace()
     for (;;) {
-      await __yieldWasmRuntimePollTurn()
+      await __yieldWasmRuntimePollTurn(pace)
       __abortWasiDisposalIfThreadCrashed()
       try {
         if (!workPending()) {
