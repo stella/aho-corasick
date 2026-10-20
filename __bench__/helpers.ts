@@ -28,14 +28,8 @@ export const libs: Lib[] = [
   {
     name: "modern-ahocorasick",
     build: (p) => new ModernAC(p),
-    search: (ac, h) => {
-      const r = (
-        ac as InstanceType<typeof ModernAC>
-      ).search(h) as [number, string[]][];
-      let c = 0;
-      for (const [, kw] of r) c += kw.length;
-      return c;
-    },
+    search: (ac, h) =>
+      (ac as InstanceType<typeof ModernAC>).count(h),
   },
   {
     name: "ahocorasick",

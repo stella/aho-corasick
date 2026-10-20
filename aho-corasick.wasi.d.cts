@@ -43,3 +43,6 @@ export interface Options {
 }
 
 export declare function prepareAhoCorasick(patterns: Array<string>, options?: Options | undefined | null): Buffer
+
+/** The WASI flavor this loader instantiates. */
+export declare const __napiBindingTarget: 'wasm32-wasi'
