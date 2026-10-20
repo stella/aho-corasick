@@ -39,7 +39,6 @@ const schedulerNames = new Set([
   "queueMicrotask",
 ]);
 const schedulerDefinitionNames = new Set([
-  "__armWasmRuntimePollStallBackup",
   "__invokeWasmCleanupPollScheduler",
   "__scheduleTimer",
   "__wasiSetImmediate",
@@ -421,12 +420,16 @@ return {
         source,
         "__prepareWasmEnvCleanupWithTurns",
       );
-      const behaviours = [
+      const macrotaskBehaviours = [
         "unavailable",
         "async-return",
         "sync-return",
         "sync-throw-after",
         "throw-before",
+      ];
+      const timerBehaviours = [
+        ...macrotaskBehaviours,
+        "never-callback",
       ];
       const throwingBehaviours = new Set([
         "unavailable",
@@ -451,26 +454,36 @@ let finishCount = 0
 let healthyTurns = 0
 let timerCalls = 0
 let macrotaskCalls = 0
+let schedulerFailed = false
 const __WASM_RUNTIME_WORK_POLL_INTERVAL_MS = 0
 const makeScheduler = (behaviour, countCall) => {
   if (behaviour === "unavailable") return undefined
   return (callback) => {
     countCall()
-    if (behaviour === "throw-before") throw new Error("scheduler threw before callback")
+    if (behaviour === "throw-before") {
+      schedulerFailed = true
+      throw new Error("scheduler threw before callback")
+    }
+    if (behaviour === "never-callback") return
     if (behaviour === "async-return") {
-      nativeSetTimeout(callback, 0)
-      healthyTurns++
+      nativeSetTimeout(() => { healthyTurns++; callback() }, 0)
       return
     }
     callback()
-    if (behaviour === "sync-throw-after") throw new Error("scheduler threw after callback")
+    if (behaviour === "sync-throw-after") {
+      schedulerFailed = true
+      throw new Error("scheduler threw after callback")
+    }
     healthyTurns++
   }
 }
 let timer = makeScheduler(timerBehaviour, () => { timerCalls++ })
 let __scheduleMacrotask = makeScheduler(macrotaskBehaviour, () => { macrotaskCalls++ })
 const globalThis = { get setTimeout() { return timer } }
-const workIsPending = () => healthyTurns < requiredTurns
+const workIsPending = () =>
+  schedulerFailed ||
+  __scheduleMacrotask === undefined ||
+  healthyTurns < requiredTurns
 const __napiInstance = { exports: {
   napi_prepare_wasm_env_cleanup_begin: () => true,
   napi_prepare_wasm_env_cleanup_finish: () => {
@@ -485,6 +498,7 @@ const __abortWasiDisposalIfThreadCrashed = () => {}
 return {
   dispose: __prepareWasmEnvCleanupWithTurns,
   recover: () => {
+    schedulerFailed = false
     timer = makeScheduler("sync-return", () => { timerCalls++ })
     __scheduleMacrotask = makeScheduler("sync-return", () => { macrotaskCalls++ })
   },
@@ -503,8 +517,8 @@ return {
           ),
         ]);
 
-      for (const timerBehaviour of behaviours) {
-        for (const macrotaskBehaviour of behaviours) {
+      for (const timerBehaviour of timerBehaviours) {
+        for (const macrotaskBehaviour of macrotaskBehaviours) {
           for (const requiredTurns of [1, 2]) {
             const label = `${timerBehaviour}/${macrotaskBehaviour}/${requiredTurns}`;
             const harness = createHarness(
@@ -513,13 +527,10 @@ return {
               macrotaskBehaviour,
               requiredTurns,
             );
-            const selectedBehaviour =
-              timerBehaviour === "unavailable"
-                ? macrotaskBehaviour
-                : timerBehaviour;
-            const shouldReject = throwingBehaviours.has(
-              selectedBehaviour,
-            );
+            const shouldReject =
+              (timerBehaviour !== "unavailable" &&
+                throwingBehaviours.has(timerBehaviour)) ||
+              throwingBehaviours.has(macrotaskBehaviour);
 
             if (shouldReject) {
               // oxlint-disable-next-line typescript/await-thenable, typescript/no-confusing-void-expression -- Function-created fixture types are opaque to the type-aware linter.
@@ -548,7 +559,12 @@ return {
                 expect(
                   failedState.macrotaskCalls,
                   label,
-                ).toBe(0);
+                ).toBe(
+                  throwingBehaviours.has(timerBehaviour) ||
+                    macrotaskBehaviour === "unavailable"
+                    ? 0
+                    : 1,
+                );
               }
               harness.recover();
               await withTimeout(
@@ -571,10 +587,14 @@ return {
                 requiredTurns,
               );
             } else if (!shouldReject) {
-              expect(state.timerCalls, label).toBe(
-                requiredTurns,
-              );
-              expect(state.macrotaskCalls, label).toBe(0);
+              expect(
+                state.timerCalls,
+                label,
+              ).toBeGreaterThan(0);
+              expect(
+                state.macrotaskCalls,
+                label,
+              ).toBeGreaterThan(0);
             }
           }
         }

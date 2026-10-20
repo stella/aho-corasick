@@ -114,8 +114,8 @@ const RUNTIME_POLL_MARKER =
 const RUNTIME_POLL_DOCUMENTATION = `/**
  * One turn of the runtime-work poll.
  *
- * Select exactly one scheduler before entering the handshake. Timers pace
- * ordinary hosts; the macrotask scheduler is used only when timers are absent.
+ * Arm the timer first, then a macrotask backup. The first callback ends the
+ * turn; a scheduling error rejects the turn even if a callback ran inline.
  */`;
 
 const GENERATED_RUNTIME_POLL_DOCUMENTATION =
@@ -169,7 +169,7 @@ const UNSAFE_RUNTIME_POLL_TIMER = `__scheduleTimer(() => {
       settle()
     }, __WASM_RUNTIME_WORK_POLL_INTERVAL_MS)`;
 
-const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
+const SINGLE_SCHEDULER_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       typeof globalThis.setTimeout === "function"
         ? (finish) =>
             globalThis.setTimeout(
@@ -180,6 +180,23 @@ const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       settle,
       reject,
     )`;
+
+const SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
+      (finish) => {
+        if (typeof globalThis.setTimeout === "function") {
+          globalThis.setTimeout(
+            finish,
+            __WASM_RUNTIME_WORK_POLL_INTERVAL_MS,
+          )
+        }
+        __scheduleMacrotask(finish)
+      },
+      settle,
+      reject,
+    )`;
+
+const LEGACY_RUNTIME_POLL_STALL_BACKUP =
+  /\/\/ Arrivals it takes before the poll paces[\s\S]*?(?=function __invokeWasmCleanupPollScheduler|\/\*\*\n \* One turn of the runtime-work poll\.)/u;
 
 const LEGACY_SAFE_RUNTIME_POLL_TIMER = `__invokeWasmCleanupPollScheduler(
       (finish) => {
@@ -314,6 +331,10 @@ export const normalizeGeneratedLoader = (
       LEGACY_SAFE_RUNTIME_POLL_TIMER,
       SAFE_RUNTIME_POLL_TIMER,
     )
+    .replace(
+      SINGLE_SCHEDULER_RUNTIME_POLL_TIMER,
+      SAFE_RUNTIME_POLL_TIMER,
+    )
     .replace(UNSAFE_TIMER_FALLBACK, SAFE_TIMER_FALLBACK)
     .replace(UNSAFE_ASYNC_WORK_POLL, SAFE_ASYNC_WORK_POLL)
     .replace(UNSAFE_RUNTIME_POLL_SCHEDULE, "")
@@ -349,6 +370,15 @@ export const normalizeGeneratedLoader = (
       "",
     )
     .replace(LEGACY_RUNTIME_POLL_PACING, "")
+    .replace(LEGACY_RUNTIME_POLL_STALL_BACKUP, "")
+    .replace(
+      "    const pace = __createWasmRuntimePollPace()\n",
+      "",
+    )
+    .replaceAll(
+      "await __yieldWasmRuntimePollTurn(pace)",
+      "await __yieldWasmRuntimePollTurn()",
+    )
     .replace(/[ \t]+$/gmu, "");
 
   const withSchedulerHelper = normalized.includes(
