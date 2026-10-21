@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 
+import { extractWasmUploadGlobs } from "./release-artifact-layout.mjs";
+
 const workflow = readFileSync(
   new URL(
     "../.github/workflows/release.yml",
@@ -23,6 +25,52 @@ const readJob = (name) => {
     ? workflow.slice(start)
     : workflow.slice(start, bodyStart + nextJob);
 };
+
+describe("release artifact layout", () => {
+  test("extracts the exact WASM binding upload globs", () => {
+    expect(extractWasmUploadGlobs(workflow)).toEqual([
+      "*.wasm",
+      "!*.debug.wasm",
+      "!aho-corasick.single-thread.wasm",
+      "*.cjs",
+      "*.d.cts",
+      "*.js",
+      "*.mjs",
+    ]);
+  });
+
+  test("rejects a renamed or duplicated WASM upload step", () => {
+    expect(() =>
+      extractWasmUploadGlobs(
+        workflow.replace(
+          "Upload WASM bindings",
+          "Upload renamed WASM bindings",
+        ),
+      ),
+    ).toThrow(
+      "Expected exactly one Upload WASM bindings step, found 0",
+    );
+    expect(() =>
+      extractWasmUploadGlobs(
+        `${workflow}\n      - name: Upload WASM bindings\n`,
+      ),
+    ).toThrow(
+      "Expected exactly one Upload WASM bindings step, found 2",
+    );
+  });
+
+  test("downloads napi and single-thread artifacts separately", () => {
+    for (const jobName of ["test", "pack"]) {
+      const job = readJob(jobName);
+      expect(job).toContain("pattern: bindings-*");
+      expect(job).toContain("name: single-thread-wasm");
+      expect(job).toContain("path: .");
+    }
+    expect(readJob("build")).toContain(
+      "name: Upload single-thread WASM",
+    );
+  });
+});
 
 describe("Rust release recovery", () => {
   test("validates synchronized versions before every crate publish", () => {

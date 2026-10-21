@@ -82,6 +82,21 @@ test("artifact runtime tests are explicitly scheduled after packaging", () => {
   }
 });
 
+test("single-thread CI validates the release artifact layout after building", () => {
+  const lines = read("../.github/workflows/ci.yml").split(
+    "\n",
+  );
+  const check = lines.findIndex(
+    (line) =>
+      line.trim() ===
+      "- run: node scripts/release-artifact-layout.mjs",
+  );
+  expect(check).toBeGreaterThan(0);
+  expect(lines[check - 1].trim()).toBe(
+    "- run: bun run build:wasm",
+  );
+});
+
 test("changeset policy covers every workspace crate source and manifest", () => {
   const workflow = Bun.YAML.parse(
     read("../.github/workflows/ci.yml"),
