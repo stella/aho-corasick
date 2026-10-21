@@ -33,9 +33,11 @@ jobs:
       - name: Require npm publishing from main
         env:
           RECOVER_FROM_RUN: ${{ inputs.recover_from_run }}
+          PUBLISH_TO_NPM: ${{ inputs.publish_to_npm }}
+          SOURCE_REF: ${{ github.ref }}
         run: |
           set -euo pipefail
-          if [[ "${{ inputs.publish_to_npm }}" != "true" || "${{ github.ref }}" != "refs/heads/main" ]]; then
+          if [[ "$PUBLISH_TO_NPM" != "true" || "$SOURCE_REF" != "refs/heads/main" ]]; then
             echo "::error::Recovery requires npm publishing from main."
             exit 1
           fi
@@ -452,7 +454,8 @@ jobs:
               --repo "${{ github.repository }}" \
               --signer-workflow "${{ github.repository }}/.github/workflows/release.yml" \
               --source-ref refs/heads/main \
-              --source-digest "$SOURCE_SHA"
+              --source-digest "$SOURCE_SHA" \
+              --predicate-type https://cyclonedx.org/bom
           done
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:

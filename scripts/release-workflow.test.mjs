@@ -165,6 +165,12 @@ describe("attested npm release recovery", () => {
     expect(recover).toContain(
       '--signer-workflow "${{ github.repository }}/.github/workflows/release.yml"',
     );
+    // The attest job signs a CycloneDX SBOM (sbom-path), not SLSA provenance,
+    // so recovery must verify that predicate or it refuses valid tarballs.
+    expect(readJob("attest")).toContain("sbom-path:");
+    expect(recover).toContain(
+      "--predicate-type https://cyclonedx.org/bom",
+    );
     expect(
       recover.indexOf("gh attestation verify"),
     ).toBeLessThan(
