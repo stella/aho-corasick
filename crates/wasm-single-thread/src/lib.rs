@@ -438,7 +438,7 @@ mod tests {
   fn execute(state: &mut State, command: &Command<'_>) -> Vec<u8> {
     state.input = command.encode();
     let ptr = state.input.as_ptr();
-    assert_eq!(state.run(), 0, "{}", String::from_utf8_lossy(&state.output));
+    assert_eq!(state.run(), 0, "{:?}", std::str::from_utf8(&state.output));
     assert_eq!(state.input.as_ptr(), ptr);
     state.output.clone()
   }
@@ -565,7 +565,7 @@ mod tests {
     for handle in [id, restored] {
       assert_matcher(&mut state, handle, &prepared);
     }
-    assert!(
+    assert_eq!(
       execute(
         &mut state,
         &Command {
@@ -573,8 +573,8 @@ mod tests {
           id,
           ..Command::default()
         }
-      )
-      .is_empty()
+      ),
+      Vec::<u8>::new()
     );
     state.input = Command {
       op: 4,
@@ -597,7 +597,7 @@ mod tests {
         ..Command::default()
       },
     ));
-    assert!(
+    assert_eq!(
       execute(
         &mut state,
         &Command {
@@ -606,8 +606,8 @@ mod tests {
           payload: b"a",
           ..Command::default()
         }
-      )
-      .is_empty()
+      ),
+      Vec::<u8>::new()
     );
     assert_eq!(
       execute(
@@ -621,7 +621,7 @@ mod tests {
       ),
       packed_bytes(vec![0, 0, 2])
     );
-    assert!(
+    assert_eq!(
       execute(
         &mut state,
         &Command {
@@ -629,10 +629,10 @@ mod tests {
           id,
           ..Command::default()
         }
-      )
-      .is_empty()
+      ),
+      Vec::<u8>::new()
     );
-    assert!(
+    assert_eq!(
       execute(
         &mut state,
         &Command {
@@ -640,8 +640,8 @@ mod tests {
           id,
           ..Command::default()
         }
-      )
-      .is_empty()
+      ),
+      Vec::<u8>::new()
     );
     assert_eq!(
       execute(
@@ -666,7 +666,11 @@ mod tests {
     }
     .encode();
     for len in 0..valid.len() {
-      assert!(Request::parse(&valid[..len]).is_err());
+      assert!(
+        valid
+          .get(..len)
+          .is_some_and(|prefix| Request::parse(prefix).is_err())
+      );
     }
     let mut invalid_utf8 = Command {
       op: 1,
