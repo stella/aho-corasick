@@ -7,6 +7,25 @@ const GENERATED_TYPECHECK_OPT_OUT =
 const ARTIFACT_METADATA_PREFIX =
   "// napi-rs-artifact-metadata:";
 
+const EMNAPI_PLUGIN_COMPATIBILITY = `function __withEmnapiBetaPluginContext(plugin) {
+  return (context) =>
+    plugin(Object.assign({}, context, { napiModule: context.addonModule }))
+}
+
+`;
+
+const EMNAPI_PLUGIN_LIST = `plugins: [
+      __captureWasiThreadManager,
+      __emnapiAsyncWorkPlugin,
+      __emnapiTSFNPlugin,
+    ],`;
+
+const EMNAPI_COMPATIBLE_PLUGIN_LIST = `plugins: [
+      __captureWasiThreadManager,
+      __withEmnapiBetaPluginContext(__emnapiAsyncWorkPlugin),
+      __withEmnapiBetaPluginContext(__emnapiTSFNPlugin),
+    ],`;
+
 const GENERATED_WASI_WORKER_FACTORY = `function __createWasiWorker(filename) {
   let __workerExecArgv = __getWasiWorkerExecArgv()
   while (true) {
@@ -203,6 +222,7 @@ export const normalizeGeneratedLoader = (
     .replace(RETRYABLE_RUNTIME_CLEANUP, makeRuntimeCleanupRetryable)
     .replace(GENERATED_WASI_WORKER_FACTORY, NORMALIZED_WASI_WORKER_FACTORY)
     .replace(GENERATED_BROWSER_WORKER, NORMALIZED_BROWSER_WORKER)
+    .replace(EMNAPI_PLUGIN_LIST, EMNAPI_COMPATIBLE_PLUGIN_LIST)
     .replace(/[ \t]+$/gmu, "");
 
   const withSchedulerHelper = normalized.includes(
@@ -214,7 +234,17 @@ export const normalizeGeneratedLoader = (
         `${SAFE_SCHEDULER_HELPER}${RUNTIME_POLL_MARKER}`,
       );
 
-  return keepGeneratedTypecheckOptOut
-    ? addTypecheckHeader(withSchedulerHelper)
+  const needsPluginCompatibility =
+    withSchedulerHelper.includes("__withEmnapiBetaPluginContext(") &&
+    !withSchedulerHelper.includes("function __withEmnapiBetaPluginContext(");
+  const withPluginCompatibility = needsPluginCompatibility
+    ? withSchedulerHelper.replace(
+        RUNTIME_POLL_MARKER,
+        `${EMNAPI_PLUGIN_COMPATIBILITY}${RUNTIME_POLL_MARKER}`,
+      )
     : withSchedulerHelper;
+
+  return keepGeneratedTypecheckOptOut
+    ? addTypecheckHeader(withPluginCompatibility)
+    : withPluginCompatibility;
 };

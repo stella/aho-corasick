@@ -48,6 +48,85 @@ Prebuilts are available for:
 | Linux (glibc) | x64, arm64   |
 | WASM          | browser      |
 
+### Single-thread browser and WebView entry
+
+`@stll/aho-corasick-wasm/single-thread` loads a separate
+`wasm32-unknown-unknown` build of the shared Rust core. It requires neither
+`SharedArrayBuffer`, a worker, nor COOP/COEP headers. Import has no fetch or
+WebAssembly allocation; initialization is explicit. Matcher construction and
+all search methods are synchronous after initialization. Patterns, haystacks,
+and replacement strings use Unicode scalars; offsets index the normalized
+well-formed string in UTF-16 code units.
+
+Bulk byte inputs copy directly into WASM linear memory; strings encode into
+that memory without JSON or numeric-array expansion. Request storage grows
+with the encoded input size and is reused across calls. Matcher state,
+case-fold mappings, and returned matches require their own memory.
+
+The default entry requires caller-supplied bytes or a URL. It never chooses
+an asset URL automatically:
+
+```ts
+import {
+  init,
+  AhoCorasick,
+} from "@stll/aho-corasick-wasm/single-thread";
+
+// Copy the exported single-thread/wasm asset into your extension's assets.
+await init(
+  chrome.runtime.getURL(
+    "assets/aho-corasick.single-thread.wasm",
+  ),
+);
+const matcher = new AhoCorasick(["foo", "bar"]);
+matcher.findIter("foo bar");
+```
+
+`init(url)` fetches bytes and calls `WebAssembly.instantiate`; it does not
+require a WASM MIME type. `init(request)` accepts a caller-supplied `Request`;
+`init(response)` consumes an existing successful `Response` without fetching.
+These inputs and byte buffers can come from another realm. Byte inputs include
+`ArrayBuffer` and its views (including `Buffer` and `DataView`); only the view's
+byte range is used. `init(bytes)` performs no I/O. For bytes already
+available to an injected script, `initSync(bytes)` performs no I/O and returns
+immediately. The asset is exported as
+`@stll/aho-corasick-wasm/single-thread/wasm` for bundlers or copying.
+
+For a self-contained bundle, opt into the inline entry:
+
+```ts
+import {
+  initSync,
+  AhoCorasick,
+} from "@stll/aho-corasick-wasm/single-thread/inline";
+
+initSync(); // Decode embedded base64 and instantiate synchronously; no fetch.
+new AhoCorasick(["clipboard", "highlight"]).isMatch(
+  "clipboard",
+);
+```
+
+Inline import also defers decoding and memory allocation until `initSync()`.
+Base64 adds `4 * ceil(wasmBytes / 3) - wasmBytes` bytes before compression,
+approximately 33%. Every build measures raw, base64, and gzip sizes, prints
+them in the build log, and includes the exact values in
+`wasm/dist/single-thread-size.json`. URL loading avoids adding those base64
+bytes to the JavaScript bundle. The package includes both options.
+
+Neither entry uses `eval`, `new Function`, blob URLs, or worker startup. CSP
+still governs WebAssembly compilation: Chromium-based extension pages and
+WebViews generally need `script-src 'self' 'wasm-unsafe-eval'`. A literal
+`script-src 'self'` policy that forbids WASM compilation cannot run this or any
+other compiling WASM loader. Tauri can bundle the raw asset and pass bytes or
+its permitted asset URL without cross-origin isolation; configure its WebView
+CSP to allow WebAssembly. Caller URL loading must also be allowed by
+`connect-src` and the platform's asset permissions. Inline initialization
+needs no network permission.
+
+The original package entry retains its threaded loader. Both entries share
+the public API, including prepared automata, named patterns, buffer search,
+and streaming; initializing one entry does not rebind the other's classes.
+
 ## Usage
 
 ```typescript
@@ -270,7 +349,7 @@ type ByteMatch = {
   handles one-to-one folds like Turkish `İ -> i`
   and `ẞ -> ß`, but it does not perform full
   multi-character expansions such as `ß -> ss`.
-- **WASM requires `SharedArrayBuffer`.** Browser
+- **The default threaded WASM entry requires `SharedArrayBuffer`.** Browser
   builds need `Cross-Origin-Opener-Policy: same-origin`
   and `Cross-Origin-Embedder-Policy: require-corp`
   headers. Edge runtimes without WASM support

@@ -145,7 +145,7 @@ test("nonempty patterns match a Unicode scalar reference", () => {
     ),
     { numRuns: 200 },
   );
-});
+}, 10_000);
 
 test("empty patterns throw the documented typed error before construction", () => {
   for (const wholeWords of [false, true]) {

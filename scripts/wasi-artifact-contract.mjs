@@ -6,6 +6,7 @@ import {
   readWasiWorkflow,
   readWasiPackage,
 } from "./release-script-inputs.mjs";
+import { validateWasmBuildCommands } from "./wasm-build-command.mjs";
 
 const root = new URL("../", import.meta.url);
 const metadataPrefix = "// napi-rs-artifact-metadata:";
@@ -54,24 +55,7 @@ const workflowContract = async () => {
   ).json();
   const { targets: napiTargets, scripts } =
     readWasiPackage(manifest);
-  for (const scriptName of [
-    "build",
-    "build:debug",
-    "build:wasm",
-  ]) {
-    const command = scripts[scriptName];
-    if (
-      typeof command !== "string" ||
-      !command.startsWith(
-        "node scripts/build-native.mjs ",
-      ) ||
-      command.includes("&&")
-    ) {
-      throw new Error(
-        `${scriptName} must forward arguments directly to build-native.mjs`,
-      );
-    }
-  }
+  validateWasmBuildCommands(scripts);
   const workflowTargets = settings.map(
     ({ target }) => target,
   );

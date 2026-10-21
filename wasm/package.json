@@ -34,10 +34,22 @@
     "./vite": {
       "types": "./dist/vite.d.mts",
       "import": "./dist/vite.mjs"
-    }
+    },
+    "./single-thread": {
+      "types": "./dist/single-thread.d.mts",
+      "import": "./dist/single-thread.mjs"
+    },
+    "./single-thread/inline": {
+      "types": "./dist/single-thread-inline.d.mts",
+      "import": "./dist/single-thread-inline.mjs"
+    },
+    "./single-thread/wasm": "./dist/aho-corasick.single-thread.wasm"
   },
   "publishConfig": {
     "access": "public"
+  },
+  "scripts": {
+    "prepack": "cd .. && bun run build:wasm && bun run build:js"
   },
   "dependencies": {
     "@emnapi/core": "2.0.0-beta.1",
