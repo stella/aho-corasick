@@ -243,6 +243,7 @@ jobs:
       - run: bun install --frozen-lockfile
       - run: cargo test -p stella-aho-corasick-wasm-single-thread --locked
       - run: bun run build:wasm
+      - run: node scripts/release-artifact-layout.mjs
       - run: bun run build:js
       - run: bun run test:single-thread
 
