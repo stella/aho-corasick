@@ -553,28 +553,17 @@ jobs:
           jq --exit-status --arg version "$version" \
             '.versions | any(.num == $version && .yanked == false)' <<<"$crate" >/dev/null
 
-  recover-core:
-    name: Recover existing Rust core publication
-    needs: recover-core-check
-    if: inputs.recover_from_run != '' && needs.recover-core-check.result == 'success'
-    uses: stella/.github/.github/workflows/crates-io-publish.yml@07debc754995bab35e446511859f1d93e1ad127a
-    with:
-      crate-name: stella-aho-corasick-core
-      manifest-path: crates/core/Cargo.toml
-    permissions:
-      contents: read
-      attestations: write
-      id-token: write
-
   finalize:
     name: Finalize
+    # Recovery publishes only missing npm packages: the Rust core must already
+    # be on crates.io, so no recovery job packages or publishes the crate.
     needs:
-      [preflight, pack, attest, core, recover, recover-core]
+      [preflight, pack, attest, core, recover, recover-core-check]
     if: >-
       always() && github.ref == 'refs/heads/main' && (
         (inputs.recover_from_run != ''
          && needs.recover.result == 'success'
-         && needs.recover-core.result == 'success')
+         && needs.recover-core-check.result == 'success')
         || (inputs.recover_from_run == ''
         &&
         needs.preflight.outputs.already-released != 'true'

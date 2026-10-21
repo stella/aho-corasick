@@ -159,19 +159,21 @@ describe("attested npm release recovery", () => {
 
   test("finalize accepts only successful recovery jobs in recovery mode", () => {
     const finalize = readJob("finalize");
-    expect(finalize).toContain("recover, recover-core");
+    expect(finalize).toContain("recover, recover-core-check");
     expect(finalize).toContain(
       "needs.recover.result == 'success'",
     );
     expect(finalize).toContain(
-      "needs.recover-core.result == 'success'",
+      "needs.recover-core-check.result == 'success'",
     );
-    expect(readJob("recover-core")).toContain(
-      "needs: recover-core-check",
-    );
-    expect(readJob("recover-core-check")).toContain(
-      "https://crates.io/api/v1/crates/",
-    );
+    const coreCheck = readJob("recover-core-check");
+    expect(coreCheck).toContain("https://crates.io/api/v1/crates/");
+    // Recovery never packages or publishes the crate, so it gains no
+    // publishing credential.
+    for (const job of ["recovery-ref", "recover", "recover-core-check"]) {
+      expect(readJob(job)).not.toContain("id-token: write");
+      expect(readJob(job)).not.toContain("crates-io-publish.yml");
+    }
   });
 });
 
@@ -197,7 +199,7 @@ test("privileged shared publishers match the release policy pin", () => {
       /uses: stella\/\.github\/\.github\/workflows\/(?:crates-io-publish|npm-version-finalize)\.yml@([0-9a-f]{40})/gu,
     ),
   ];
-  expect(publishers).toHaveLength(4);
+  expect(publishers).toHaveLength(3);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(expectedPin);
 });
