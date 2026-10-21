@@ -1,5 +1,22 @@
 # Changelog
 
+## 2.0.0
+
+### Major Changes
+
+- [#218](https://github.com/stella/aho-corasick/pull/218) [`c9ce986`](https://github.com/stella/aho-corasick/commit/c9ce986785d7810f69c0f917de0ec63c8362b41b) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Requires Node 20.19+ / 22.13+ / 23.5+.
+  Updates the WebAssembly runtime to emnapi 2.
+
+### Minor Changes
+
+- [#196](https://github.com/stella/aho-corasick/pull/196) [`99df219`](https://github.com/stella/aho-corasick/commit/99df21937fdd4833e78223b7dae3af9b2c09c647) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Add a single-thread WebAssembly entry with explicit initialization from bytes or a URL, and an optional inline entry for synchronous initialization without I/O.
+
+  Normalize string patterns and haystacks to Unicode scalars, retaining UTF-16 offsets in the normalized text.
+
+### Patch Changes
+
+- [#218](https://github.com/stella/aho-corasick/pull/218) [`c9ce986`](https://github.com/stella/aho-corasick/commit/c9ce986785d7810f69c0f917de0ec63c8362b41b) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Normalize generated WASI loaders and preserve cleanup work when scheduling fails.
+
 ## 1.1.1
 
 ### Patch Changes
