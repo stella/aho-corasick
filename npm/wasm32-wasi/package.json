@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick-wasm32-wasi",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "cpu": [
     "wasm32"
   ],
@@ -27,7 +27,7 @@
   "homepage": "https://github.com/stella/aho-corasick#readme",
   "license": "Apache-2.0",
   "engines": {
-    "node": ">= 18"
+    "node": "^20.19.0 || ^22.13.0 || >=23.5.0"
   },
   "repository": {
     "type": "git",
@@ -41,8 +41,8 @@
   },
   "browser": "aho-corasick.wasi-browser.js",
   "dependencies": {
-    "@emnapi/core": "2.0.0-alpha.3",
-    "@emnapi/runtime": "2.0.0-alpha.3",
-    "@napi-rs/wasm-runtime": "1.2.2"
+    "@emnapi/core": "2.0.0-beta.1",
+    "@emnapi/runtime": "2.0.0-beta.1",
+    "@napi-rs/wasm-runtime": "1.2.5"
   }
 }

@@ -19,15 +19,12 @@ const requiredEntries = async () => {
     throw new Error("No root WASI binding metadata found");
   }
 
-  const firstLine = (
+  const metadataLine = (
     await Bun.file(new URL(binding, root)).text()
   )
-    .split("\n", 1)
-    .at(0);
-  if (
-    firstLine === undefined ||
-    !firstLine.startsWith(metadataPrefix)
-  ) {
+    .split("\n", 2)
+    .find((line) => line.startsWith(metadataPrefix));
+  if (metadataLine === undefined) {
     throw new Error(
       `${binding} has no NAPI-RS artifact metadata`,
     );
@@ -35,7 +32,7 @@ const requiredEntries = async () => {
 
   /** @type {unknown} */
   const metadata = JSON.parse(
-    firstLine.slice(metadataPrefix.length),
+    metadataLine.slice(metadataPrefix.length),
   );
   const rootEntry = readWasiRootEntry(metadata);
   return rootEntry === null || rootEntry === ""

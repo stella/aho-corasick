@@ -1,6 +1,6 @@
 {
   "name": "@stll/aho-corasick",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
   "keywords": [
     "aho-corasick",
@@ -19,9 +19,6 @@
     "type": "git",
     "url": "git+https://github.com/stella/aho-corasick.git"
   },
-  "workspaces": [
-    "__bench__"
-  ],
   "files": [
     "NOTICE",
     "dist",
@@ -50,7 +47,7 @@
     "universal": "napi universal",
     "build:js": "node scripts/ensure-wasm-artifact.mjs && tsdown && node scripts/fix-napi-loader.mjs && node scripts/check-wasm-compat.mjs && node scripts/pack-single-thread.mjs",
     "prepublishOnly": "napi prepublish -t npm && tsdown && node scripts/fix-napi-loader.mjs",
-    "test": "bun run check:release-artifacts && bun test __test__/index.spec.ts scripts/version-sync.test.mjs scripts/release-workflow.test.mjs __test__/single-thread-import.spec.ts scripts/wasm-build-pipeline.test.mjs",
+    "test": "bun run check:release-artifacts && bun test __test__/index.spec.ts scripts/engine-ranges.test.mjs scripts/generated-loader-normalization.test.mjs scripts/version-sync.test.mjs scripts/release-workflow.test.mjs __test__/single-thread-import.spec.ts scripts/wasm-build-pipeline.test.mjs",
     "test:props": "bun test __test__/properties.spec.ts",
     "test:runtime:bun": "bun scripts/runtime-smoke.mjs && bun scripts/compiled-smoke.mjs",
     "test:runtime:node": "node scripts/runtime-smoke.mjs",
@@ -74,7 +71,6 @@
     "bench:correctness": "bun __bench__/correctness.ts",
     "bench:buf": "bun __bench__/buf-vs-string.ts",
     "bench:all": "bun __bench__/speed.ts && bun __bench__/unicode.ts && bun __bench__/correctness.ts && bun __bench__/buf-vs-string.ts",
-    "bench:install": "cd __bench__ && bun install",
     "bench:download": "bash __bench__/download-corpus.sh",
     "sync-ai": "bash scripts/sync-ai-skills.sh",
     "sync-ai:check": "bash scripts/sync-ai-skills.sh --check",
@@ -86,21 +82,26 @@
   "devDependencies": {
     "@changesets/changelog-github": "^1.0.1",
     "@changesets/cli": "^3.0.3",
-    "@emnapi/core": "2.0.0-alpha.5",
-    "@emnapi/runtime": "2.0.0-alpha.5",
+    "@emnapi/core": "2.0.0-beta.1",
+    "@emnapi/runtime": "2.0.0-beta.1",
+    "@monyone/aho-corasick": "1.5.10",
     "@napi-rs/cli": "3.10.8",
     "@napi-rs/wasm-runtime": "1.2.5",
     "@stll/oxlint-config": "1.4.0",
     "@stll/oxlint-plugin": "0.2.2",
     "@stll/typescript-config": "0.8.0",
+    "@tanishiking/aho-corasick": "0.0.1",
     "@tybys/wasm-util": "^0.10.4",
     "@types/node": "^26.6.5",
+    "ahocorasick": "1.0.2",
     "bun-types": "1.4.3",
-    "emnapi": "2.0.0-alpha.5",
+    "emnapi": "2.0.0-beta.1",
     "fast-check": "^4.10.2",
+    "modern-ahocorasick": "3.3.0",
     "oxfmt": "0.72.0",
     "oxlint": "1.87.0",
     "oxlint-tsgolint": "7.0.2003",
+    "semver": "7.8.5",
     "tsdown": "0.23.0",
     "typescript": "7.0.2",
     "vite": "^8.3.4"
@@ -118,7 +119,7 @@
   },
   "engines": {
     "bun": ">=1.4.1",
-    "node": ">= 18"
+    "node": "^20.19.0 || ^22.13.0 || >=23.5.0"
   },
   "packageManager": "bun@1.4.3"
 }

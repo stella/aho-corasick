@@ -1,5 +1,21 @@
 # Changelog
 
+## 1.1.1
+
+### Patch Changes
+
+- [#174](https://github.com/stella/aho-corasick/pull/174) [`c733c06`](https://github.com/stella/aho-corasick/commit/c733c06b910ceb8bf211ccd6875fbba51afbca16) Thanks [@jan-kubica](https://github.com/jan-kubica)! - License the packages under Apache-2.0 and update the published license metadata.
+
+- [#152](https://github.com/stella/aho-corasick/pull/152) [`7f7f57f`](https://github.com/stella/aho-corasick/commit/7f7f57f3faa70a523c8f9e3db069971caab80138) Thanks [@dependabot](https://github.com/apps/dependabot)! - Update the emnapi WASM runtime and build tooling, then regenerate its loaders.
+
+- [#185](https://github.com/stella/aho-corasick/pull/185) [`a6535f6`](https://github.com/stella/aho-corasick/commit/a6535f68a57615549b52f6fd3da199378402d4dd) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Update the napi and bon crates and the WASM runtime build tooling.
+
+- [#209](https://github.com/stella/aho-corasick/pull/209) [`c0681f1`](https://github.com/stella/aho-corasick/commit/c0681f1af2c58c4b082bbf2aad4661142db54694) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Load the native binding with a static import so `bun build --compile` binaries can bundle it.
+
+- [#195](https://github.com/stella/aho-corasick/pull/195) [`8738cf5`](https://github.com/stella/aho-corasick/commit/8738cf5a0b5b08a33bca5b5c8a7aea13dec90ff9) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Reject empty patterns at construction and preparation with `EmptyPatternError` (`ERR_EMPTY_PATTERN`, including `patternIndex`) in the JavaScript API, and an inspectable empty-pattern index on the existing Rust error type. Empty pattern arrays remain valid. Prepared automata containing empty patterns are rejected too. This changes the previous empty-pattern behavior.
+
+  Keep string search ranges on Unicode scalar boundaries, including case-folded searches.
+
 ## 1.1.0
 
 ### Minor Changes

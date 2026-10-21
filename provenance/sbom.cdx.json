@@ -1910,7 +1910,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",
       "evidence": {
         "identity": [
           {
@@ -1935,42 +1935,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+      "purl": "pkg:cargo/stella-aho-corasick-core@1.1.1",
       "type": "library",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
-      "evidence": {
-        "identity": [
-          {
-            "concludedValue": "Cargo.lock",
-            "confidence": 0.6,
-            "field": "purl",
-            "methods": [
-              {
-                "confidence": 0.6,
-                "technique": "manifest-analysis",
-                "value": "Cargo.lock"
-              }
-            ]
-          }
-        ]
-      },
-      "group": "",
-      "name": "stella-aho-corasick-wasm-single-thread",
-      "properties": [
-        {
-          "name": "SrcFile",
-          "value": "Cargo.lock"
-        }
-      ],
-      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
-      "type": "library",
-      "version": "1.1.0"
-    },
-    {
-      "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
       "evidence": {
         "identity": [
           {
@@ -1995,9 +1965,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
+      "purl": "pkg:cargo/stella-aho-corasick@1.1.1",
       "type": "library",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "bom-ref": "pkg:cargo/strsim@0.11.1",
@@ -2319,7 +2289,7 @@
           "name": "toyobayashi"
         }
       ],
-      "bom-ref": "pkg:npm/@emnapi/runtime@2.0.0-alpha.5",
+      "bom-ref": "pkg:npm/@emnapi/runtime@2.0.0-beta.1",
       "description": "emnapi runtime",
       "evidence": {
         "identity": [
@@ -2363,10 +2333,10 @@
           "value": "node_modules/@emnapi/runtime/package.json"
         }
       ],
-      "purl": "pkg:npm/%40emnapi/runtime@2.0.0-alpha.5",
+      "purl": "pkg:npm/%40emnapi/runtime@2.0.0-beta.1",
       "scope": "required",
       "type": "library",
-      "version": "2.0.0-alpha.5"
+      "version": "2.0.0-beta.1"
     },
     {
       "authors": [
@@ -2402,7 +2372,7 @@
             "location": "wasi-worker-browser.mjs#7"
           },
           {
-            "location": "wasi-worker.mjs#15"
+            "location": "wasi-worker.mjs#21"
           }
         ]
       },
@@ -2436,6 +2406,177 @@
       "scope": "required",
       "type": "library",
       "version": "1.2.5"
+    },
+    {
+      "authors": [
+        {
+          "name": "Kevin Deng <sxzz@sxzz.moe>"
+        }
+      ],
+      "bom-ref": "pkg:npm/@quansync/fs@1.1.0",
+      "description": "Filesystem utilities for Quansync",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/@quansync/fs/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/@quansync/fs/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "index.cjs#5"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/quansync-dev/fs#readme"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/quansync-dev/fs.git"
+        }
+      ],
+      "group": "@quansync",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+          }
+        }
+      ],
+      "name": "fs",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/@quansync/fs/package.json"
+        }
+      ],
+      "purl": "pkg:npm/%40quansync/fs@1.1.0",
+      "scope": "required",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
+      "bom-ref": "pkg:npm/acorn@8.19.0",
+      "description": "ECMAScript parser",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/acorn/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/acorn/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "scripts/generated-loader-normalization.test.mjs#2"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "https://github.com/acornjs/acorn"
+        },
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/acornjs/acorn.git"
+        }
+      ],
+      "group": "",
+      "licenses": [
+        {
+          "license": {
+            "id": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+          }
+        }
+      ],
+      "name": "acorn",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/acorn/package.json"
+        }
+      ],
+      "purl": "pkg:npm/acorn@8.19.0",
+      "scope": "required",
+      "type": "library",
+      "version": "8.19.0"
+    },
+    {
+      "authors": [
+        {
+          "name": "GitHub Inc."
+        }
+      ],
+      "bom-ref": "pkg:npm/semver@7.8.5",
+      "description": "The semantic version parser used by npm.",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "node_modules/semver/package.json",
+            "confidence": 0.7,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.7,
+                "technique": "manifest-analysis",
+                "value": "node_modules/semver/package.json"
+              }
+            ]
+          }
+        ],
+        "occurrences": [
+          {
+            "location": "scripts/engine-ranges.test.mjs#6"
+          }
+        ]
+      },
+      "externalReferences": [
+        {
+          "type": "vcs",
+          "url": "git+https://github.com/npm/node-semver.git"
+        }
+      ],
+      "group": "",
+      "licenses": [
+        {
+          "license": {
+            "id": "ISC",
+            "url": "https://opensource.org/licenses/ISC"
+          }
+        }
+      ],
+      "name": "semver",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "node_modules/semver/package.json"
+        }
+      ],
+      "purl": "pkg:npm/semver@7.8.5",
+      "scope": "required",
+      "type": "library",
+      "version": "7.8.5"
     },
     {
       "authors": [
@@ -2504,7 +2645,7 @@
   "compositions": [
     {
       "aggregate": "incomplete",
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0"
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.1"
     }
   ],
   "dependencies": [
@@ -2780,9 +2921,9 @@
         "pkg:cargo/napi-build@2.6.0",
         "pkg:cargo/napi-derive@3.6.12",
         "pkg:cargo/napi@3.14.2",
-        "pkg:cargo/stella-aho-corasick-core@1.1.0"
+        "pkg:cargo/stella-aho-corasick-core@1.1.1"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick@1.1.0"
+      "ref": "pkg:cargo/stella-aho-corasick@1.1.1"
     },
     {
       "dependsOn": [
@@ -2790,13 +2931,7 @@
         "pkg:cargo/daachorse@5.0.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-core@1.1.0"
-    },
-    {
-      "dependsOn": [
-        "pkg:cargo/stella-aho-corasick-core@1.1.0"
-      ],
-      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0"
+      "ref": "pkg:cargo/stella-aho-corasick-core@1.1.1"
     },
     {
       "dependsOn": [],
@@ -2832,7 +2967,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:npm/@stll/aho-corasick@1.1.0"
+      "ref": "pkg:npm/@stll/aho-corasick@1.1.1"
     }
   ],
   "metadata": {
@@ -2842,10 +2977,10 @@
       }
     ],
     "component": {
-      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.0",
+      "bom-ref": "pkg:npm/@stll/aho-corasick@1.1.1",
       "components": [
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -2862,34 +2997,12 @@
             }
           ],
           "name": "stella-aho-corasick",
-          "purl": "pkg:cargo/stella-aho-corasick@1.1.0",
+          "purl": "pkg:cargo/stella-aho-corasick@1.1.1",
           "type": "application",
-          "version": "1.1.0"
+          "version": "1.1.1"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
-          "externalReferences": [
-            {
-              "type": "vcs",
-              "url": "https://github.com/stella/aho-corasick"
-            }
-          ],
-          "group": "",
-          "licenses": [
-            {
-              "license": {
-                "id": "Apache-2.0",
-                "url": "https://opensource.org/licenses/Apache-2.0"
-              }
-            }
-          ],
-          "name": "stella-aho-corasick-wasm-single-thread",
-          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
-          "type": "library",
-          "version": "1.1.0"
-        },
-        {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -2910,9 +3023,9 @@
             }
           ],
           "name": "stella-aho-corasick-core",
-          "purl": "pkg:cargo/stella-aho-corasick-core@1.1.0",
+          "purl": "pkg:cargo/stella-aho-corasick-core@1.1.1",
           "type": "library",
-          "version": "1.1.0"
+          "version": "1.1.1"
         }
       ],
       "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -2936,9 +3049,9 @@
         }
       ],
       "name": "aho-corasick",
-      "purl": "pkg:npm/%40stll/aho-corasick@1.1.0",
+      "purl": "pkg:npm/%40stll/aho-corasick@1.1.1",
       "type": "application",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     "lifecycles": [
       {

@@ -238,7 +238,6 @@ public and the scripts are reproducible from the
 repo. Run it locally:
 
 ```bash
-bun run bench:install
 bun run bench:download
 bun run bench:all
 ```
@@ -384,9 +383,6 @@ bun test
 
 # Download benchmark corpora
 bun run bench:download
-
-# Install benchmark dependencies (alternatives)
-bun run bench:install
 
 # Run benchmarks
 bun run bench:speed       # Canterbury corpus

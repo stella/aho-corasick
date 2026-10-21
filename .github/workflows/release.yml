@@ -26,7 +26,7 @@ jobs:
       github.event_name == 'workflow_dispatch'
       && inputs.publish_to_npm
       && github.ref != 'refs/heads/main'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -40,7 +40,7 @@ jobs:
       github.event_name != 'workflow_dispatch'
       || inputs.publish_to_npm != true
       || github.ref == 'refs/heads/main'
-    uses: stella/.github/.github/workflows/npm-version-preflight.yml@5764ab66e4df84cfd2e642c7d7e4678261e668f8
+    uses: stella/.github/.github/workflows/npm-version-preflight.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       package-files: |
         package.json
@@ -61,7 +61,7 @@ jobs:
     name: Verify
     needs: preflight
     if: needs.preflight.outputs.already-released != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
@@ -98,7 +98,7 @@ jobs:
         run: cargo doc --workspace --no-deps
         env:
           RUSTDOCFLAGS: -Dwarnings
-      - uses: stella/.github/actions/provenance-check@5764ab66e4df84cfd2e642c7d7e4678261e668f8
+      - uses: stella/.github/actions/provenance-check@07debc754995bab35e446511859f1d93e1ad127a
         with:
           provenance-version: v0.1.3
       - run: bun run build
@@ -128,17 +128,17 @@ jobs:
             os: macos-15
             node_artifact: aho-corasick.darwin-arm64.node
           - target: x86_64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             node_artifact: aho-corasick.linux-x64-gnu.node
           - target: aarch64-unknown-linux-gnu
-            os: ubuntu-latest
+            os: ubuntu-24.04
             use-cross: true
             node_artifact: aho-corasick.linux-arm64-gnu.node
           - target: x86_64-pc-windows-msvc
             os: windows-latest
             node_artifact: aho-corasick.win32-x64-msvc.node
           - target: wasm32-wasip1-threads
-            os: ubuntu-latest
+            os: ubuntu-24.04
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -204,7 +204,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-15, windows-latest]
+        os: [ubuntu-24.04, macos-15, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -231,16 +231,23 @@ jobs:
           ls -la -- *.wasm 2>/dev/null || echo "No .wasm files"
       - run: bun run build:js
       - run: bun run test:single-thread
-      - run: bun test
+      # Repository tooling tests run on Linux in CI; other platforms verify
+      # the packaged library against its runtime tests.
+      - name: Test
+        if: runner.os == 'Linux'
+        run: bun test
+      - name: Test package runtime
+        if: runner.os != 'Linux'
+        run: bun test ./__test__
       - name: Property tests
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-24.04'
         run: bun run test:props
 
   pack:
     name: Pack
     needs: [preflight, verify, test]
     if: needs.preflight.outputs.already-released != 'true'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     steps:
@@ -336,7 +343,7 @@ jobs:
       github.ref == 'refs/heads/main' && (
         github.event_name == 'push'
         || inputs.publish_to_npm)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       attestations: write # Required to record artifact attestations.
       contents: read
@@ -361,7 +368,7 @@ jobs:
       || (github.ref == 'refs/heads/main'
           && (github.event_name == 'push'
               || inputs.publish_to_npm))
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: read
     env:
@@ -394,7 +401,7 @@ jobs:
         && needs.core-verify.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/crates-io-publish.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       crate-name: stella-aho-corasick-core
       manifest-path: crates/core/Cargo.toml
@@ -413,7 +420,7 @@ jobs:
         && needs.core-verify.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/crates-io-publish.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       crate-name: stella-aho-corasick-core
       manifest-path: crates/core/Cargo.toml
@@ -431,7 +438,7 @@ jobs:
         && needs.core.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/npm-version-finalize.yml@8f19eb7220047e5b06f6e75f0b9f908bfd01f5f6
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       package-files: |
         package.json
