@@ -383,7 +383,7 @@ jobs:
     name: Attest npm artifacts
     needs: pack
     if: >-
-      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
+      github.ref == 'refs/heads/main' && (
         github.event_name == 'push'
         || inputs.publish_to_npm)
     runs-on: ubuntu-24.04
@@ -493,7 +493,7 @@ jobs:
     needs:
       [preflight, verify, test, pack, attest, core-verify]
     if: >-
-      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
+      github.ref == 'refs/heads/main' && (
         needs.preflight.result == 'success'
         && needs.preflight.outputs.already-released != 'true'
         && needs.verify.result == 'success'
@@ -516,7 +516,7 @@ jobs:
     name: Recover Rust core publication
     needs: [preflight, core-verify]
     if: >-
-      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
+      github.ref == 'refs/heads/main' && (
         needs.preflight.result == 'success'
         && needs.preflight.outputs.already-released == 'true'
         && needs.core-verify.result == 'success'
@@ -555,21 +555,13 @@ jobs:
 
   finalize:
     name: Finalize
-    # Recovery publishes only missing npm packages: the Rust core must already
-    # be on crates.io, so no recovery job packages or publishes the crate.
-    needs:
-      [preflight, pack, attest, core, recover, recover-core-check]
+    needs: [preflight, pack, attest, core]
     if: >-
-      always() && github.ref == 'refs/heads/main' && (
-        (inputs.recover_from_run != ''
-         && needs.recover.result == 'success'
-         && needs.recover-core-check.result == 'success')
-        || (inputs.recover_from_run == ''
-        &&
+      github.ref == 'refs/heads/main' && (
         needs.preflight.outputs.already-released != 'true'
         && needs.core.result == 'success'
         && (github.event_name == 'push'
-            || inputs.publish_to_npm)))
+            || inputs.publish_to_npm))
     uses: stella/.github/.github/workflows/npm-version-finalize.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       package-files: |
@@ -584,6 +576,36 @@ jobs:
       publish-to-npm: >-
         ${{ github.event_name == 'push'
             || (inputs.publish_to_npm && github.ref == 'refs/heads/main') }}
+    permissions:
+      contents: write # Required to create the release tag and GitHub release.
+      id-token: write # Required only for npm trusted publishing.
+    secrets:
+      RELEASE_APP_ID: ${{ secrets.RELEASE_APP_ID }}
+      RELEASE_APP_PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
+
+  finalize-recovery:
+    name: Finalize recovered release
+    # Publishes only the npm packages a matching earlier run left missing,
+    # from that run's verified tarballs. The Rust core must already be on
+    # crates.io, so no recovery job packages or publishes the crate.
+    needs: [recover, recover-core-check]
+    if: >-
+      github.ref == 'refs/heads/main' && (
+        inputs.recover_from_run != ''
+        && inputs.publish_to_npm)
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@07debc754995bab35e446511859f1d93e1ad127a
+    with:
+      package-files: |
+        package.json
+        wasm/package.json
+        npm/darwin-arm64/package.json
+        npm/darwin-x64/package.json
+        npm/linux-arm64-gnu/package.json
+        npm/linux-x64-gnu/package.json
+        npm/wasm32-wasi/package.json
+        npm/win32-x64-msvc/package.json
+      publish-to-npm: >-
+        ${{ inputs.publish_to_npm && github.ref == 'refs/heads/main' }}
     permissions:
       contents: write # Required to create the release tag and GitHub release.
       id-token: write # Required only for npm trusted publishing.
