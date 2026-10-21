@@ -11,6 +11,11 @@ on:
         required: true
         default: false
         type: boolean
+      recover_from_run:
+        description: Source release workflow run ID for partial npm recovery
+        required: false
+        default: ""
+        type: string
 
 concurrency:
   group: release-${{ github.repository }}-${{ github.ref }}
@@ -20,6 +25,25 @@ permissions:
   contents: read
 
 jobs:
+  recovery-ref:
+    name: Validate recovery request
+    if: inputs.recover_from_run != ''
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require npm publishing from main
+        env:
+          RECOVER_FROM_RUN: ${{ inputs.recover_from_run }}
+        run: |
+          set -euo pipefail
+          if [[ "${{ inputs.publish_to_npm }}" != "true" || "${{ github.ref }}" != "refs/heads/main" ]]; then
+            echo "::error::Recovery requires npm publishing from main."
+            exit 1
+          fi
+          if [[ ! "$RECOVER_FROM_RUN" =~ ^[1-9][0-9]*$ ]]; then
+            echo "::error::Recovery requires a numeric source run ID."
+            exit 1
+          fi
+
   release-ref:
     name: Release ref
     if: >-
@@ -37,9 +61,10 @@ jobs:
   preflight:
     name: Preflight
     if: >-
-      github.event_name != 'workflow_dispatch'
-      || inputs.publish_to_npm != true
-      || github.ref == 'refs/heads/main'
+      inputs.recover_from_run == '' && (
+        github.event_name != 'workflow_dispatch'
+        || inputs.publish_to_npm != true
+        || github.ref == 'refs/heads/main')
     uses: stella/.github/.github/workflows/npm-version-preflight.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       package-files: |
@@ -60,7 +85,7 @@ jobs:
   verify:
     name: Verify
     needs: preflight
-    if: needs.preflight.outputs.already-released != 'true'
+    if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -113,7 +138,7 @@ jobs:
   build:
     name: Build - ${{ matrix.settings.target }}
     needs: [preflight, verify]
-    if: needs.preflight.outputs.already-released != 'true'
+    if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'
     runs-on: ${{ matrix.settings.os }}
     env:
       CARGO_INCREMENTAL: 0
@@ -207,7 +232,7 @@ jobs:
   test:
     name: Test (${{ matrix.os }})
     needs: [preflight, build]
-    if: needs.preflight.outputs.already-released != 'true'
+    if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -259,7 +284,7 @@ jobs:
   pack:
     name: Pack
     needs: [preflight, verify, test]
-    if: needs.preflight.outputs.already-released != 'true'
+    if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -358,7 +383,7 @@ jobs:
     name: Attest npm artifacts
     needs: pack
     if: >-
-      github.ref == 'refs/heads/main' && (
+      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
         github.event_name == 'push'
         || inputs.publish_to_npm)
     runs-on: ubuntu-24.04
@@ -377,15 +402,74 @@ jobs:
           subject-path: release-artifacts/*.tgz
           sbom-path: release-artifacts/attest-sbom.cdx.json
 
+  recover:
+    name: Recover attested npm artifacts
+    needs: recovery-ref
+    if: inputs.recover_from_run != '' && needs.recovery-ref.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      actions: read
+      attestations: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: Validate source workflow run
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RECOVER_FROM_RUN: ${{ inputs.recover_from_run }}
+        run: |
+          set -euo pipefail
+          gh api "/repos/${{ github.repository }}/actions/runs/$RECOVER_FROM_RUN" \
+            | bun scripts/release-recovery.mjs validate-run \
+                "${{ github.repository }}" "${{ github.sha }}"
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+          run-id: ${{ inputs.recover_from_run }}
+          github-token: ${{ github.token }}
+      - name: Verify release artifact checksums and inventory
+        run: |
+          set -euo pipefail
+          bun scripts/release-recovery.mjs validate-checksums release-artifacts
+          (cd release-artifacts && sha256sum --check --strict SHA256SUMS)
+      - name: Verify release artifact attestations
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SOURCE_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          tarballs=(release-artifacts/*.tgz)
+          ((${#tarballs[@]} > 0))
+          for file in "${tarballs[@]}"; do
+            gh attestation verify "$file" \
+              --repo "${{ github.repository }}" \
+              --signer-workflow "${{ github.repository }}/.github/workflows/release.yml" \
+              --source-ref refs/heads/main \
+              --source-digest "$SOURCE_SHA"
+          done
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: release-artifacts
+          path: release-artifacts
+          if-no-files-found: error
+
   core-verify:
     name: Verify Rust core package
     needs: preflight
     if: >-
+      inputs.recover_from_run == '' && (
       (github.event_name == 'workflow_dispatch'
        && inputs.publish_to_npm != true)
       || (github.ref == 'refs/heads/main'
           && (github.event_name == 'push'
-              || inputs.publish_to_npm))
+              || inputs.publish_to_npm)))
     runs-on: ubuntu-24.04
     permissions:
       contents: read
@@ -409,7 +493,7 @@ jobs:
     needs:
       [preflight, verify, test, pack, attest, core-verify]
     if: >-
-      github.ref == 'refs/heads/main' && (
+      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
         needs.preflight.result == 'success'
         && needs.preflight.outputs.already-released != 'true'
         && needs.verify.result == 'success'
@@ -432,7 +516,7 @@ jobs:
     name: Recover Rust core publication
     needs: [preflight, core-verify]
     if: >-
-      github.ref == 'refs/heads/main' && (
+      inputs.recover_from_run == '' && github.ref == 'refs/heads/main' && (
         needs.preflight.result == 'success'
         && needs.preflight.outputs.already-released == 'true'
         && needs.core-verify.result == 'success'
@@ -447,15 +531,56 @@ jobs:
       attestations: write
       id-token: write
 
+  recover-core-check:
+    name: Require existing Rust core publication
+    needs: recovery-ref
+    if: inputs.recover_from_run != '' && needs.recovery-ref.result == 'success'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Require VERSION on crates.io
+        env:
+          VERSION: ${{ github.workspace }}/VERSION
+        run: |
+          set -euo pipefail
+          version="$(cat "$VERSION")"
+          crate="$(curl --fail --silent --show-error \
+            https://crates.io/api/v1/crates/stella-aho-corasick-core)"
+          jq --exit-status --arg version "$version" \
+            '.versions | any(.num == $version && .yanked == false)' <<<"$crate" >/dev/null
+
+  recover-core:
+    name: Recover existing Rust core publication
+    needs: recover-core-check
+    if: inputs.recover_from_run != '' && needs.recover-core-check.result == 'success'
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@07debc754995bab35e446511859f1d93e1ad127a
+    with:
+      crate-name: stella-aho-corasick-core
+      manifest-path: crates/core/Cargo.toml
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+
   finalize:
     name: Finalize
-    needs: [preflight, pack, attest, core]
+    needs:
+      [preflight, pack, attest, core, recover, recover-core]
     if: >-
-      github.ref == 'refs/heads/main' && (
+      always() && github.ref == 'refs/heads/main' && (
+        (inputs.recover_from_run != ''
+         && needs.recover.result == 'success'
+         && needs.recover-core.result == 'success')
+        || (inputs.recover_from_run == ''
+        &&
         needs.preflight.outputs.already-released != 'true'
         && needs.core.result == 'success'
         && (github.event_name == 'push'
-            || inputs.publish_to_npm))
+            || inputs.publish_to_npm)))
     uses: stella/.github/.github/workflows/npm-version-finalize.yml@07debc754995bab35e446511859f1d93e1ad127a
     with:
       package-files: |

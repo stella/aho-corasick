@@ -118,6 +118,63 @@ describe("Rust release recovery", () => {
   });
 });
 
+describe("attested npm release recovery", () => {
+  test("skips every build, test, pack, and attest path", () => {
+    for (const jobName of [
+      "verify",
+      "build",
+      "test",
+      "pack",
+      "attest",
+      "core-verify",
+      "core",
+      "core-recovery",
+    ]) {
+      expect(readJob(jobName)).toContain(
+        "inputs.recover_from_run == ''",
+      );
+    }
+  });
+
+  test("downloads, verifies, and re-uploads the source run artifacts", () => {
+    const recover = readJob("recover");
+    expect(recover).toContain(
+      "run-id: ${{ inputs.recover_from_run }}",
+    );
+    expect(recover).toContain(
+      "github-token: ${{ github.token }}",
+    );
+    expect(recover).toContain(
+      "sha256sum --check --strict SHA256SUMS",
+    );
+    expect(recover).toContain(
+      '--signer-workflow "${{ github.repository }}/.github/workflows/release.yml"',
+    );
+    expect(
+      recover.indexOf("gh attestation verify"),
+    ).toBeLessThan(
+      recover.lastIndexOf("actions/upload-artifact@"),
+    );
+  });
+
+  test("finalize accepts only successful recovery jobs in recovery mode", () => {
+    const finalize = readJob("finalize");
+    expect(finalize).toContain("recover, recover-core");
+    expect(finalize).toContain(
+      "needs.recover.result == 'success'",
+    );
+    expect(finalize).toContain(
+      "needs.recover-core.result == 'success'",
+    );
+    expect(readJob("recover-core")).toContain(
+      "needs: recover-core-check",
+    );
+    expect(readJob("recover-core-check")).toContain(
+      "https://crates.io/api/v1/crates/",
+    );
+  });
+});
+
 test("privileged shared publishers match the release policy pin", () => {
   const expectedPin =
     "07debc754995bab35e446511859f1d93e1ad127a";
@@ -140,7 +197,7 @@ test("privileged shared publishers match the release policy pin", () => {
       /uses: stella\/\.github\/\.github\/workflows\/(?:crates-io-publish|npm-version-finalize)\.yml@([0-9a-f]{40})/gu,
     ),
   ];
-  expect(publishers).toHaveLength(3);
+  expect(publishers).toHaveLength(4);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(expectedPin);
 });
