@@ -1,8 +1,8 @@
 /* oxlint-disable typescript/strict-boolean-expressions -- Normalizer patterns and AST fixture nodes are untyped generated-source data. */
 import { parse } from "acorn";
 import { describe, expect, test } from "bun:test";
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
-import { readdirSync } from "node:fs";
 
 import { normalizeGeneratedLoader } from "./generated-loader-normalization.mjs";
 
@@ -436,23 +436,27 @@ return __createWasiWorker("worker.mjs")
 
   test("published runtime versions match the build manifest", () => {
     const rootManifest = JSON.parse(read("package.json"));
-    const manifests = ["package.json"];
-    for (const directory of ["npm", "wasm"]) {
-      for (const entry of readdirSync(
-        new URL(directory, root),
-        {
-          withFileTypes: true,
-        },
-      )) {
-        if (entry.isDirectory()) {
-          manifests.push(
-            `${directory}/${entry.name}/package.json`,
-          );
-        } else if (entry.name === "package.json") {
-          manifests.push(`${directory}/package.json`);
-        }
-      }
-    }
+    // Tracked manifests only: build outputs such as wasm/dist sit beside the
+    // package directories once a build has run, and carry no manifest.
+    const manifests = execFileSync(
+      "git",
+      [
+        "ls-files",
+        "--",
+        "package.json",
+        "npm/*/package.json",
+        "wasm/package.json",
+        "wasm/*/package.json",
+      ],
+      { cwd: root, encoding: "utf8" },
+    )
+      .split("\n")
+      .filter((path) => path !== "");
+    expect(manifests).toContain("package.json");
+    expect(manifests).toContain("wasm/package.json");
+    expect(
+      manifests.filter((path) => path.startsWith("npm/")).length,
+    ).toBeGreaterThan(0);
     const expected = rootManifest.devDependencies;
     for (const manifestPath of manifests) {
       const manifest = JSON.parse(read(manifestPath));
