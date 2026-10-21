@@ -1093,6 +1093,11 @@ function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
   }
 }
 
+function __withEmnapiBetaPluginContext(plugin) {
+  return (context) =>
+    plugin(Object.assign({}, context, { napiModule: context.addonModule }))
+}
+
 /**
  * One turn of the runtime-work poll.
  *
@@ -2249,8 +2254,8 @@ try {
     reuseWorker: true,
     plugins: [
       __captureWasiThreadManager,
-      __emnapiAsyncWorkPlugin,
-      __emnapiTSFNPlugin,
+      __withEmnapiBetaPluginContext(__emnapiAsyncWorkPlugin),
+      __withEmnapiBetaPluginContext(__emnapiTSFNPlugin),
     ],
     wasi: __wasi,
     onCreateWorker() {

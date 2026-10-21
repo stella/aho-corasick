@@ -1,6 +1,6 @@
 [package]
 name = "stella-aho-corasick-wasm-single-thread"
-version = "1.1.0"
+version = "1.1.1"
 edition = "2024"
 description = "Single-thread WebAssembly bridge for the Aho-Corasick core"
 license = "Apache-2.0"
@@ -14,7 +14,7 @@ categories = ["text-processing", "wasm"]
 crate-type = ["cdylib"]
 
 [dependencies]
-stella-aho-corasick-core = { version = "1.1.0", path = "../core" }
+stella-aho-corasick-core = { version = "1.1.1", path = "../core" }
 
 [lints]
 workspace = true

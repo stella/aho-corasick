@@ -367,7 +367,9 @@ pub extern "C" fn aho_input_alloc(len: u32) -> u32 {
       return 0;
     };
     if state.input.capacity() < len {
-      state.input.reserve_exact(len - state.input.len());
+      state
+        .input
+        .reserve_exact(len.saturating_sub(state.input.len()));
     }
     state.input.resize(len, 0);
     u32::try_from(state.input.as_ptr().addr()).unwrap_or(0)

@@ -290,7 +290,7 @@ jobs:
 
   ci-result:
     if: always()
-    needs: [check-changes, trust-check, changeset, checks, napi-ci, hawk]
+    needs: [check-changes, trust-check, changeset, checks, napi-ci, single-thread, hawk]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -312,12 +312,14 @@ jobs:
           CHANGESET_RESULT: ${{ needs.changeset.result }}
           CHECKS_RESULT: ${{ needs.checks.result }}
           NAPI_RESULT: ${{ needs.napi-ci.result }}
+          SINGLE_THREAD_RESULT: ${{ needs.single-thread.result }}
           HAWK_RESULT: ${{ needs.hawk.result }}
           RUST_CHANGED: ${{ needs.check-changes.outputs.rust-changed }}
         run: |
           test "$DETECTOR_RESULT" = success
           test "$CHECKS_RESULT" = success
           test "$NAPI_RESULT" = success
+          test "$SINGLE_THREAD_RESULT" = success
           if [ "$EVENT_NAME" = pull_request ]; then
             test "$TRUST_RESULT" = success
             test "$TRUSTED" = true

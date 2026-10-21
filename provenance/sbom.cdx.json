@@ -1940,7 +1940,7 @@
       "version": "1.1.1"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.1",
       "evidence": {
         "identity": [
           {
@@ -1965,9 +1965,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.1",
       "type": "library",
-      "version": "1.1.0"
+      "version": "1.1.1"
     },
     {
       "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
@@ -2967,7 +2967,7 @@
       "dependsOn": [
         "pkg:cargo/stella-aho-corasick-core@1.1.1"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0"
+      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.1"
     },
     {
       "dependsOn": [],
@@ -3038,7 +3038,7 @@
           "version": "1.1.1"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -3055,9 +3055,9 @@
             }
           ],
           "name": "stella-aho-corasick-wasm-single-thread",
-          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.1",
           "type": "library",
-          "version": "1.1.0"
+          "version": "1.1.1"
         },
         {
           "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",

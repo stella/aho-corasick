@@ -101,6 +101,25 @@ const workerConstructionsWithoutSharedData = (source) => {
 };
 
 describe("generated loader normalization", () => {
+  test("adapts bundled plugins to the emnapi beta context", () => {
+    const source = `/**
+ * One turn of the runtime-work poll.
+plugins: [
+      __captureWasiThreadManager,
+      __emnapiAsyncWorkPlugin,
+      __emnapiTSFNPlugin,
+    ],`;
+    const normalized = normalizeGeneratedLoader(source);
+    expect(normalized).toContain(
+      "plugin(Object.assign({}, context, { napiModule: context.addonModule }))",
+    );
+    expect(normalized).toContain(
+      "__withEmnapiBetaPluginContext(__emnapiAsyncWorkPlugin)",
+    );
+    expect(normalized).toContain(
+      "__withEmnapiBetaPluginContext(__emnapiTSFNPlugin)",
+    );
+  });
   test("keeps generated scheduling functions byte-identical", () => {
     const unnormalizedGeneratorOutput = read(
       "scripts/fixtures/generated-loader-scheduling.txt",
