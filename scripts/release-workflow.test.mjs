@@ -118,6 +118,85 @@ describe("Rust release recovery", () => {
   });
 });
 
+describe("attested npm release recovery", () => {
+  test("skips every build, test, pack, and attest path", () => {
+    for (const jobName of [
+      "preflight",
+      "verify",
+      "build",
+      "test",
+      "pack",
+      "core-verify",
+    ]) {
+      expect(readJob(jobName)).toContain(
+        "inputs.recover_from_run == ''",
+      );
+    }
+    // Privileged jobs keep the release policy's leading main-ref guard and
+    // are skipped in recovery through a gated dependency instead.
+    for (const [jobName, gatedDependency] of [
+      ["attest", "pack"],
+      ["core", "preflight"],
+      ["core-recovery", "preflight"],
+    ]) {
+      const job = readJob(jobName);
+      expect(job).toContain("github.ref == 'refs/heads/main' && (");
+      expect(job).not.toContain("inputs.recover_from_run");
+      expect(job).toMatch(
+        new RegExp(
+          `needs:\\s*(?:${gatedDependency}\\b|\\[[^\\]]*\\b${gatedDependency}\\b)`,
+          "u",
+        ),
+      );
+    }
+  });
+
+  test("downloads, verifies, and re-uploads the source run artifacts", () => {
+    const recover = readJob("recover");
+    expect(recover).toContain(
+      "run-id: ${{ inputs.recover_from_run }}",
+    );
+    expect(recover).toContain(
+      "github-token: ${{ github.token }}",
+    );
+    expect(recover).toContain(
+      "sha256sum --check --strict SHA256SUMS",
+    );
+    expect(recover).toContain(
+      '--signer-workflow "${{ github.repository }}/.github/workflows/release.yml"',
+    );
+    // The attest job signs a CycloneDX SBOM (sbom-path), not SLSA provenance,
+    // so recovery must verify that predicate or it refuses valid tarballs.
+    expect(readJob("attest")).toContain("sbom-path:");
+    expect(recover).toContain(
+      "--predicate-type https://cyclonedx.org/bom",
+    );
+    expect(
+      recover.indexOf("gh attestation verify"),
+    ).toBeLessThan(
+      recover.lastIndexOf("actions/upload-artifact@"),
+    );
+  });
+
+  test("finalize accepts only successful recovery jobs in recovery mode", () => {
+    // Recovery has its own finalizer: the normal one stays success-gated on
+    // build jobs that recovery skips, and the policy bans status functions.
+    expect(readJob("finalize")).not.toContain("recover");
+    const finalize = readJob("finalize-recovery");
+    expect(finalize).toContain("needs: [recover, recover-core-check]");
+    expect(finalize).toContain("inputs.recover_from_run != ''");
+    expect(finalize).not.toMatch(/\b(?:always|success|failure|cancelled)\s*\(/u);
+    const coreCheck = readJob("recover-core-check");
+    expect(coreCheck).toContain("https://crates.io/api/v1/crates/");
+    // Recovery never packages or publishes the crate, so it gains no
+    // publishing credential.
+    for (const job of ["recovery-ref", "recover", "recover-core-check"]) {
+      expect(readJob(job)).not.toContain("id-token: write");
+      expect(readJob(job)).not.toContain("crates-io-publish.yml");
+    }
+  });
+});
+
 test("privileged shared publishers match the release policy pin", () => {
   const expectedPin =
     "07debc754995bab35e446511859f1d93e1ad127a";
@@ -140,7 +219,7 @@ test("privileged shared publishers match the release policy pin", () => {
       /uses: stella\/\.github\/\.github\/workflows\/(?:crates-io-publish|npm-version-finalize)\.yml@([0-9a-f]{40})/gu,
     ),
   ];
-  expect(publishers).toHaveLength(3);
+  expect(publishers).toHaveLength(4);
   for (const publisher of publishers)
     expect(publisher.at(1)).toBe(expectedPin);
 });
