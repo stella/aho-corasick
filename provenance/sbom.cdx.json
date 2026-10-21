@@ -1940,6 +1940,36 @@
       "version": "1.1.1"
     },
     {
+      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+      "evidence": {
+        "identity": [
+          {
+            "concludedValue": "Cargo.lock",
+            "confidence": 0.6,
+            "field": "purl",
+            "methods": [
+              {
+                "confidence": 0.6,
+                "technique": "manifest-analysis",
+                "value": "Cargo.lock"
+              }
+            ]
+          }
+        ]
+      },
+      "group": "",
+      "name": "stella-aho-corasick-wasm-single-thread",
+      "properties": [
+        {
+          "name": "SrcFile",
+          "value": "Cargo.lock"
+        }
+      ],
+      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+      "type": "library",
+      "version": "1.1.0"
+    },
+    {
       "bom-ref": "pkg:cargo/stella-aho-corasick@1.1.1",
       "evidence": {
         "identity": [
@@ -2934,6 +2964,12 @@
       "ref": "pkg:cargo/stella-aho-corasick-core@1.1.1"
     },
     {
+      "dependsOn": [
+        "pkg:cargo/stella-aho-corasick-core@1.1.1"
+      ],
+      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0"
+    },
+    {
       "dependsOn": [],
       "ref": "pkg:cargo/strsim@0.11.1"
     },
@@ -3000,6 +3036,28 @@
           "purl": "pkg:cargo/stella-aho-corasick@1.1.1",
           "type": "application",
           "version": "1.1.1"
+        },
+        {
+          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+          "externalReferences": [
+            {
+              "type": "vcs",
+              "url": "https://github.com/stella/aho-corasick"
+            }
+          ],
+          "group": "",
+          "licenses": [
+            {
+              "license": {
+                "id": "Apache-2.0",
+                "url": "https://opensource.org/licenses/Apache-2.0"
+              }
+            }
+          ],
+          "name": "stella-aho-corasick-wasm-single-thread",
+          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@1.1.0",
+          "type": "library",
+          "version": "1.1.0"
         },
         {
           "bom-ref": "pkg:cargo/stella-aho-corasick-core@1.1.1",
