@@ -234,9 +234,10 @@ export const normalizeGeneratedLoader = (
         `${SAFE_SCHEDULER_HELPER}${RUNTIME_POLL_MARKER}`,
       );
 
-  const withPluginCompatibility = withSchedulerHelper.includes(
-    "__withEmnapiBetaPluginContext(",
-  )
+  const needsPluginCompatibility =
+    withSchedulerHelper.includes("__withEmnapiBetaPluginContext(") &&
+    !withSchedulerHelper.includes("function __withEmnapiBetaPluginContext(");
+  const withPluginCompatibility = needsPluginCompatibility
     ? withSchedulerHelper.replace(
         RUNTIME_POLL_MARKER,
         `${EMNAPI_PLUGIN_COMPATIBILITY}${RUNTIME_POLL_MARKER}`,

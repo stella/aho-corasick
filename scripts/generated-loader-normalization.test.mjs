@@ -119,6 +119,20 @@ plugins: [
     expect(normalized).toContain(
       "__withEmnapiBetaPluginContext(__emnapiTSFNPlugin)",
     );
+    expect(normalizeGeneratedLoader(normalized)).toBe(normalized);
+    expect(
+      normalized.split("function __withEmnapiBetaPluginContext(").length - 1,
+    ).toBe(1);
+  });
+  test("normalizing the checked-in loaders again changes nothing", () => {
+    const options = { keepGeneratedTypecheckOptOut: true };
+    for (const path of [
+      "aho-corasick.wasi.cjs",
+      "aho-corasick.wasi-browser.js",
+    ]) {
+      const loader = read(path);
+      expect(normalizeGeneratedLoader(loader, options)).toBe(loader);
+    }
   });
   test("keeps generated scheduling functions byte-identical", () => {
     const unnormalizedGeneratorOutput = read(
