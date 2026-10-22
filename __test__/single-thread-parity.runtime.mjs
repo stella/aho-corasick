@@ -1,3 +1,4 @@
+/* oxlint-disable no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved. */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
@@ -5,9 +6,9 @@ import { createRequire } from "node:module";
 import {
   AhoCorasick,
   EmptyPatternError,
-  StreamMatcher,
   init,
   initSync,
+  StreamMatcher,
 } from "../wasm/dist/single-thread.mjs";
 
 // Node provides the WASI API used by the existing threaded NAPI loader.
@@ -24,10 +25,7 @@ class ThreadedStream extends StreamMatcher {
   }
 }
 const bytes = readFileSync(
-  new URL(
-    "../aho-corasick.single-thread.wasm",
-    import.meta.url,
-  ),
+  new URL("../aho-corasick.single-thread.wasm", import.meta.url),
 );
 initSync(bytes);
 try {
@@ -50,14 +48,8 @@ try {
   ]) {
     const single = new AhoCorasick(["foo"]);
     const original = new ThreadedMatcher(["foo"]);
-    assert.equal(
-      original.replaceAll(text, [replacement]),
-      expected,
-    );
-    assert.equal(
-      single.replaceAll(text, [replacement]),
-      expected,
-    );
+    assert.equal(original.replaceAll(text, [replacement]), expected);
+    assert.equal(single.replaceAll(text, [replacement]), expected);
   }
   for (const construct of [
     () => new AhoCorasick([""], { wholeWords: true }),
@@ -86,10 +78,7 @@ try {
       text: "a\ud800b\udfff",
     },
   ];
-  for (const matchKind of [
-    "leftmost-first",
-    "leftmost-longest",
-  ]) {
+  for (const matchKind of ["leftmost-first", "leftmost-longest"]) {
     for (const caseInsensitive of [false, true]) {
       for (const wholeWords of [false, true]) {
         for (const unicodeBoundaries of [false, true]) {
@@ -102,40 +91,21 @@ try {
               dfa,
             };
             for (const { patterns, text } of corpus) {
-              const single = new AhoCorasick(
-                patterns,
-                options,
-              );
-              const original = new ThreadedMatcher(
-                patterns,
-                options,
-              );
-              assert.equal(
-                single.patternCount,
-                original.patternCount,
-              );
-              assert.deepEqual(
-                single.findIter(text),
-                original.findIter(text),
-              );
+              const single = new AhoCorasick(patterns, options);
+              const original = new ThreadedMatcher(patterns, options);
+              assert.equal(single.patternCount, original.patternCount);
+              assert.deepEqual(single.findIter(text), original.findIter(text));
               assert.deepEqual(
                 single.findOverlappingIter(text),
                 original.findOverlappingIter(text),
               );
-              assert.equal(
-                single.isMatch(text),
-                original.isMatch(text),
-              );
-              const replacements = patterns.map(
-                (_, index) => `[${index}]`,
-              );
+              assert.equal(single.isMatch(text), original.isMatch(text));
+              const replacements = patterns.map((_, index) => `[${index}]`);
               assert.equal(
                 single.replaceAll(text, replacements),
                 original.replaceAll(text, replacements),
               );
-              const encoded = new TextEncoder().encode(
-                text,
-              );
+              const encoded = new TextEncoder().encode(text);
               assert.deepEqual(
                 single.findIterBuf(encoded),
                 original.findIterBuf(encoded),
@@ -145,15 +115,13 @@ try {
                 original.isMatchBuf(encoded),
               );
               assert.deepEqual(
-                AhoCorasick.fromPrepared(
-                  original.toPrepared(),
-                ).findIter(text),
+                AhoCorasick.fromPrepared(original.toPrepared()).findIter(text),
                 original.findIter(text),
               );
               assert.deepEqual(
-                ThreadedMatcher.fromPrepared(
-                  single.toPrepared(),
-                ).findIter(text),
+                ThreadedMatcher.fromPrepared(single.toPrepared()).findIter(
+                  text,
+                ),
                 single.findIter(text),
               );
             }
@@ -171,34 +139,20 @@ try {
   const originalStream = new ThreadedStream(["foobar"]);
   for (const chunk of ["xxfo", "obarxx"]) {
     const encoded = new TextEncoder().encode(chunk);
-    assert.deepEqual(
-      stream.write(encoded),
-      originalStream.write(encoded),
-    );
+    assert.deepEqual(stream.write(encoded), originalStream.write(encoded));
   }
   assert.deepEqual(stream.flush(), originalStream.flush());
   stream.reset();
   originalStream.reset();
   assert.deepEqual(
     stream.write(new TextEncoder().encode("foobar")),
-    originalStream.write(
-      new TextEncoder().encode("foobar"),
-    ),
+    originalStream.write(new TextEncoder().encode("foobar")),
   );
   // Reinitializing the single entry never rebinds constructors of the threaded entry.
   await init(bytes);
-  assert.equal(
-    new ThreadedMatcher(["old"]).isMatch("old"),
-    true,
-  );
-  assert.equal(
-    new AhoCorasick(["new"]).isMatch("new"),
-    true,
-  );
+  assert.equal(new ThreadedMatcher(["old"]).isMatch("old"), true);
+  assert.equal(new AhoCorasick(["new"]).isMatch("new"), true);
 } finally {
-  const dispose = Reflect.get(
-    threaded,
-    Symbol.for("napi.rs.wasi.dispose"),
-  );
+  const dispose = Reflect.get(threaded, Symbol.for("napi.rs.wasi.dispose"));
   if (typeof dispose === "function") await dispose();
 }

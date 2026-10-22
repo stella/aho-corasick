@@ -22,14 +22,9 @@ export default defineConfig([
     sourcemap: true,
     hash: false,
     deps: {
-      neverBundle: [
-        /^@emnapi\/runtime$/,
-        /^@napi-rs\/wasm-runtime$/,
-      ],
+      neverBundle: [/^@emnapi\/runtime$/, /^@napi-rs\/wasm-runtime$/],
     },
-    plugins: [
-      wasmFetchGuardPlugin("@stll/aho-corasick-wasm"),
-    ],
+    plugins: [wasmFetchGuardPlugin("@stll/aho-corasick-wasm")],
     copy: [
       {
         from: "aho-corasick.wasm32-wasi.wasm",

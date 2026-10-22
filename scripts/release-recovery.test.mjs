@@ -20,9 +20,7 @@ const matchingRun = {
 
 describe("release recovery source run", () => {
   test("accepts a matching run", () => {
-    expect(() =>
-      validateWorkflowRun(matchingRun, expected),
-    ).not.toThrow();
+    expect(() => validateWorkflowRun(matchingRun, expected)).not.toThrow();
   });
 
   for (const { name, patch } of [
@@ -49,10 +47,7 @@ describe("release recovery source run", () => {
   ]) {
     test(`refuses ${name}`, () => {
       expect(() =>
-        validateWorkflowRun(
-          { ...matchingRun, ...patch },
-          expected,
-        ),
+        validateWorkflowRun({ ...matchingRun, ...patch }, expected),
       ).toThrow("Source run validation failed");
     });
   }
@@ -63,19 +58,13 @@ describe("release recovery checksums", () => {
 
   test("accepts an exact tarball inventory", () => {
     expect(() =>
-      validateChecksumInventory(
-        `${hash}  ./package.tgz\n`,
-        ["package.tgz"],
-      ),
+      validateChecksumInventory(`${hash}  ./package.tgz\n`, ["package.tgz"]),
     ).not.toThrow();
   });
 
   test("refuses a malformed SHA256SUMS entry", () => {
     expect(() =>
-      validateChecksumInventory(
-        `not-a-hash  ./package.tgz\n`,
-        ["package.tgz"],
-      ),
+      validateChecksumInventory(`not-a-hash  ./package.tgz\n`, ["package.tgz"]),
     ).toThrow("Invalid SHA256SUMS entry");
   });
 
@@ -90,10 +79,10 @@ describe("release recovery checksums", () => {
 
   test("refuses an unlisted tarball", () => {
     expect(() =>
-      validateChecksumInventory(
-        `${hash}  ./package.tgz\n`,
-        ["package.tgz", "extra.tgz"],
-      ),
+      validateChecksumInventory(`${hash}  ./package.tgz\n`, [
+        "package.tgz",
+        "extra.tgz",
+      ]),
     ).toThrow("Unlisted tarballs: extra.tgz");
   });
 

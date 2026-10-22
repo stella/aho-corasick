@@ -6,11 +6,7 @@ import { initBinding } from "./core";
 
 initBinding(native);
 
-export {
-  AhoCorasick,
-  StreamMatcher,
-  EmptyPatternError,
-} from "./core";
+export { AhoCorasick, StreamMatcher, EmptyPatternError } from "./core";
 
 export type {
   ByteMatch,

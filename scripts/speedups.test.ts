@@ -25,7 +25,5 @@ test("missing timings fail explicitly for every position", () => {
         : `Missing timing for ${names.at(count)}`,
     );
   }
-  expect(
-    speedupRows({ names: ["baseline"], times: [1] }),
-  ).toEqual([]);
+  expect(speedupRows({ names: ["baseline"], times: [1] })).toEqual([]);
 });

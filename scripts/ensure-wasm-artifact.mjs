@@ -4,22 +4,13 @@ import { access } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 
 const wasmPath = fileURLToPath(
-  new URL(
-    "../aho-corasick.wasm32-wasi.wasm",
-    import.meta.url,
-  ),
+  new URL("../aho-corasick.wasm32-wasi.wasm", import.meta.url),
 );
 const browserPath = fileURLToPath(
-  new URL(
-    "../aho-corasick.wasi-browser.js",
-    import.meta.url,
-  ),
+  new URL("../aho-corasick.wasi-browser.js", import.meta.url),
 );
 const singleThreadPath = fileURLToPath(
-  new URL(
-    "../aho-corasick.single-thread.wasm",
-    import.meta.url,
-  ),
+  new URL("../aho-corasick.single-thread.wasm", import.meta.url),
 );
 const root = fileURLToPath(new URL("../", import.meta.url));
 

@@ -32,8 +32,9 @@ bundled plugin so the generated WASM loader is not
 pre-bundled into broken asset URLs:
 
 ```typescript
-import stllAhoCorasickWasm from "@stll/aho-corasick-wasm/vite";
 import { defineConfig } from "vite";
+
+import stllAhoCorasickWasm from "@stll/aho-corasick-wasm/vite";
 
 export default defineConfig({
   plugins: [stllAhoCorasickWasm()],
@@ -67,17 +68,10 @@ The default entry requires caller-supplied bytes or a URL. It never chooses
 an asset URL automatically:
 
 ```ts
-import {
-  init,
-  AhoCorasick,
-} from "@stll/aho-corasick-wasm/single-thread";
+import { AhoCorasick, init } from "@stll/aho-corasick-wasm/single-thread";
 
 // Copy the exported single-thread/wasm asset into your extension's assets.
-await init(
-  chrome.runtime.getURL(
-    "assets/aho-corasick.single-thread.wasm",
-  ),
-);
+await init(chrome.runtime.getURL("assets/aho-corasick.single-thread.wasm"));
 const matcher = new AhoCorasick(["foo", "bar"]);
 matcher.findIter("foo bar");
 ```
@@ -96,14 +90,12 @@ For a self-contained bundle, opt into the inline entry:
 
 ```ts
 import {
-  initSync,
   AhoCorasick,
+  initSync,
 } from "@stll/aho-corasick-wasm/single-thread/inline";
 
 initSync(); // Decode embedded base64 and instantiate synchronously; no fetch.
-new AhoCorasick(["clipboard", "highlight"]).isMatch(
-  "clipboard",
-);
+new AhoCorasick(["clipboard", "highlight"]).isMatch("clipboard");
 ```
 
 Inline import also defers decoding and memory allocation until `initSync()`.
@@ -180,9 +172,7 @@ const sm = new StreamMatcher(["needle", "haystack"]);
 for await (const chunk of readableStream) {
   const matches = sm.write(chunk);
   for (const m of matches) {
-    console.log(
-      `Pattern ${m.pattern} ` + `at ${m.start}..${m.end}`,
-    );
+    console.log(`Pattern ${m.pattern} ` + `at ${m.start}..${m.end}`);
   }
 }
 

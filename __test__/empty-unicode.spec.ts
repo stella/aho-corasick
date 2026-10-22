@@ -2,16 +2,8 @@ import { expect, test } from "bun:test";
 import fc from "fast-check";
 import { createRequire } from "node:module";
 
-import type {
-  Match,
-  NativeBinding,
-  Options,
-} from "../src/core";
-import {
-  AhoCorasick,
-  EmptyPatternError,
-  StreamMatcher,
-} from "../src/index";
+import type { Match, NativeBinding, Options } from "../src/core";
+import { AhoCorasick, EmptyPatternError, StreamMatcher } from "../src/index";
 
 const scalar = fc
   .oneof(
@@ -34,11 +26,7 @@ const boundaries = (text: string) => {
 };
 
 // Enumerate literal matches independently of either engine binding.
-const reference = (
-  patterns: string[],
-  text: string,
-  longest: boolean,
-) => {
+const reference = (patterns: string[], text: string, longest: boolean) => {
   const all: Match[] = [];
   for (const start of boundaries(text)) {
     for (const [pattern, needle] of patterns.entries()) {
@@ -59,13 +47,9 @@ const reference = (
   let end = 0;
   for (const start of boundaries(text)) {
     if (start < end) continue;
-    const candidates = all.filter(
-      (match) => match.start === start,
-    );
+    const candidates = all.filter((match) => match.start === start);
     candidates.sort(
-      (a, b) =>
-        (longest ? b.end - a.end : 0) ||
-        a.pattern - b.pattern,
+      (a, b) => (longest ? b.end - a.end : 0) || a.pattern - b.pattern,
     );
     const match = candidates.at(0);
     if (!match) continue;
@@ -88,27 +72,18 @@ test("nonempty patterns match a Unicode scalar reference", () => {
       fc.boolean(),
       (text, generated, longest) => {
         const chars = Array.from(text);
-        const patterns = [
-          ...generated,
-          ...chars.slice(0, 3),
-        ];
-        if (chars.length > 0)
-          patterns.push(chars.slice(0, 2).join(""));
+        const patterns = [...generated, ...chars.slice(0, 3)];
+        if (chars.length > 0) patterns.push(chars.slice(0, 2).join(""));
         const options: Options = {
-          matchKind: longest
-            ? "leftmost-longest"
-            : "leftmost-first",
+          matchKind: longest ? "leftmost-longest" : "leftmost-first",
         };
         const expected = reference(patterns, text, longest);
-        const replacements = patterns.map(
-          (_, index) => `[${index}]`,
-        );
+        const replacements = patterns.map((_, index) => `[${index}]`);
         let replaced = "";
         let last = 0;
         for (const match of expected.selected) {
           replaced +=
-            text.slice(last, match.start) +
-            replacements[match.pattern];
+            text.slice(last, match.start) + replacements[match.pattern];
           last = match.end;
         }
         replaced += text.slice(last);
@@ -117,26 +92,15 @@ test("nonempty patterns match a Unicode scalar reference", () => {
           AhoCorasick.prepare(patterns, options),
         );
         for (const matcher of [direct, prepared]) {
-          expect(matcher.findIter(text)).toEqual(
-            expected.selected,
-          );
+          expect(matcher.findIter(text)).toEqual(expected.selected);
           const sort = (matches: Match[]) =>
-            matches.toSorted(
-              (a, b) =>
-                a.end - b.end || a.pattern - b.pattern,
-            );
-          expect(
-            sort(matcher.findOverlappingIter(text)),
-          ).toEqual(sort(expected.all));
-          expect(matcher.isMatch(text)).toBe(
-            expected.all.length > 0,
+            matches.toSorted((a, b) => a.end - b.end || a.pattern - b.pattern);
+          expect(sort(matcher.findOverlappingIter(text))).toEqual(
+            sort(expected.all),
           );
-          expect(
-            matcher.replaceAll(text, replacements),
-          ).toBe(replaced);
-          for (const match of matcher.findOverlappingIter(
-            text,
-          )) {
+          expect(matcher.isMatch(text)).toBe(expected.all.length > 0);
+          expect(matcher.replaceAll(text, replacements)).toBe(replaced);
+          for (const match of matcher.findOverlappingIter(text)) {
             expect(boundaries(text)).toContain(match.start);
             expect(boundaries(text)).toContain(match.end);
           }
@@ -159,20 +123,17 @@ test("empty patterns throw the documented typed error before construction", () =
         try {
           construct();
         } catch (error) {
-          if (!(error instanceof EmptyPatternError))
-            throw error;
+          if (!(error instanceof EmptyPatternError)) throw error;
           expect(error).toBeInstanceOf(RangeError);
           expect(error.code).toBe("ERR_EMPTY_PATTERN");
-          expect(error.patternIndex).toBe(
-            patterns.length - 1,
-          );
+          expect(error.patternIndex).toBe(patterns.length - 1);
         }
       }
     }
   }
-  expect(
-    () => new AhoCorasick([{ pattern: "", name: "empty" }]),
-  ).toThrow(EmptyPatternError);
+  expect(() => new AhoCorasick([{ pattern: "", name: "empty" }])).toThrow(
+    EmptyPatternError,
+  );
   expect(new AhoCorasick([]).findIter("😀é中")).toEqual([]);
 });
 
@@ -194,8 +155,7 @@ test("direct NAPI bindings reject empty patterns with InvalidArg", () => {
     try {
       construct();
     } catch (error) {
-      if (!(error instanceof Error) || !("code" in error))
-        throw error;
+      if (!(error instanceof Error) || !("code" in error)) throw error;
       expect(error.code).toBe("InvalidArg");
     }
   }

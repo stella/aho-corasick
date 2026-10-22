@@ -65,13 +65,9 @@ describe("property: text field", () => {
           caseInsensitive: true,
         });
         const matches = ac.findIter(hay);
-        const patSetLower = new Set(
-          pats.map((p) => p.toLowerCase()),
-        );
+        const patSetLower = new Set(pats.map((p) => p.toLowerCase()));
         for (const m of matches) {
-          expect(
-            patSetLower.has(m.text.toLowerCase()),
-          ).toBe(true);
+          expect(patSetLower.has(m.text.toLowerCase())).toBe(true);
         }
       }),
       PARAMS,
@@ -88,9 +84,7 @@ describe("property: non-overlapping", () => {
         const ac = new AhoCorasick(pats);
         const matches = ac.findIter(hay);
         for (let i = 1; i < matches.length; i++) {
-          expect(matches[i]!.start).toBeGreaterThanOrEqual(
-            matches[i - 1]!.end,
-          );
+          expect(matches[i]!.start).toBeGreaterThanOrEqual(matches[i - 1]!.end);
         }
       }),
       PARAMS,
@@ -107,9 +101,7 @@ describe("property: monotonic offsets", () => {
         const ac = new AhoCorasick(pats);
         const matches = ac.findIter(hay);
         for (let i = 1; i < matches.length; i++) {
-          expect(matches[i]!.start).toBeGreaterThan(
-            matches[i - 1]!.start,
-          );
+          expect(matches[i]!.start).toBeGreaterThan(matches[i - 1]!.start);
         }
       }),
       PARAMS,
@@ -181,17 +173,11 @@ describe("property: findIter ⊆ findOverlappingIter", () => {
         const overlap = ac.findOverlappingIter(hay);
 
         const overlapSet = new Set(
-          overlap.map(
-            (m) => `${m.start}:${m.end}:${m.pattern}`,
-          ),
+          overlap.map((m) => `${m.start}:${m.end}:${m.pattern}`),
         );
 
         for (const m of nonOverlap) {
-          expect(
-            overlapSet.has(
-              `${m.start}:${m.end}:${m.pattern}`,
-            ),
-          ).toBe(true);
+          expect(overlapSet.has(`${m.start}:${m.end}:${m.pattern}`)).toBe(true);
         }
       }),
       PARAMS,
@@ -213,14 +199,9 @@ const isCjkJS = (ch: string) =>
   );
 
 // Match Rust: is_alphanumeric() && !is_cjk()
-const isWordCharJS = (ch: string) =>
-  /\p{L}|\p{N}/u.test(ch) && !isCjkJS(ch);
+const isWordCharJS = (ch: string) => /\p{L}|\p{N}/u.test(ch) && !isCjkJS(ch);
 
-function isWholeWordJS(
-  hay: string,
-  start: number,
-  end: number,
-): boolean {
+function isWholeWordJS(hay: string, start: number, end: number): boolean {
   const before = hay[start - 1];
   const after = hay[end];
   const matchStart = hay[start];
@@ -231,25 +212,18 @@ function isWholeWordJS(
     !isWordCharJS(before) ||
     (matchStart ? isCjkJS(matchStart) : false);
   const endOk =
-    !after ||
-    !isWordCharJS(after) ||
-    (matchEnd ? isCjkJS(matchEnd) : false);
+    !after || !isWordCharJS(after) || (matchEnd ? isCjkJS(matchEnd) : false);
 
   return startOk && endOk;
 }
 
 /** Oracle: slow but correct wholeWords search. */
-function oracleWholeWords(
-  ac: InstanceType<typeof AhoCorasick>,
-  hay: string,
-) {
+function oracleWholeWords(ac: InstanceType<typeof AhoCorasick>, hay: string) {
   // Step 1: all overlapping matches
   const all = ac.findOverlappingIter(hay);
 
   // Step 2: filter by word boundaries
-  const filtered = all.filter((m) =>
-    isWholeWordJS(hay, m.start, m.end),
-  );
+  const filtered = all.filter((m) => isWholeWordJS(hay, m.start, m.end));
 
   // Step 3: sort by start, then longest first
   filtered.sort((a, b) =>
@@ -300,9 +274,7 @@ describe("property: oracle vs findIter", () => {
         const ac = new AhoCorasick(pats, {
           wholeWords: true,
         });
-        expect(ac.isMatch(hay)).toBe(
-          ac.findIter(hay).length > 0,
-        );
+        expect(ac.isMatch(hay)).toBe(ac.findIter(hay).length > 0);
       }),
       PARAMS,
     );
@@ -358,8 +330,7 @@ describe("property: wholeWords finds isolated patterns", () => {
         (pats, idx) => {
           const uniquePats = [...new Set(pats)];
           if (uniquePats.length === 0) return;
-          const target =
-            uniquePats[idx % uniquePats.length]!;
+          const target = uniquePats[idx % uniquePats.length]!;
 
           // Put the target pattern surrounded by
           // spaces — it MUST be found as a whole word
@@ -374,8 +345,7 @@ describe("property: wholeWords finds isolated patterns", () => {
           // pattern that covers position 4 must be
           // present.
           const targetFound = matches.some(
-            (m) =>
-              m.start === 4 && m.end >= 4 + target.length,
+            (m) => m.start === 4 && m.end >= 4 + target.length,
           );
           expect(targetFound).toBe(true);
         },
@@ -398,9 +368,7 @@ describe("property: findIter oracle (no wholeWords)", () => {
         // Oracle: sort by start, then by pattern
         // index (leftmostFirst = first-added wins).
         all.sort((a, b) =>
-          a.start !== b.start
-            ? a.start - b.start
-            : a.pattern - b.pattern,
+          a.start !== b.start ? a.start - b.start : a.pattern - b.pattern,
         );
         const oracle: typeof all = [];
         let lastEnd = 0;
@@ -462,9 +430,7 @@ describe("property: StreamMatcher oracle", () => {
         fc.string({
           minLength: 0,
           maxLength: 500,
-          unit: fc.constantFrom(
-            ..."abcdefghijklmnopqrstuvwxyz .,-".split(""),
-          ),
+          unit: fc.constantFrom(..."abcdefghijklmnopqrstuvwxyz .,-".split("")),
         }),
         // Chunk size 1-50
         fc.integer({ min: 1, max: 50 }),
@@ -483,6 +449,7 @@ describe("property: StreamMatcher oracle", () => {
 
           for (let i = 0; i < buf.length; i += chunkSize) {
             const chunk = buf.subarray(i, i + chunkSize);
+            // oxlint-disable-next-line no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved.
             for (const m of sm.write(chunk)) {
               streamMatches.push({
                 pattern: m.pattern,
@@ -493,18 +460,14 @@ describe("property: StreamMatcher oracle", () => {
           sm.flush();
 
           // Same match count
-          expect(streamMatches.length).toBe(
-            oracleMatches.length,
-          );
+          expect(streamMatches.length).toBe(oracleMatches.length);
 
           // Same matched text (offsets differ:
           // stream uses byte offsets, findIter
           // uses UTF-16, but for ASCII they're
           // identical).
           for (let i = 0; i < streamMatches.length; i++) {
-            expect(streamMatches[i]!.text).toBe(
-              oracleMatches[i]!.text,
-            );
+            expect(streamMatches[i]!.text).toBe(oracleMatches[i]!.text);
           }
         },
       ),

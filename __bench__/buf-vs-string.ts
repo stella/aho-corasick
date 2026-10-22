@@ -92,9 +92,7 @@ const bufResult = time(
 const ratio = bufResult.ms / stringResult.ms;
 const THRESHOLD = 2;
 
-console.log(
-  `\n  findIterBuf / findIter = ${ratio.toFixed(2)}x`,
-);
+console.log(`\n  findIterBuf / findIter = ${ratio.toFixed(2)}x`);
 
 if (ratio > THRESHOLD) {
   console.error(
@@ -110,6 +108,4 @@ if (ratio > THRESHOLD) {
   process.exit(1);
 }
 
-console.log(
-  `OK: findIterBuf within ${THRESHOLD}x of findIter.`,
-);
+console.log(`OK: findIterBuf within ${THRESHOLD}x of findIter.`);

@@ -1,17 +1,9 @@
-import {
-  copyFile,
-  mkdir,
-  readFile,
-  writeFile,
-} from "node:fs/promises";
+import { copyFile, mkdir, readFile, writeFile } from "node:fs/promises";
 import { gzipSync } from "node:zlib";
 
 const root = new URL("../", import.meta.url);
 const dist = new URL("wasm/dist/", root);
-const binary = new URL(
-  "aho-corasick.single-thread.wasm",
-  root,
-);
+const binary = new URL("aho-corasick.single-thread.wasm", root);
 const bytes = await readFile(binary);
 const base64 = bytes.toString("base64");
 const sizes = {
@@ -22,10 +14,7 @@ const sizes = {
   base64GzipBytes: gzipSync(base64).length,
 };
 await mkdir(dist, { recursive: true });
-await copyFile(
-  binary,
-  new URL("aho-corasick.single-thread.wasm", dist),
-);
+await copyFile(binary, new URL("aho-corasick.single-thread.wasm", dist));
 await writeFile(
   new URL("single-thread-inline.mjs", dist),
   `import { initSync as initialize } from "./single-thread.mjs";
@@ -38,10 +27,7 @@ await writeFile(
   new URL("single-thread-size.json", dist),
   `${JSON.stringify(sizes, null, 2)}\n`,
 );
-console.log(
-  "Single-thread WASM size:",
-  JSON.stringify(sizes),
-);
+console.log("Single-thread WASM size:", JSON.stringify(sizes));
 await writeFile(
   new URL("single-thread-inline.d.mts", dist),
   `export * from "./single-thread.mjs";

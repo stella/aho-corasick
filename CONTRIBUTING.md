@@ -37,7 +37,7 @@ bun run build:wasm  # WASM module (.wasm, uses --platform)
 bun run build:js    # TypeScript -> dist/
 bun test            # run tests
 bun run lint        # oxlint
-bun run format      # oxfmt + rustfmt
+bun run format      # bun fmt + rustfmt
 cargo clippy --workspace --all-targets --all-features -- -D warnings
 bun run rust:hawk   # Rust visibility lints
 ```

@@ -9,14 +9,7 @@ on:
   push:
     branches: [main]
   pull_request:
-    types:
-      [
-        opened,
-        synchronize,
-        reopened,
-        ready_for_review,
-        labeled,
-      ]
+    types: [opened, synchronize, reopened, ready_for_review, labeled]
   merge_group:
     types: [checks_requested]
   workflow_dispatch:
@@ -191,6 +184,7 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - run: bun fmt --check
       - run: bun run check:toolchain
       - run: bun run test:tooling
       - run: bun test scripts/shared-policy.test.ts scripts/ci-result.test.ts
@@ -291,7 +285,16 @@ jobs:
 
   ci-result:
     if: always()
-    needs: [check-changes, trust-check, changeset, checks, napi-ci, single-thread, hawk]
+    needs:
+      [
+        check-changes,
+        trust-check,
+        changeset,
+        checks,
+        napi-ci,
+        single-thread,
+        hawk,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
