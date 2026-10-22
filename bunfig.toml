@@ -1,7 +1,7 @@
 [install]
 # 5-day quarantine: reject package versions published
 # less than 5 days ago to mitigate supply chain attacks.
-minimumReleaseAge = 432_000
+minimumReleaseAge = 432000
 minimumReleaseAgeExcludes = [
   "@stll/oxlint-plugin", # quarantine-excluded-since: 2026-10-16T20:29:00.000Z
   "@stll/typescript-config", # quarantine-excluded-since: 2026-05-31T22:16:56.000Z
