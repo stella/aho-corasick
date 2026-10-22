@@ -215,6 +215,7 @@ test("100 MiB inputs use one bounded binary request without JSON or numeric-arra
     results.push(matcher.isMatchBuf(input));
     results.push(matcher._findIterPackedBuf(input).length);
     const stream = new binding.StreamMatcher(["needle"]);
+    // oxlint-disable-next-line no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved.
     results.push(stream.write(input).length);
     results.push(stream.flush().length);
     const text = "x".repeat(size);

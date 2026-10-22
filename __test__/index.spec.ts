@@ -1,3 +1,4 @@
+/* oxlint-disable no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved. */
 import { describe, expect, test } from "bun:test";
 
 import { AhoCorasick, StreamMatcher } from "../src/index";

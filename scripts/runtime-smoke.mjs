@@ -1,3 +1,4 @@
+/* oxlint-disable no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved. */
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";

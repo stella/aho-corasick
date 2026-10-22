@@ -449,6 +449,7 @@ describe("property: StreamMatcher oracle", () => {
 
           for (let i = 0; i < buf.length; i += chunkSize) {
             const chunk = buf.subarray(i, i + chunkSize);
+            // oxlint-disable-next-line no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved.
             for (const m of sm.write(chunk)) {
               streamMatches.push({
                 pattern: m.pattern,

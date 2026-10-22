@@ -463,6 +463,7 @@ export class StreamMatcher {
   /** Feed a chunk, get matches with global byte
    *  offsets. */
   write(chunk: Buffer | Uint8Array): ByteMatch[] {
+    // oxlint-disable-next-line no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved.
     return this._inner.write(chunk);
   }
 
