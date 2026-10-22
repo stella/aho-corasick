@@ -161,14 +161,11 @@ test("native Node loads the single explicitly extended build-config import", () 
   });
 });
 
-test("quarantine exemptions use exact supported annotations", () => {
+test("first-party quarantine exemptions use exact supported annotations", () => {
   const text = read("bunfig.toml");
   const configuration = Bun.TOML.parse(text);
-  for (const exemption of configuration.install
+  for (const name of configuration.install
     .minimumReleaseAgeExcludes) {
-    if (typeof exemption !== "string")
-      throw new Error("quarantine exemption must be a string");
-    const name = exemption;
     expect(name).toStartWith("@stll/");
     expect(name).not.toContain("*");
     const line = text
@@ -178,12 +175,6 @@ test("quarantine exemptions use exact supported annotations", () => {
           .trimStart()
           .startsWith(JSON.stringify(name) + ","),
       );
-    if (name.includes("@", 1)) {
-      expect(line).toMatch(
-        /^\s*"[^"]+@[^"*]+",?\s*#\s*quarantine-expires:\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s*$/u,
-      );
-      continue;
-    }
     expect(line).toMatch(
       /^\s*"[^"]+",?\s*#\s*quarantine-excluded-since:\s*\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z\s*$/u,
     );
