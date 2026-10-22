@@ -4,10 +4,7 @@ import { fileURLToPath } from "node:url";
 const run = (script, args = []) => {
   const result = spawnSync(
     process.execPath,
-    [
-      fileURLToPath(new URL(script, import.meta.url)),
-      ...args,
-    ],
+    [fileURLToPath(new URL(script, import.meta.url)), ...args],
     { stdio: "inherit" },
   );
   if (result.error) throw result.error;

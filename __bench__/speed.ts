@@ -10,13 +10,7 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import {
-  bench,
-  DNA,
-  LEGAL,
-  libs,
-  printSpeedups,
-} from "./helpers";
+import { bench, DNA, LEGAL, libs, printSpeedups } from "./helpers";
 
 const CORPUS = join(__dirname, "corpus");
 const load = (name: string): string => {
@@ -82,9 +76,7 @@ for (const s of scenarios) {
   const times: number[] = [];
   for (const lib of libs) {
     const ac = lib.build(s.patterns);
-    times.push(
-      bench(lib.name, () => lib.search(ac, s.haystack), N),
-    );
+    times.push(bench(lib.name, () => lib.search(ac, s.haystack), N));
   }
   printSpeedups(times);
 }

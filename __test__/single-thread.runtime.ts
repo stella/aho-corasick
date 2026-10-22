@@ -1,30 +1,20 @@
 import { expect, spyOn, test } from "bun:test";
 import { execFileSync } from "node:child_process";
-import { readFileSync } from "node:fs";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runInNewContext } from "node:vm";
 
-import {
-  AhoCorasick,
-  init,
-  initSync,
-} from "../src/single-thread";
+import { AhoCorasick, init, initSync } from "../src/single-thread";
 import { createSingleThreadBinding } from "../src/single-thread-binding";
 
 const bytes = readFileSync(
-  new URL(
-    "../aho-corasick.single-thread.wasm",
-    import.meta.url,
-  ),
+  new URL("../aho-corasick.single-thread.wasm", import.meta.url),
 );
 
 test("import defers initialization and artifact has no imports or shared memory", () => {
-  expect(() => new AhoCorasick(["a"])).toThrow(
-    "Call init()",
-  );
+  expect(() => new AhoCorasick(["a"])).toThrow("Call init()");
   const module = new WebAssembly.Module(bytes);
   expect(WebAssembly.Module.imports(module)).toEqual([]);
   const instance = new WebAssembly.Instance(module);
@@ -40,33 +30,23 @@ test("import defers initialization and artifact has no imports or shared memory"
 });
 
 test("both initializers honor Buffer and Uint8Array subarray bounds", async () => {
-  const allocation = Buffer.alloc(
-    bytes.byteLength + 64,
-    0xa5,
-  );
+  const allocation = Buffer.alloc(bytes.byteLength + 64, 0xa5);
   allocation.set(bytes, 32);
-  const buffer = allocation.subarray(
-    32,
-    32 + bytes.byteLength,
-  );
+  const buffer = allocation.subarray(32, 32 + bytes.byteLength);
   const typed = new Uint8Array(
     allocation.buffer,
     allocation.byteOffset + 32,
     bytes.byteLength,
   );
-  expect(buffer.byteOffset).toBeGreaterThan(
-    allocation.byteOffset,
-  );
+  expect(buffer.byteOffset).toBeGreaterThan(allocation.byteOffset);
   for (const view of [buffer, typed]) {
     expect(WebAssembly.validate(view)).toBe(true);
     initSync(view);
-    expect(
-      new AhoCorasick(["valid"]).isMatch("valid"),
-    ).toBe(true);
+    expect(new AhoCorasick(["valid"]).isMatch("valid")).toBe(true);
     await init(view);
-    expect(new AhoCorasick(["😀"]).findIter("a😀")).toEqual(
-      [{ pattern: 0, start: 1, end: 3, text: "😀" }],
-    );
+    expect(new AhoCorasick(["😀"]).findIter("a😀")).toEqual([
+      { pattern: 0, start: 1, end: 3, text: "😀" },
+    ]);
   }
 });
 
@@ -75,18 +55,12 @@ test("both initializers accept an ArrayBuffer from another realm", async () => {
     "const view = new Uint8Array(source.length); view.set(source); view.buffer",
     { source: bytes },
   );
-  const isArrayBuffer = (
-    value: unknown,
-  ): value is ArrayBuffer =>
-    Object.prototype.toString.call(value) ===
-    "[object ArrayBuffer]";
-  if (!isArrayBuffer(foreign))
-    throw new Error("Invalid realm fixture");
+  const isArrayBuffer = (value: unknown): value is ArrayBuffer =>
+    Object.prototype.toString.call(value) === "[object ArrayBuffer]";
+  if (!isArrayBuffer(foreign)) throw new Error("Invalid realm fixture");
   expect(foreign instanceof ArrayBuffer).toBe(false);
   initSync(foreign);
-  expect(new AhoCorasick(["realm"]).isMatch("realm")).toBe(
-    true,
-  );
+  expect(new AhoCorasick(["realm"]).isMatch("realm")).toBe(true);
   await init(foreign);
   expect(new AhoCorasick(["😀"]).findIter("a😀")).toEqual([
     { pattern: 0, start: 1, end: 3, text: "😀" },
@@ -104,30 +78,21 @@ test("both initializers accept typed arrays and DataViews from another realm", a
   `,
     { source: bytes },
   );
-  if (!Array.isArray(foreign))
-    throw new Error("Invalid realm fixture");
+  if (!Array.isArray(foreign)) throw new Error("Invalid realm fixture");
   for (const value of foreign) {
-    if (!ArrayBuffer.isView(value))
-      throw new Error("Invalid view fixture");
+    if (!ArrayBuffer.isView(value)) throw new Error("Invalid view fixture");
     expect(value instanceof Uint8Array).toBe(false);
     expect(value instanceof DataView).toBe(false);
     initSync(value);
-    expect(new AhoCorasick(["view"]).isMatch("view")).toBe(
-      true,
-    );
+    expect(new AhoCorasick(["view"]).isMatch("view")).toBe(true);
     await init(value);
-    expect(new AhoCorasick(["😀"]).isMatch("😀")).toBe(
-      true,
-    );
+    expect(new AhoCorasick(["😀"]).isMatch("😀")).toBe(true);
   }
 });
 
 // VM contexts do not expose Web API constructors. Reflect.construct preserves
 // genuine internal slots while giving the object a prototype from that realm.
-const foreignWebObject = (
-  Host: unknown,
-  args: unknown[],
-): unknown =>
+const foreignWebObject = (Host: unknown, args: unknown[]): unknown =>
   runInNewContext(
     `
     function Foreign(...args) { return Reflect.construct(Host, args, new.target); }
@@ -140,36 +105,28 @@ const foreignWebObject = (
 const isURL = (value: unknown): value is URL =>
   Object.prototype.toString.call(value) === "[object URL]";
 const isRequest = (value: unknown): value is Request =>
-  Object.prototype.toString.call(value) ===
-  "[object Request]";
+  Object.prototype.toString.call(value) === "[object Request]";
 const isResponse = (value: unknown): value is Response =>
-  Object.prototype.toString.call(value) ===
-  "[object Response]";
+  Object.prototype.toString.call(value) === "[object Response]";
 
 test("a URL from another realm is passed to fetch", async () => {
   const foreign = foreignWebObject(URL, [
     "https://extension.invalid/realm.wasm",
   ]);
-  if (!isURL(foreign))
-    throw new Error("Invalid URL fixture");
+  if (!isURL(foreign)) throw new Error("Invalid URL fixture");
   expect(foreign instanceof URL).toBe(false);
-  expect(foreign.href).toBe(
-    "https://extension.invalid/realm.wasm",
-  );
+  expect(foreign.href).toBe("https://extension.invalid/realm.wasm");
   const requests: unknown[] = [];
-  const fetcher = spyOn(
-    globalThis,
-    "fetch",
-  ).mockImplementation(async (source) => {
-    requests.push(source);
-    return new Response(bytes);
-  });
+  const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+    async (source) => {
+      requests.push(source);
+      return new Response(bytes);
+    },
+  );
   try {
     await init(foreign);
     expect(requests).toEqual([foreign]);
-    expect(new AhoCorasick(["url"]).isMatch("url")).toBe(
-      true,
-    );
+    expect(new AhoCorasick(["url"]).isMatch("url")).toBe(true);
   } finally {
     fetcher.mockRestore();
   }
@@ -179,26 +136,20 @@ test("a Request from another realm is passed to fetch", async () => {
   const foreign = foreignWebObject(Request, [
     "https://extension.invalid/request.wasm",
   ]);
-  if (!isRequest(foreign))
-    throw new Error("Invalid Request fixture");
+  if (!isRequest(foreign)) throw new Error("Invalid Request fixture");
   expect(foreign instanceof Request).toBe(false);
-  expect(foreign.url).toBe(
-    "https://extension.invalid/request.wasm",
-  );
+  expect(foreign.url).toBe("https://extension.invalid/request.wasm");
   const requests: unknown[] = [];
-  const fetcher = spyOn(
-    globalThis,
-    "fetch",
-  ).mockImplementation(async (source) => {
-    requests.push(source);
-    return new Response(bytes);
-  });
+  const fetcher = spyOn(globalThis, "fetch").mockImplementation(
+    async (source) => {
+      requests.push(source);
+      return new Response(bytes);
+    },
+  );
   try {
     await init(foreign);
     expect(requests).toEqual([foreign]);
-    expect(
-      new AhoCorasick(["request"]).isMatch("request"),
-    ).toBe(true);
+    expect(new AhoCorasick(["request"]).isMatch("request")).toBe(true);
   } finally {
     fetcher.mockRestore();
   }
@@ -206,28 +157,18 @@ test("a Request from another realm is passed to fetch", async () => {
 
 test("a Response from another realm supplies bytes without fetching", async () => {
   const foreign = foreignWebObject(Response, [bytes]);
-  if (!isResponse(foreign))
-    throw new Error("Invalid Response fixture");
+  if (!isResponse(foreign)) throw new Error("Invalid Response fixture");
   expect(foreign instanceof Response).toBe(false);
   expect(foreign.ok).toBe(true);
-  const fetcher = spyOn(
-    globalThis,
-    "fetch",
-  ).mockImplementation(async () => {
+  const fetcher = spyOn(globalThis, "fetch").mockImplementation(async () => {
     throw new Error("Unexpected fetch");
   });
   try {
     await init(foreign);
     expect(foreign.bodyUsed).toBe(true);
-    expect(
-      new AhoCorasick(["response"]).isMatch("response"),
-    ).toBe(true);
-    const failure = foreignWebObject(Response, [
-      "missing",
-      { status: 404 },
-    ]);
-    if (!isResponse(failure))
-      throw new Error("Invalid Response fixture");
+    expect(new AhoCorasick(["response"]).isMatch("response")).toBe(true);
+    const failure = foreignWebObject(Response, ["missing", { status: 404 }]);
+    if (!isResponse(failure)) throw new Error("Invalid Response fixture");
     await init(failure).then(
       () => {
         throw new Error("Expected HTTP rejection");
@@ -237,26 +178,16 @@ test("a Response from another realm supplies bytes without fetching", async () =
         expect(error.message).toContain("404");
       },
     );
-    expect(
-      new AhoCorasick(["still ready"]).isMatch(
-        "still ready",
-      ),
-    ).toBe(true);
+    expect(new AhoCorasick(["still ready"]).isMatch("still ready")).toBe(true);
   } finally {
     fetcher.mockRestore();
   }
 });
 
 test("100 MiB inputs use one bounded binary request without JSON or numeric-array expansion", () => {
-  const instance = new WebAssembly.Instance(
-    new WebAssembly.Module(bytes),
-  );
-  const { memory, aho_input_alloc: allocate } =
-    instance.exports;
-  if (
-    !(memory instanceof WebAssembly.Memory) ||
-    typeof allocate !== "function"
-  )
+  const instance = new WebAssembly.Instance(new WebAssembly.Module(bytes));
+  const { memory, aho_input_alloc: allocate } = instance.exports;
+  if (!(memory instanceof WebAssembly.Memory) || typeof allocate !== "function")
     throw new Error("Invalid WASM fixture");
   let maxRequest = 0;
   const binding = createSingleThreadBinding({
@@ -280,10 +211,7 @@ test("100 MiB inputs use one bounded binary request without JSON or numeric-arra
     Array.from = () => {
       throw new Error("Transport expanded a numeric array");
     };
-    const matcher = new binding.AhoCorasick([
-      "needle",
-      "é😀",
-    ]);
+    const matcher = new binding.AhoCorasick(["needle", "é😀"]);
     results.push(matcher.isMatchBuf(input));
     results.push(matcher._findIterPackedBuf(input).length);
     const stream = new binding.StreamMatcher(["needle"]);
@@ -292,20 +220,11 @@ test("100 MiB inputs use one bounded binary request without JSON or numeric-arra
     const text = "x".repeat(size);
     results.push(matcher.isMatch(text));
     results.push(matcher._findIterPacked(text).length);
-    results.push(
-      matcher._findOverlappingIterPacked(text).length,
-    );
+    results.push(matcher._findOverlappingIterPacked(text).length);
     const replacement = "r".repeat(1024 * 1024);
-    results.push(
-      matcher.replaceAll("needle", [replacement, "other"])
-        .length,
-    );
+    results.push(matcher.replaceAll("needle", [replacement, "other"]).length);
     const prepared = binding.prepareAhoCorasick(["é😀"]);
-    results.push(
-      binding
-        .ahoCorasickFromPrepared(prepared)
-        .isMatch("é😀"),
-    );
+    results.push(binding.ahoCorasickFromPrepared(prepared).isMatch("é😀"));
     try {
       binding.ahoCorasickFromPrepared(input);
     } catch (error) {
@@ -320,24 +239,14 @@ test("100 MiB inputs use one bounded binary request without JSON or numeric-arra
     JSON.stringify = stringify;
     Array.from = from;
   }
-  expect(results).toEqual([
-    false,
-    0,
-    0,
-    0,
-    false,
-    0,
-    0,
-    1024 * 1024,
-    true,
-  ]);
+  expect(results).toEqual([false, 0, 0, 0, false, 0, 0, 1024 * 1024, true]);
   expect(invalidPreparedRejected).toBe(true);
   // 16-byte header plus one UTF-8 string length; bytes need only the header.
   expect(maxRequest).toBeLessThanOrEqual(size + 20);
   // Includes input allocation/reallocation and the core streaming overlap copy.
-  expect(
-    memory.buffer.byteLength - initialMemory,
-  ).toBeLessThanOrEqual(3 * size + 64 * 1024 * 1024);
+  expect(memory.buffer.byteLength - initialMemory).toBeLessThanOrEqual(
+    3 * size + 64 * 1024 * 1024,
+  );
 }, 60_000);
 
 test("packed inline import, init and match work without SAB, Worker, network or file fetching", () => {
@@ -361,11 +270,7 @@ test("packed inline import, init and match work without SAB, Worker, network or 
     stream.write(new TextEncoder().encode('fo'));
     if (stream.write(new TextEncoder().encode('o'))[0]?.end !== 3) throw new Error('stream differs');
   `;
-  const result = Bun.spawnSync([
-    process.execPath,
-    "-e",
-    source,
-  ]);
+  const result = Bun.spawnSync([process.execPath, "-e", source]);
   expect(result.stderr.toString()).toBe("");
   expect(result.exitCode).toBe(0);
 });
@@ -374,28 +279,18 @@ test("packed inline import, init and match work without SAB, Worker, network or 
 test.skipIf(process.platform === "win32")(
   "npm tarball contains and runs the single-thread entry and its runtime imports",
   () => {
-    const directory = mkdtempSync(
-      join(tmpdir(), "aho-single-thread-pack-"),
-    );
+    const directory = mkdtempSync(join(tmpdir(), "aho-single-thread-pack-"));
     try {
       const output = execFileSync(
         "npm",
-        [
-          "pack",
-          "--json",
-          "--ignore-scripts",
-          "--pack-destination",
-          directory,
-        ],
+        ["pack", "--json", "--ignore-scripts", "--pack-destination", directory],
         {
           cwd: new URL("../wasm/", import.meta.url),
           encoding: "utf8",
         },
       );
       const [packed] = JSON.parse(output);
-      const files = packed.files.map(
-        (file: { path: string }) => file.path,
-      );
+      const files = packed.files.map((file: { path: string }) => file.path);
       for (const expected of [
         "dist/single-thread.mjs",
         "dist/single-thread.d.mts",
@@ -412,10 +307,7 @@ test.skipIf(process.platform === "win32")(
         directory,
       ]);
       const entry = pathToFileURL(
-        join(
-          directory,
-          "package/dist/single-thread-inline.mjs",
-        ),
+        join(directory, "package/dist/single-thread-inline.mjs"),
       ).href;
       const result = Bun.spawnSync(
         [
@@ -452,22 +344,14 @@ test("explicit initialization accepts bytes or a caller URL and reports HTTP err
     }) as typeof fetch;
     await init(bytes);
     expect(requested).toEqual([]);
-    await init(
-      new URL("https://extension.invalid/engine.wasm"),
-    );
-    expect(requested).toEqual([
-      "https://extension.invalid/engine.wasm",
-    ]);
-    expect(new AhoCorasick(["ok"]).isMatch("ok")).toBe(
-      true,
-    );
+    await init(new URL("https://extension.invalid/engine.wasm"));
+    expect(requested).toEqual(["https://extension.invalid/engine.wasm"]);
+    expect(new AhoCorasick(["ok"]).isMatch("ok")).toBe(true);
     globalThis.fetch = (async () =>
       new Response("missing", {
         status: 404,
       })) as typeof fetch;
-    await init(
-      "https://extension.invalid/missing.wasm",
-    ).then(
+    await init("https://extension.invalid/missing.wasm").then(
       () => {
         throw new Error("Expected HTTP rejection");
       },
@@ -477,9 +361,7 @@ test("explicit initialization accepts bytes or a caller URL and reports HTTP err
       },
     );
     expect(
-      new AhoCorasick(["still initialized"]).isMatch(
-        "still initialized",
-      ),
+      new AhoCorasick(["still initialized"]).isMatch("still initialized"),
     ).toBe(true);
   } finally {
     globalThis.fetch = originalFetch;
@@ -491,10 +373,7 @@ test("single-thread and existing threaded bindings produce identical public API 
     "node",
     [
       fileURLToPath(
-        new URL(
-          "./single-thread-parity.runtime.mjs",
-          import.meta.url,
-        ),
+        new URL("./single-thread-parity.runtime.mjs", import.meta.url),
       ),
     ],
     { timeout: 60_000 },

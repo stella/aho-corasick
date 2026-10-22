@@ -47,9 +47,7 @@ const utf8Length = (text: string): number => {
   return bytes;
 };
 
-const optionFlags = (
-  options?: Record<string, unknown>,
-): number => {
+const optionFlags = (options?: Record<string, unknown>): number => {
   const kind = options?.["matchKind"];
   if (
     kind !== undefined &&
@@ -67,11 +65,7 @@ const optionFlags = (
     const value = options?.[name];
     if (value !== undefined && typeof value !== "boolean")
       throw new Error(`${name} must be a boolean`);
-    if (
-      name === "unicodeBoundaries"
-        ? value === false
-        : value === true
-    )
+    if (name === "unicodeBoundaries" ? value === false : value === true)
       flags |= bit;
   }
   return flags;
@@ -85,31 +79,21 @@ type Request = {
 };
 
 const scalar = (bytes: Uint8Array): number => {
-  if (bytes.byteLength !== 4)
-    throw new Error("Invalid scalar WASM response");
-  return new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    4,
-  ).getUint32(0, true);
+  if (bytes.byteLength !== 4) throw new Error("Invalid scalar WASM response");
+  return new DataView(bytes.buffer, bytes.byteOffset, 4).getUint32(0, true);
 };
 const packed = (bytes: Uint8Array): Uint32Array => {
   if (bytes.byteLength % 4 !== 0)
     throw new Error("Invalid packed WASM response");
   const result = new Uint32Array(bytes.byteLength / 4);
-  const view = new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    bytes.byteLength,
-  );
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   for (let i = 0; i < result.length; i++)
     result[i] = view.getUint32(i * 4, true);
   return result;
 };
 const matches = (bytes: Uint8Array): ByteMatch[] => {
   const values = packed(bytes);
-  if (values.length % 3 !== 0)
-    throw new Error("Invalid WASM matches");
+  if (values.length % 3 !== 0) throw new Error("Invalid WASM matches");
   const result: ByteMatch[] = [];
   for (let i = 0; i < values.length; i += 3)
     result.push({
@@ -148,8 +132,7 @@ export const createSingleThreadBinding = (
     try {
       return number(operation());
     } catch (error) {
-      if (error instanceof WebAssembly.RuntimeError)
-        state = "trapped";
+      if (error instanceof WebAssembly.RuntimeError) state = "trapped";
       throw error;
     }
   };
@@ -165,18 +148,15 @@ export const createSingleThreadBinding = (
     let size = 16 + (bytes?.byteLength ?? 0);
     for (const [i, text] of strings.entries()) {
       const length = utf8Length(text);
-      if (length > 0xffffffff)
-        throw new RangeError("WASM string is too large");
+      if (length > 0xffffffff) throw new RangeError("WASM string is too large");
       lengths[i] = length;
       size += 4 + length;
     }
-    if (size > 0xffffffff)
-      throw new RangeError("WASM request is too large");
+    if (size > 0xffffffff) throw new RangeError("WASM request is too large");
     const flags = optionFlags(options);
     // A caller of this low-level adapter can supply a view of its own memory.
     // Preserve it across allocation/growth; public prepared results are copies.
-    if (bytes && bytes.buffer === memory.buffer)
-      bytes = Uint8Array.from(bytes);
+    if (bytes && bytes.buffer === memory.buffer) bytes = Uint8Array.from(bytes);
     const pointer = invoke(() => allocate(size)) >>> 0;
     const view = new DataView(memory.buffer, pointer, size);
     view.setUint32(0, op, true);
@@ -190,46 +170,33 @@ export const createSingleThreadBinding = (
       cursor += 4;
       const written = encoder.encodeInto(
         text,
-        new Uint8Array(
-          memory.buffer,
-          pointer + cursor,
-          length,
-        ),
+        new Uint8Array(memory.buffer, pointer + cursor, length),
       );
-      if (
-        written.read !== text.length ||
-        written.written !== length
-      )
+      if (written.read !== text.length || written.written !== length)
         throw new Error("Incomplete WASM string encoding");
       cursor += length;
     }
     if (bytes)
-      new Uint8Array(
-        memory.buffer,
-        pointer + cursor,
-        bytes.byteLength,
-      ).set(bytes);
+      new Uint8Array(memory.buffer, pointer + cursor, bytes.byteLength).set(
+        bytes,
+      );
     const status = invoke(() => run());
     const output = new Uint8Array(
       memory.buffer,
       invoke(() => outputPointer()) >>> 0,
       invoke(() => outputLength()) >>> 0,
     );
-    if (status !== 0)
-      throw new Error(decoder.decode(output));
+    if (status !== 0) throw new Error(decoder.decode(output));
     return output;
   };
-  const registry = new FinalizationRegistry<number>(
-    (id) => {
-      if (state === "trapped") return;
-      try {
-        call(OP.free, { id });
-      } catch (error) {
-        if (!(error instanceof WebAssembly.RuntimeError))
-          throw error;
-      }
-    },
-  );
+  const registry = new FinalizationRegistry<number>((id) => {
+    if (state === "trapped") return;
+    try {
+      call(OP.free, { id });
+    } catch (error) {
+      if (!(error instanceof WebAssembly.RuntimeError)) throw error;
+    }
+  });
   class Matcher {
     private readonly id: number;
     constructor(
@@ -282,21 +249,13 @@ export const createSingleThreadBinding = (
       );
     }
     _findIterPackedBuf(bytes: Uint8Array) {
-      return packed(
-        call(OP.findIterBuf, { id: this.id, bytes }),
-      );
+      return packed(call(OP.findIterBuf, { id: this.id, bytes }));
     }
     findIterBuf(bytes: Uint8Array) {
-      return matches(
-        call(OP.findIterBuf, { id: this.id, bytes }),
-      );
+      return matches(call(OP.findIterBuf, { id: this.id, bytes }));
     }
     isMatchBuf(bytes: Uint8Array) {
-      return (
-        scalar(
-          call(OP.isMatchBuf, { id: this.id, bytes }),
-        ) !== 0
-      );
+      return scalar(call(OP.isMatchBuf, { id: this.id, bytes })) !== 0;
     }
     toPrepared() {
       return call(OP.toPrepared, { id: this.id }).slice();
@@ -304,19 +263,12 @@ export const createSingleThreadBinding = (
   }
   class Stream {
     private readonly id: number;
-    constructor(
-      patterns: string[],
-      options?: Record<string, unknown>,
-    ) {
-      this.id = scalar(
-        call(OP.streamNew, { strings: patterns, options }),
-      );
+    constructor(patterns: string[], options?: Record<string, unknown>) {
+      this.id = scalar(call(OP.streamNew, { strings: patterns, options }));
       registry.register(this, this.id);
     }
     write(bytes: Uint8Array) {
-      return matches(
-        call(OP.streamWrite, { id: this.id, bytes }),
-      );
+      return matches(call(OP.streamWrite, { id: this.id, bytes }));
     }
     flush() {
       return matches(call(OP.streamFlush, { id: this.id }));
@@ -333,7 +285,6 @@ export const createSingleThreadBinding = (
         strings: patterns,
         options,
       }).slice(),
-    ahoCorasickFromPrepared: (bytes) =>
-      new Matcher([], undefined, bytes),
+    ahoCorasickFromPrepared: (bytes) => new Matcher([], undefined, bytes),
   };
 };

@@ -1,10 +1,10 @@
 import { spawnSync } from "node:child_process";
 import {
   cp,
-  mkdtemp,
   mkdir,
-  readFile,
+  mkdtemp,
   readdir,
+  readFile,
   rm,
   writeFile,
 } from "node:fs/promises";
@@ -40,9 +40,7 @@ export const extractWasmUploadGlobs = (workflow) => {
     stepIndexes[0],
     stepEnd === -1 ? undefined : stepEnd,
   );
-  const pathIndex = step.findIndex(
-    (line) => line.trim() === "path: |",
-  );
+  const pathIndex = step.findIndex((line) => line.trim() === "path: |");
   if (pathIndex === -1) {
     throw new Error(`${STEP_NAME} must have a path block`);
   }
@@ -74,9 +72,7 @@ const globRegex = (glob) =>
  * @param {string} name
  */
 const matchesUpload = (globs, name) => {
-  const includes = globs.filter(
-    (glob) => !glob.startsWith("!"),
-  );
+  const includes = globs.filter((glob) => !glob.startsWith("!"));
   const excludes = globs
     .filter((glob) => glob.startsWith("!"))
     .map((glob) => glob.slice(1));
@@ -87,16 +83,9 @@ const matchesUpload = (globs, name) => {
 };
 
 const run = async () => {
-  const root = fileURLToPath(
-    new URL("../", import.meta.url),
-  );
-  const workflowPath = join(
-    root,
-    ".github/workflows/release.yml",
-  );
-  const globs = extractWasmUploadGlobs(
-    await readFile(workflowPath, "utf8"),
-  );
+  const root = fileURLToPath(new URL("../", import.meta.url));
+  const workflowPath = join(root, ".github/workflows/release.yml");
+  const globs = extractWasmUploadGlobs(await readFile(workflowPath, "utf8"));
   const temporaryRoot = await mkdtemp(
     join(tmpdir(), "aho-corasick-release-artifacts-"),
   );
@@ -112,20 +101,14 @@ const run = async () => {
       withFileTypes: true,
     });
     const uploaded = entries.filter(
-      (entry) =>
-        entry.isFile() && matchesUpload(globs, entry.name),
+      (entry) => entry.isFile() && matchesUpload(globs, entry.name),
     );
     if (uploaded.length === 0) {
-      throw new Error(
-        `${STEP_NAME} globs matched no files`,
-      );
+      throw new Error(`${STEP_NAME} globs matched no files`);
     }
     await Promise.all(
       uploaded.map((entry) =>
-        cp(
-          join(root, entry.name),
-          join(artifactDirectory, entry.name),
-        ),
+        cp(join(root, entry.name), join(artifactDirectory, entry.name)),
       ),
     );
 
@@ -133,13 +116,8 @@ const run = async () => {
     const manifestValue = JSON.parse(
       await readFile(join(root, "package.json"), "utf8"),
     );
-    if (
-      !isRecord(manifestValue) ||
-      !isRecord(manifestValue["napi"])
-    ) {
-      throw new Error(
-        "package.json has no napi configuration",
-      );
+    if (!isRecord(manifestValue) || !isRecord(manifestValue["napi"])) {
+      throw new Error("package.json has no napi configuration");
     }
     const manifest = {
       ...manifestValue,
@@ -155,10 +133,7 @@ const run = async () => {
     await mkdir(join(temporaryRoot, "npm"), {
       recursive: true,
     });
-    const cli = join(
-      root,
-      "node_modules/@napi-rs/cli/dist/cli.js",
-    );
+    const cli = join(root, "node_modules/@napi-rs/cli/dist/cli.js");
     const result = spawnSync(
       process.execPath,
       [
@@ -179,8 +154,7 @@ const run = async () => {
     );
     process.stdout.write(result.stdout);
     process.stderr.write(result.stderr);
-    if (result.status !== 0)
-      process.exitCode = result.status ?? 1;
+    if (result.status !== 0) process.exitCode = result.status ?? 1;
   } finally {
     await rm(temporaryRoot, {
       recursive: true,
@@ -191,8 +165,7 @@ const run = async () => {
 
 if (
   process.argv[1] !== undefined &&
-  import.meta.url ===
-    new URL(`file://${process.argv[1]}`).href
+  import.meta.url === new URL(`file://${process.argv[1]}`).href
 ) {
   await run();
 }

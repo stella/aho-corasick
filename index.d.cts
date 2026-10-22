@@ -7,51 +7,55 @@
  * flavor napi-rs can build is listed, because `NAPI_RS_NATIVE_LIBRARY_PATH`
  * can point the loader at a WASI artifact this package does not build itself.
  */
-export declare const __napiBindingTarget: 'native' | 'wasm32-wasi' | 'wasm32-wasip1'
+export declare const __napiBindingTarget:
+  "native" | "wasm32-wasi" | "wasm32-wasip1";
 
 export declare class AhoCorasick {
-  constructor(patterns: Array<string>, options?: Options | undefined | null)
-  get patternCount(): number
-  toPrepared(): Buffer
-  isMatch(haystack: string): boolean
-  _findIterPacked(haystack: string): Uint32Array
-  _findOverlappingIterPacked(haystack: string): Uint32Array
-  replaceAll(haystack: string, replacements: Array<string>): string
-  findIterBuf(haystack: Buffer): Array<Match>
-  _findIterPackedBuf(haystack: Buffer): Uint32Array
-  isMatchBuf(haystack: Buffer): boolean
-  findInChunk(chunk: Buffer): Array<Match>
+  constructor(patterns: Array<string>, options?: Options | undefined | null);
+  get patternCount(): number;
+  toPrepared(): Buffer;
+  isMatch(haystack: string): boolean;
+  _findIterPacked(haystack: string): Uint32Array;
+  _findOverlappingIterPacked(haystack: string): Uint32Array;
+  replaceAll(haystack: string, replacements: Array<string>): string;
+  findIterBuf(haystack: Buffer): Array<Match>;
+  _findIterPackedBuf(haystack: Buffer): Uint32Array;
+  isMatchBuf(haystack: Buffer): boolean;
+  findInChunk(chunk: Buffer): Array<Match>;
 }
 
 export declare class StreamMatcher {
-  constructor(patterns: Array<string>, options?: Options | undefined | null)
-  write(chunk: Buffer): Array<Match>
-  flush(): Array<Match>
-  reset(): void
+  constructor(patterns: Array<string>, options?: Options | undefined | null);
+  write(chunk: Buffer): Array<Match>;
+  flush(): Array<Match>;
+  reset(): void;
 }
 
-export declare function ahoCorasickFromPrepared(bytes: Buffer): AhoCorasick
+export declare function ahoCorasickFromPrepared(bytes: Buffer): AhoCorasick;
 
 export interface Match {
-  pattern: number
-  start: number
-  end: number
+  pattern: number;
+  start: number;
+  end: number;
 }
 
 export declare const enum MatchKind {
-  LeftmostFirst = 'leftmost-first',
-  LeftmostLongest = 'leftmost-longest',
+  LeftmostFirst = "leftmost-first",
+  LeftmostLongest = "leftmost-longest",
 }
 
 export interface Options {
-  matchKind?: MatchKind
-  caseInsensitive?: boolean
-  dfa?: boolean
-  wholeWords?: boolean
-  unicodeBoundaries?: boolean
+  matchKind?: MatchKind;
+  caseInsensitive?: boolean;
+  dfa?: boolean;
+  wholeWords?: boolean;
+  unicodeBoundaries?: boolean;
 }
 
-export declare function prepareAhoCorasick(patterns: Array<string>, options?: Options | undefined | null): Buffer
+export declare function prepareAhoCorasick(
+  patterns: Array<string>,
+  options?: Options | undefined | null,
+): Buffer;
 
-declare const binding: import('./src/core').NativeBinding
-export default binding
+declare const binding: import("./src/core").NativeBinding;
+export default binding;

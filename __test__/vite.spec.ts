@@ -1,8 +1,8 @@
 import { describe, expect, mock, test } from "bun:test";
 
 import stllAhoCorasickWasmVite, {
-  WASM_VITE_PACKAGES,
   buildAhoCorasickWasmViteConfig,
+  WASM_VITE_PACKAGES,
 } from "../src/vite";
 import { injectWasmFetchGuard } from "../src/wasm-fetch-guard";
 
@@ -66,12 +66,8 @@ const __wasmFile = await __wasmResponse.arrayBuffer()
     expect(transformed).toContain(
       "const __wasmView = new Uint8Array(__wasmFile)",
     );
-    expect(transformed).toContain(
-      "__wasmView[0] !== 0x00",
-    );
-    expect(transformed).toContain(
-      "@stll/aho-corasick-wasm/vite",
-    );
+    expect(transformed).toContain("__wasmView[0] !== 0x00");
+    expect(transformed).toContain("@stll/aho-corasick-wasm/vite");
   });
 
   test("warns when napi-rs loader format changes", () => {

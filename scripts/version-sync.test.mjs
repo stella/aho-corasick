@@ -10,10 +10,7 @@ import {
 import { tmpdir } from "node:os";
 import path from "node:path";
 
-import {
-  resolveSyncVersions,
-  rewriteLoaderVersion,
-} from "./version-sync.mjs";
+import { resolveSyncVersions, rewriteLoaderVersion } from "./version-sync.mjs";
 
 describe("version synchronization", () => {
   test("uses the pre-Changesets VERSION value to update the generated loader", () => {
@@ -29,36 +26,28 @@ describe("version synchronization", () => {
     });
     expect(
       rewriteLoaderVersion({
-        content:
-          "Native binding package version mismatch, expected 1.0.4",
+        content: "Native binding package version mismatch, expected 1.0.4",
         filePath: "index.cjs",
         ...transition,
       }),
-    ).toBe(
-      "Native binding package version mismatch, expected 1.1.0",
-    );
+    ).toBe("Native binding package version mismatch, expected 1.1.0");
   });
 
   test("allows an interrupted synchronization to be rerun", () => {
     expect(
       rewriteLoaderVersion({
-        content:
-          "Native binding package version mismatch, expected 1.1.0",
+        content: "Native binding package version mismatch, expected 1.1.0",
         filePath: "index.cjs",
         previousVersion: "1.0.4",
         nextVersion: "1.1.0",
       }),
-    ).toBe(
-      "Native binding package version mismatch, expected 1.1.0",
-    );
+    ).toBe("Native binding package version mismatch, expected 1.1.0");
   });
 });
 
 test("version check traverses a CycloneDX SBOM without package-manifest fields", async () => {
   const root = await realpath(
-    await mkdtemp(
-      path.join(tmpdir(), "version-provenance-"),
-    ),
+    await mkdtemp(path.join(tmpdir(), "version-provenance-")),
   );
   const version = "1.0.4";
   const packageName = "@stll/aho-corasick";
@@ -72,19 +61,13 @@ test("version check traverses a CycloneDX SBOM without package-manifest fields",
   try {
     await mkdir(path.join(root, "scripts"));
     await mkdir(path.join(root, "npm"));
-    for (const file of [
-      "version-sync.mjs",
-      "release-script-inputs.mjs",
-    ])
+    for (const file of ["version-sync.mjs", "release-script-inputs.mjs"])
       await copyFile(
         new URL(file, import.meta.url),
         path.join(root, "scripts", file),
       );
     await write("VERSION", `${version}\n`);
-    await write(
-      "package.json",
-      JSON.stringify({ name: packageName, version }),
-    );
+    await write("package.json", JSON.stringify({ name: packageName, version }));
     await write(
       "wasm/package.json",
       JSON.stringify({
@@ -106,8 +89,7 @@ test("version check traverses a CycloneDX SBOM without package-manifest fields",
       "Cargo.lock",
       ["fixture-native", "fixture-core"]
         .map(
-          (name) =>
-            `[[package]]\nname = "${name}"\nversion = "${version}"\n`,
+          (name) => `[[package]]\nname = "${name}"\nversion = "${version}"\n`,
         )
         .join("\n"),
     );
@@ -131,59 +113,39 @@ test("version check traverses a CycloneDX SBOM without package-manifest fields",
       specVersion: "1.6",
       components,
     };
-    await write(
-      "provenance/sbom.cdx.json",
-      JSON.stringify(sbom),
-    );
+    await write("provenance/sbom.cdx.json", JSON.stringify(sbom));
     const run = () =>
       Bun.spawnSync(
-        [
-          "node",
-          path.join(root, "scripts/version-sync.mjs"),
-          "check",
-        ],
+        ["node", path.join(root, "scripts/version-sync.mjs"), "check"],
         { cwd: root },
       );
     const valid = run();
     expect(valid.stderr.toString()).toBe("");
     expect(valid.exitCode).toBe(0);
-    for (const component of components)
-      component.version = "0.0.0";
-    await write(
-      "provenance/sbom.cdx.json",
-      JSON.stringify(sbom),
-    );
+    for (const component of components) component.version = "0.0.0";
+    await write("provenance/sbom.cdx.json", JSON.stringify(sbom));
     const drift = run();
     expect(drift.exitCode).toBe(1);
     expect(drift.stderr.toString()).toContain(
       "sbom.cdx.json: pkg:cargo/fixture-core@1.0.4: version=0.0.0",
     );
-    expect(drift.stderr.toString()).not.toContain(
-      "Release manifest requires",
-    );
+    expect(drift.stderr.toString()).not.toContain("Release manifest requires");
     const malformed = {
       ...sbom,
-      components: components.map(
-        ({ type, name, purl }) => ({
-          type,
-          name,
-          purl,
-          version: { unexpected: true },
-        }),
-      ),
+      components: components.map(({ type, name, purl }) => ({
+        type,
+        name,
+        purl,
+        version: { unexpected: true },
+      })),
     };
-    await write(
-      "provenance/sbom.cdx.json",
-      JSON.stringify(malformed),
-    );
+    await write("provenance/sbom.cdx.json", JSON.stringify(malformed));
     const malformedResult = run();
     expect(malformedResult.exitCode).toBe(1);
     expect(malformedResult.stderr.toString()).toContain(
       'version={"unexpected":true}',
     );
-    expect(malformedResult.stderr.toString()).not.toContain(
-      "[object Object]",
-    );
+    expect(malformedResult.stderr.toString()).not.toContain("[object Object]");
   } finally {
     await rm(root, { recursive: true, force: true });
   }

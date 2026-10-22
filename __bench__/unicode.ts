@@ -146,9 +146,7 @@ for (const s of scenarios) {
   const times: number[] = [];
   for (const lib of libs) {
     const ac = lib.build(s.patterns);
-    times.push(
-      bench(lib.name, () => lib.search(ac, s.haystack), N),
-    );
+    times.push(bench(lib.name, () => lib.search(ac, s.haystack), N));
   }
   printSpeedups(times);
 }

@@ -4,10 +4,8 @@ import { AhoCorasick, StreamMatcher } from "../src/index";
 import "./empty-unicode.spec";
 
 // Helper: extract matched substring from haystack
-const extract = (
-  haystack: string,
-  m: { start: number; end: number },
-) => haystack.slice(m.start, m.end);
+const extract = (haystack: string, m: { start: number; end: number }) =>
+  haystack.slice(m.start, m.end);
 
 // ─── Core functionality ───────────────────────
 
@@ -65,10 +63,7 @@ describe("AhoCorasick", () => {
 
   test("replaceAll", () => {
     const ac = new AhoCorasick(["foo", "bar"]);
-    const result = ac.replaceAll("foo bar baz", [
-      "FOO",
-      "BAR",
-    ]);
+    const result = ac.replaceAll("foo bar baz", ["FOO", "BAR"]);
     expect(result).toBe("FOO BAR baz");
   });
 
@@ -85,9 +80,9 @@ describe("AhoCorasick", () => {
   });
 
   test("non-array patterns fail with a descriptive error", () => {
-    expect(() =>
-      Reflect.construct(AhoCorasick, ["foo"]),
-    ).toThrow("Patterns must be an array");
+    expect(() => Reflect.construct(AhoCorasick, ["foo"])).toThrow(
+      "Patterns must be an array",
+    );
   });
 
   test("empty haystack", () => {
@@ -123,9 +118,7 @@ describe("AhoCorasick", () => {
     const text = "foo foobar";
 
     expect(prepared.patternCount).toBe(direct.patternCount);
-    expect(prepared.findIter(text)).toEqual(
-      direct.findIter(text),
-    );
+    expect(prepared.findIter(text)).toEqual(direct.findIter(text));
     expect(prepared.findIter(text)[0]?.name).toBe("first");
     expect(prepared.replaceAll(text, ["A", "B"])).toBe(
       direct.replaceAll(text, ["A", "B"]),
@@ -134,10 +127,7 @@ describe("AhoCorasick", () => {
 
   test("prepared raw bytes can be loaded with names", () => {
     const prepared = AhoCorasick.prepare(["alpha", "beta"]);
-    const ac = AhoCorasick.fromPrepared(prepared.bytes, [
-      "a",
-      "b",
-    ]);
+    const ac = AhoCorasick.fromPrepared(prepared.bytes, ["a", "b"]);
 
     expect(ac.findIter("alpha beta")).toEqual([
       {
@@ -171,9 +161,9 @@ describe("AhoCorasick", () => {
   });
 
   test("invalid prepared automaton fails descriptively", () => {
-    expect(() =>
-      AhoCorasick.fromPrepared(Buffer.from("nope")),
-    ).toThrow("Invalid prepared automaton");
+    expect(() => AhoCorasick.fromPrepared(Buffer.from("nope"))).toThrow(
+      "Invalid prepared automaton",
+    );
   });
 });
 
@@ -181,18 +171,11 @@ describe("AhoCorasick", () => {
 
 describe("overlapping matches", () => {
   test("classic textbook example", () => {
-    const ac = new AhoCorasick([
-      "he",
-      "she",
-      "his",
-      "hers",
-    ]);
+    const ac = new AhoCorasick(["he", "she", "his", "hers"]);
     const overlapping = ac.findOverlappingIter("ushers");
 
     // Should find: she(1..4), he(2..4), hers(2..6)
-    const keywords = overlapping.map((m) =>
-      extract("ushers", m),
-    );
+    const keywords = overlapping.map((m) => extract("ushers", m));
     expect(keywords).toContain("she");
     expect(keywords).toContain("he");
     expect(keywords).toContain("hers");
@@ -237,12 +220,8 @@ describe("overlapping matches", () => {
     const ll2 = new AhoCorasick(["abc", "abcdef"], {
       matchKind: "leftmost-longest",
     });
-    expect(
-      extract("abcdef", ll1.findIter("abcdef")[0]!),
-    ).toBe("abcdef");
-    expect(
-      extract("abcdef", ll2.findIter("abcdef")[0]!),
-    ).toBe("abcdef");
+    expect(extract("abcdef", ll1.findIter("abcdef")[0]!)).toBe("abcdef");
+    expect(extract("abcdef", ll2.findIter("abcdef")[0]!)).toBe("abcdef");
   });
 
   test("pyahocorasick#133: longer pattern fails, shorter should still match", () => {
@@ -263,10 +242,9 @@ describe("overlapping matches", () => {
   test("pyahocorasick#133: CJK longer pattern fails", () => {
     // Same bug but with CJK: "国家知识产权局" fails
     // (not in text) but "知识产权" should still match.
-    const ac = new AhoCorasick(
-      ["知识产权", "国家知识产权局"],
-      { matchKind: "leftmost-longest" },
-    );
+    const ac = new AhoCorasick(["知识产权", "国家知识产权局"], {
+      matchKind: "leftmost-longest",
+    });
     const text = "国家知识产权";
     const matches = ac.findIter(text);
 
@@ -278,10 +256,9 @@ describe("overlapping matches", () => {
     // "alpha beta" should win over "alpha" at the
     // same position (iter_long use case from
     // pyahocorasick#21)
-    const ac = new AhoCorasick(
-      ["alpha", "alpha beta", "beta gamma", "gamma"],
-      { matchKind: "leftmost-longest" },
-    );
+    const ac = new AhoCorasick(["alpha", "alpha beta", "beta gamma", "gamma"], {
+      matchKind: "leftmost-longest",
+    });
     const text = "I went to alpha beta gamma";
     const matches = ac.findIter(text);
     const found = matches.map((m) => extract(text, m));
@@ -352,12 +329,7 @@ describe("unicode character offsets", () => {
   });
 
   test("Czech legal terms (diacritics)", () => {
-    const patterns = [
-      "případ",
-      "soudní",
-      "řízení",
-      "žaloba",
-    ];
+    const patterns = ["případ", "soudní", "řízení", "žaloba"];
     const ac = new AhoCorasick(patterns);
     const text = "V tomto soudním řízení případ žaloba";
     const matches = ac.findIter(text);
@@ -404,15 +376,11 @@ describe("Turkish İ (case sensitivity)", () => {
     });
     // İ (2 bytes) → i (1 byte): offset mapping must
     // correctly slice the original haystack.
-    expect(
-      ac.replaceAll("Visit İstanbul today", ["CITY"]),
-    ).toBe("Visit CITY today");
-    expect(
-      ac.replaceAll("İstanbul is great", ["CITY"]),
-    ).toBe("CITY is great");
-    expect(ac.replaceAll("Go to İstanbul", ["CITY"])).toBe(
-      "Go to CITY",
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"])).toBe(
+      "Visit CITY today",
     );
+    expect(ac.replaceAll("İstanbul is great", ["CITY"])).toBe("CITY is great");
+    expect(ac.replaceAll("Go to İstanbul", ["CITY"])).toBe("Go to CITY");
   });
 
   test("replaceAll with İ + caseInsensitive + wholeWords", () => {
@@ -420,13 +388,11 @@ describe("Turkish İ (case sensitivity)", () => {
       caseInsensitive: true,
       wholeWords: true,
     });
-    expect(
-      ac.replaceAll("Visit İstanbul today", ["CITY"]),
-    ).toBe("Visit CITY today");
-    // Not a whole word — should NOT replace
-    expect(ac.replaceAll("xİstanbulx", ["CITY"])).toBe(
-      "xİstanbulx",
+    expect(ac.replaceAll("Visit İstanbul today", ["CITY"])).toBe(
+      "Visit CITY today",
     );
+    // Not a whole word — should NOT replace
+    expect(ac.replaceAll("xİstanbulx", ["CITY"])).toBe("xİstanbulx");
   });
 
   test("findIter with İ returns correct offsets", () => {
@@ -440,9 +406,7 @@ describe("Turkish İ (case sensitivity)", () => {
     // (İ is 1 UTF-16 unit, same as i)
     expect(matches[0]!.start).toBe(6);
     expect(matches[0]!.end).toBe(14);
-    expect(
-      text.slice(matches[0]!.start, matches[0]!.end),
-    ).toBe("İstanbul");
+    expect(text.slice(matches[0]!.start, matches[0]!.end)).toBe("İstanbul");
   });
 
   test("isMatch with İ + wholeWords", () => {
@@ -496,8 +460,7 @@ describe("Turkish İ (case sensitivity)", () => {
     const original = "AİBCD";
     const lowered = original.toLowerCase();
 
-    const lengthChanged =
-      original.length !== lowered.length;
+    const lengthChanged = original.length !== lowered.length;
 
     // Regardless of runtime behavior, the safe
     // approach is: search the original text with
@@ -575,9 +538,7 @@ describe("offset correctness after multi-byte", () => {
 
   test("replaceAll with multi-byte haystack", () => {
     const ac = new AhoCorasick(["café"]);
-    const result = ac.replaceAll("I love café culture", [
-      "coffee",
-    ]);
+    const result = ac.replaceAll("I love café culture", ["coffee"]);
     expect(result).toBe("I love coffee culture");
   });
 
@@ -619,9 +580,7 @@ describe("wholeWords option", () => {
     const ac = new AhoCorasick(["test"], {
       wholeWords: true,
     });
-    const matches = ac.findIter(
-      "test testing tested a test",
-    );
+    const matches = ac.findIter("test testing tested a test");
 
     // Only "test" at positions 0 and 23 are whole
     // words. "testing" and "tested" are partial.
@@ -636,9 +595,7 @@ describe("wholeWords option", () => {
     const ac = new AhoCorasick(["LLC"], {
       wholeWords: true,
     });
-    const matches = ac.findIter(
-      "ABC LLC, DEF (LLC) GHI-LLC",
-    );
+    const matches = ac.findIter("ABC LLC, DEF (LLC) GHI-LLC");
 
     // LLC surrounded by spaces/punctuation = whole
     expect(matches).toHaveLength(3);
@@ -650,9 +607,7 @@ describe("wholeWords option", () => {
     });
 
     // "art" inside "start", "party", "article"
-    expect(ac.findIter("start party article").length).toBe(
-      0,
-    );
+    expect(ac.findIter("start party article").length).toBe(0);
 
     // "art" as whole word
     expect(ac.findIter("the art of code").length).toBe(1);
@@ -765,14 +720,10 @@ describe("wholeWords option", () => {
     });
 
     const start = performance.now();
-    const matches = ac.findIter(
-      "xword19999x word10000 done",
-    );
+    const matches = ac.findIter("xword19999x word10000 done");
     const elapsed = performance.now() - start;
 
-    expect(matches.map((match) => match.text)).toEqual([
-      "word10000",
-    ]);
+    expect(matches.map((match) => match.text)).toEqual(["word10000"]);
     expect(elapsed).toBeLessThan(100);
   });
 
@@ -928,17 +879,15 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     });
 
     // Only replace whole words, not partials
-    expect(
-      ac.replaceAll("test testing tested test", [
-        "REPLACED",
-      ]),
-    ).toBe("REPLACED testing tested REPLACED");
+    expect(ac.replaceAll("test testing tested test", ["REPLACED"])).toBe(
+      "REPLACED testing tested REPLACED",
+    );
 
     // Without wholeWords, replaces all
     const ac2 = new AhoCorasick(["test"]);
-    expect(
-      ac2.replaceAll("test testing tested test", ["X"]),
-    ).toBe("X Xing Xed X");
+    expect(ac2.replaceAll("test testing tested test", ["X"])).toBe(
+      "X Xing Xed X",
+    );
   });
 
   test("replaceAll + İ + wholeWords: byte offset correctness", () => {
@@ -949,14 +898,12 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
       caseInsensitive: true,
       wholeWords: true,
     });
-    expect(
-      ac.replaceAll("İstanbul is great", ["CITY"]),
-    ).toBe("CITY is great");
+    expect(ac.replaceAll("İstanbul is great", ["CITY"])).toBe("CITY is great");
 
     // Multiple İ occurrences
-    expect(
-      ac.replaceAll("İstanbul and İstanbul", ["CITY"]),
-    ).toBe("CITY and CITY");
+    expect(ac.replaceAll("İstanbul and İstanbul", ["CITY"])).toBe(
+      "CITY and CITY",
+    );
   });
 
   test("overlapping iterator ordering: end-ordered not start-ordered (Greptile P1)", () => {
@@ -1010,15 +957,7 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
     // This case works with BOTH approaches.
     // Included to verify no regression.
     const ac = new AhoCorasick(
-      [
-        "P",
-        "Pa",
-        "Pavel",
-        "Pavela",
-        "Pavelka",
-        "test",
-        "testing",
-      ],
+      ["P", "Pa", "Pavel", "Pavela", "Pavelka", "test", "testing"],
       { wholeWords: true },
     );
     const text = "Pavel is testing a test";
@@ -1052,13 +991,8 @@ describe("bug: wholeWords + leftmostFirst drops matches", () => {
 
 describe("adopted: Cyrillic (BrunoRB)", () => {
   test("Cyrillic with suffix overlap", () => {
-    const ac = new AhoCorasick([
-      "Федеральной",
-      "ной",
-      "idea",
-    ]);
-    const text =
-      "! Федеральной I have no idea what this means.";
+    const ac = new AhoCorasick(["Федеральной", "ной", "idea"]);
+    const text = "! Федеральной I have no idea what this means.";
     const matches = ac.findIter(text);
     const found = matches.map((m) => extract(text, m));
 
@@ -1080,15 +1014,10 @@ describe("adopted: special characters (BrunoRB)", () => {
   });
 
   test("null byte patterns (BurntSushi)", () => {
-    const ac = new AhoCorasick([
-      "\x00\x00\x01",
-      "\x00\x00\x00",
-    ]);
+    const ac = new AhoCorasick(["\x00\x00\x01", "\x00\x00\x00"]);
     const matches = ac.findIter("\x00\x00\x00");
     expect(matches).toHaveLength(1);
-    expect(extract("\x00\x00\x00", matches[0]!)).toBe(
-      "\x00\x00\x00",
-    );
+    expect(extract("\x00\x00\x00", matches[0]!)).toBe("\x00\x00\x00");
   });
 });
 
@@ -1152,29 +1081,18 @@ describe("adopted: CJK supplementary (tanishiking)", () => {
 
   test("hehehehe overlapping repetition", () => {
     const ac = new AhoCorasick(["he", "hehehehe"]);
-    const overlapping =
-      ac.findOverlappingIter("hehehehehe");
-    const found = overlapping.map((m) =>
-      extract("hehehehehe", m),
-    );
+    const overlapping = ac.findOverlappingIter("hehehehehe");
+    const found = overlapping.map((m) => extract("hehehehehe", m));
 
     // Should find many "he" and at least one "hehehehe"
-    expect(
-      found.filter((s) => s === "he").length,
-    ).toBeGreaterThanOrEqual(4);
+    expect(found.filter((s) => s === "he").length).toBeGreaterThanOrEqual(4);
     expect(found).toContain("hehehehe");
   });
 });
 
 describe("adopted: Polish diacritics (pyahocorasick#8)", () => {
   test("Polish diacritics: non-overlapping", () => {
-    const ac = new AhoCorasick([
-      "wąż",
-      "mąż",
-      "żółć",
-      "aż",
-      "waży",
-    ]);
+    const ac = new AhoCorasick(["wąż", "mąż", "żółć", "aż", "waży"]);
     const text = "wyważyć";
     const matches = ac.findIter(text);
     const found = matches.map((m) => extract(text, m));
@@ -1185,13 +1103,7 @@ describe("adopted: Polish diacritics (pyahocorasick#8)", () => {
   });
 
   test("Polish diacritics: overlapping", () => {
-    const ac = new AhoCorasick([
-      "wąż",
-      "mąż",
-      "żółć",
-      "aż",
-      "waży",
-    ]);
+    const ac = new AhoCorasick(["wąż", "mąż", "żółć", "aż", "waży"]);
     const text = "wyważyć";
     const overlapping = ac.findOverlappingIter(text);
     const found = overlapping.map((m) => extract(text, m));
@@ -1204,13 +1116,7 @@ describe("adopted: Polish diacritics (pyahocorasick#8)", () => {
 
 describe("adopted: match semantics (ahocorasick_rs)", () => {
   test("discontent: leftmost-first vs leftmost-longest", () => {
-    const patterns = [
-      "content",
-      "disco",
-      "disc",
-      "discontent",
-      "winter",
-    ];
+    const patterns = ["content", "disco", "disc", "discontent", "winter"];
     const text = "This is the winter of my discontent";
 
     // leftmost-first: "disco" wins (inserted before
@@ -1276,21 +1182,16 @@ describe("adopted: edge cases (BurntSushi)", () => {
     const ac = new AhoCorasick(["libcore/", "libstd/"]);
     const matches = ac.findIter("libcore/char/methods.rs");
     expect(matches).toHaveLength(1);
-    expect(
-      extract("libcore/char/methods.rs", matches[0]!),
-    ).toBe("libcore/");
+    expect(extract("libcore/char/methods.rs", matches[0]!)).toBe("libcore/");
   });
 
   test("near-miss long pattern (BurntSushi)", () => {
-    const ac = new AhoCorasick(
-      ["abcdefghi", "hz", "abcdefgh"],
-      { matchKind: "leftmost-longest" },
-    );
+    const ac = new AhoCorasick(["abcdefghi", "hz", "abcdefgh"], {
+      matchKind: "leftmost-longest",
+    });
     const matches = ac.findIter("abcdefghz");
     expect(matches).toHaveLength(1);
-    expect(extract("abcdefghz", matches[0]!)).toBe(
-      "abcdefgh",
-    );
+    expect(extract("abcdefghz", matches[0]!)).toBe("abcdefgh");
   });
 
   test("sam prefix ambiguity (BurntSushi)", () => {
@@ -1318,20 +1219,15 @@ describe("adopted: edge cases (BurntSushi)", () => {
     });
     const matches = ac.findIter("quux foobar baz");
     expect(matches).toHaveLength(1);
-    expect(extract("quux foobar baz", matches[0]!)).toBe(
-      "foobar",
-    );
+    expect(extract("quux foobar baz", matches[0]!)).toBe("foobar");
   });
 
   test("suffix .com pattern (BrunoRB)", () => {
     const ac = new AhoCorasick([".com.au", ".com"]);
     expect(ac.findIter("www.yahoo.com").length).toBe(1);
-    expect(
-      extract(
-        "www.yahoo.com",
-        ac.findIter("www.yahoo.com")[0]!,
-      ),
-    ).toBe(".com");
+    expect(extract("www.yahoo.com", ac.findIter("www.yahoo.com")[0]!)).toBe(
+      ".com",
+    );
     expect(ac.findIter("www.example.org").length).toBe(0);
   });
 
@@ -1339,9 +1235,7 @@ describe("adopted: edge cases (BurntSushi)", () => {
     const ac = new AhoCorasick(["hers"]);
     const matches = ac.findIter("h he her hers");
     expect(matches).toHaveLength(1);
-    expect(extract("h he her hers", matches[0]!)).toBe(
-      "hers",
-    );
+    expect(extract("h he her hers", matches[0]!)).toBe("hers");
   });
 
   test("duplicate patterns (modern-ahocorasick)", () => {
@@ -1368,12 +1262,7 @@ describe("adopted: edge cases (BurntSushi)", () => {
   });
 
   test("pyahocorasick#56: overlapping prefix/suffix", () => {
-    const ac = new AhoCorasick([
-      "poke",
-      "go",
-      "pokegois",
-      "egoist",
-    ]);
+    const ac = new AhoCorasick(["poke", "go", "pokegois", "egoist"]);
     const text = "pokego pokego  pokegoist";
     const matches = ac.findIter(text);
 
@@ -1381,20 +1270,14 @@ describe("adopted: edge cases (BurntSushi)", () => {
     // on leftmost-first semantics)
     expect(matches.length).toBeGreaterThanOrEqual(3);
     for (const m of matches) {
-      expect([
-        "poke",
-        "go",
-        "pokegois",
-        "egoist",
-      ]).toContain(extract(text, m));
+      expect(["poke", "go", "pokegois", "egoist"]).toContain(extract(text, m));
     }
   });
 
   test("drug names: long match suppresses substring (pyahocorasick#133)", () => {
-    const ac = new AhoCorasick(
-      ["trimethoprim", "sulfamethoxazole", "meth"],
-      { matchKind: "leftmost-longest" },
-    );
+    const ac = new AhoCorasick(["trimethoprim", "sulfamethoxazole", "meth"], {
+      matchKind: "leftmost-longest",
+    });
     const text = "sulfamethoxazole and trimethoprim";
     const matches = ac.findIter(text);
     const found = matches.map((m) => extract(text, m));
@@ -1501,23 +1384,17 @@ describe("findIterBuf", () => {
 describe("isMatchBuf", () => {
   test("returns true when pattern found", () => {
     const ac = new AhoCorasick(["needle"]);
-    expect(
-      ac.isMatchBuf(Buffer.from("haystack needle hay")),
-    ).toBe(true);
+    expect(ac.isMatchBuf(Buffer.from("haystack needle hay"))).toBe(true);
   });
 
   test("returns false when no match", () => {
     const ac = new AhoCorasick(["needle"]);
-    expect(
-      ac.isMatchBuf(Buffer.from("haystack only")),
-    ).toBe(false);
+    expect(ac.isMatchBuf(Buffer.from("haystack only"))).toBe(false);
   });
 
   test("empty patterns never match", () => {
     const ac = new AhoCorasick([]);
-    expect(ac.isMatchBuf(Buffer.from("anything"))).toBe(
-      false,
-    );
+    expect(ac.isMatchBuf(Buffer.from("anything"))).toBe(false);
   });
 });
 
@@ -1611,9 +1488,7 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("replaceAll: ASCII CI", () => {
-      expect(
-        ac.replaceAll("HELLO World", ["hi", "earth"]),
-      ).toBe("hi earth");
+      expect(ac.replaceAll("HELLO World", ["hi", "earth"])).toBe("hi earth");
     });
 
     test("findIterBuf: ASCII CI", () => {
@@ -1635,17 +1510,13 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("isMatchBuf: ASCII CI", () => {
-      expect(ac.isMatchBuf(Buffer.from("HELLO"))).toBe(
-        true,
-      );
+      expect(ac.isMatchBuf(Buffer.from("HELLO"))).toBe(true);
       expect(ac.isMatchBuf(Buffer.from("xyz"))).toBe(false);
     });
 
     test("findInChunk: ASCII CI", () => {
       // @ts-expect-error - accessing internal
-      const matches = ac._inner.findInChunk(
-        Buffer.from("HELLO World"),
-      );
+      const matches = ac._inner.findInChunk(Buffer.from("HELLO World"));
       expect(matches).toHaveLength(2);
     });
   });
@@ -1670,9 +1541,9 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("replaceAll: İ CI", () => {
-      expect(
-        ac.replaceAll("Visit İstanbul today", ["CITY"]),
-      ).toBe("Visit CITY today");
+      expect(ac.replaceAll("Visit İstanbul today", ["CITY"])).toBe(
+        "Visit CITY today",
+      );
     });
 
     test("findIterBuf: İ CI", () => {
@@ -1685,17 +1556,13 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("isMatchBuf: İ CI", () => {
-      expect(ac.isMatchBuf(Buffer.from("İstanbul"))).toBe(
-        true,
-      );
+      expect(ac.isMatchBuf(Buffer.from("İstanbul"))).toBe(true);
       expect(ac.isMatchBuf(Buffer.from("xyz"))).toBe(false);
     });
 
     test("findInChunk: İ CI", () => {
       // @ts-expect-error - accessing internal
-      const matches = ac._inner.findInChunk(
-        Buffer.from("İstanbul"),
-      );
+      const matches = ac._inner.findInChunk(Buffer.from("İstanbul"));
       expect(matches).toHaveLength(1);
     });
   });

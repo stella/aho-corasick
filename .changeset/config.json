@@ -1,6 +1,6 @@
 {
   "$schema": "https://unpkg.com/@changesets/config@4.0.0/schema.json",
-  "format": "oxfmt",
+  "format": false,
   "changelog": [
     "@changesets/changelog-github",
     { "repo": "stella/aho-corasick" }

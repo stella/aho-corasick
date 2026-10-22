@@ -23,10 +23,7 @@ type LibResult = {
   error?: string;
 };
 
-const runAll = (
-  patterns: string[],
-  haystack: string,
-): LibResult[] => {
+const runAll = (patterns: string[], haystack: string): LibResult[] => {
   const results: LibResult[] = [];
 
   // @stll/aho-corasick
@@ -143,36 +140,23 @@ const runAll = (
   return results;
 };
 
-const printResults = (
-  label: string,
-  results: LibResult[],
-) => {
+const printResults = (label: string, results: LibResult[]) => {
   console.log(`\n  ${label}`);
 
   // Check for disagreements
-  const counts = results
-    .filter((r) => !r.error)
-    .map((r) => r.matches.length);
-  const allSame =
-    counts.length > 0 &&
-    counts.every((c) => c === counts[0]);
+  const counts = results.filter((r) => !r.error).map((r) => r.matches.length);
+  const allSame = counts.length > 0 && counts.every((c) => c === counts[0]);
 
   for (const r of results) {
     if (r.error) {
-      console.log(
-        `    ${r.name}: ` +
-          `\x1b[31mERROR\x1b[0m ${r.error}`,
-      );
+      console.log(`    ${r.name}: ` + `\x1b[31mERROR\x1b[0m ${r.error}`);
       continue;
     }
     const summary = r.matches
       .slice(0, 5)
       .map((m) => `"${m.text}"@${m.start}`)
       .join(", ");
-    const more =
-      r.matches.length > 5
-        ? ` (+${r.matches.length - 5} more)`
-        : "";
+    const more = r.matches.length > 5 ? ` (+${r.matches.length - 5} more)` : "";
     let marker = "";
     if (!allSame && r.matches.length !== counts.at(0)) {
       marker = " \x1b[33m⚠ DIFFERS\x1b[0m";
@@ -217,10 +201,7 @@ printResults(
 // Turkish İ
 printResults(
   'Turkish İ: ["Istanbul","İstanbul"] case-sensitive',
-  runAll(
-    ["Istanbul", "İstanbul"],
-    "Istanbul İstanbul ISTANBUL",
-  ),
+  runAll(["Istanbul", "İstanbul"], "Istanbul İstanbul ISTANBUL"),
 );
 
 printResults(
@@ -228,18 +209,12 @@ printResults(
   runAll(["ılık", "ilık"], "ılık su ve ilık çay"),
 );
 
-printResults(
-  'Offset after İ: ["test"] in "İtest"',
-  runAll(["test"], "İtest"),
-);
+printResults('Offset after İ: ["test"] in "İtest"', runAll(["test"], "İtest"));
 
 // German ß
 printResults(
   'German ß: ["Straße","Strasse"]',
-  runAll(
-    ["Straße", "Strasse"],
-    "Die Straße und die Strasse",
-  ),
+  runAll(["Straße", "Strasse"], "Die Straße und die Strasse"),
 );
 
 printResults(
@@ -264,24 +239,15 @@ printResults(
 // Czech diacritics
 printResults(
   'Czech: ["případ","řízení","soudní"]',
-  runAll(
-    ["případ", "řízení", "soudní"],
-    "soudní řízení v případu",
-  ),
+  runAll(["případ", "řízení", "soudní"], "soudní řízení v případu"),
 );
 
 // Edge cases
-printResults(
-  'Empty pattern: ["","test"]',
-  runAll(["", "test"], "test"),
-);
+printResults('Empty pattern: ["","test"]', runAll(["", "test"], "test"));
 
 printResults(
   "10K-char pattern in 20K-char haystack",
-  runAll(
-    ["a".repeat(10000)],
-    "b".repeat(9999) + "a".repeat(10000),
-  ),
+  runAll(["a".repeat(10000)], "b".repeat(9999) + "a".repeat(10000)),
 );
 
 printResults(
@@ -291,10 +257,7 @@ printResults(
 
 printResults(
   'Regex metacharacters: ["a.b","a*b","[ab]"]',
-  runAll(
-    ["a.b", "a*b", "a+b", "a?b", "[ab]"],
-    "a.b a*b a+b a?b [ab]",
-  ),
+  runAll(["a.b", "a*b", "a+b", "a?b", "[ab]"], "a.b a*b a+b a?b [ab]"),
 );
 
 printResults(

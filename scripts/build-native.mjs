@@ -28,16 +28,10 @@ if (result.status !== 0) {
 }
 
 async function normalizeGeneratedFile(fileName, options) {
-  const fileUrl = new URL(
-    `../${fileName}`,
-    import.meta.url,
-  );
+  const fileUrl = new URL(`../${fileName}`, import.meta.url);
   try {
     const content = await readFile(fileUrl, "utf8");
-    await writeFile(
-      fileUrl,
-      normalizeGeneratedLoader(content, options),
-    );
+    await writeFile(fileUrl, normalizeGeneratedLoader(content, options));
   } catch (error) {
     if (error?.code !== "ENOENT") {
       throw error;
@@ -45,20 +39,16 @@ async function normalizeGeneratedFile(fileName, options) {
   }
 }
 
-await normalizeGeneratedFile(
-  "aho-corasick.wasi-browser.js",
-  { keepGeneratedTypecheckOptOut: true },
-);
+await normalizeGeneratedFile("aho-corasick.wasi-browser.js", {
+  keepGeneratedTypecheckOptOut: true,
+});
 await normalizeGeneratedFile("aho-corasick.wasi.cjs", {
   keepGeneratedTypecheckOptOut: true,
 });
 await normalizeGeneratedFile("wasi-worker-browser.mjs");
 await normalizeGeneratedFile("wasi-worker.mjs");
 
-const declarationUrl = new URL(
-  "../index.d.cts",
-  import.meta.url,
-);
+const declarationUrl = new URL("../index.d.cts", import.meta.url);
 const declaration = await readFile(declarationUrl, "utf8");
 const defaultExportDeclaration =
   "\ndeclare const binding: import('./src/core').NativeBinding\nexport default binding\n";
@@ -72,12 +62,7 @@ if (!declaration.includes("export default binding")) {
 const contractResult = spawnSync(
   "bun",
   [
-    fileURLToPath(
-      new URL(
-        "./wasi-artifact-contract.mjs",
-        import.meta.url,
-      ),
-    ),
+    fileURLToPath(new URL("./wasi-artifact-contract.mjs", import.meta.url)),
     "--generated",
   ],
   { stdio: "inherit" },

@@ -22,22 +22,21 @@ export const libs: Lib[] = [
   {
     name: "@stll/aho-corasick",
     build: (p) => new AhoCorasick(p),
-    search: (ac, h) =>
-      (ac as AhoCorasick).findIter(h).length,
+    search: (ac, h) => (ac as AhoCorasick).findIter(h).length,
   },
   {
     name: "modern-ahocorasick",
     build: (p) => new ModernAC(p),
-    search: (ac, h) =>
-      (ac as InstanceType<typeof ModernAC>).count(h),
+    search: (ac, h) => (ac as InstanceType<typeof ModernAC>).count(h),
   },
   {
     name: "ahocorasick",
     build: (p) => new BrunoAC(p),
     search: (ac, h) => {
-      const r = (ac as InstanceType<typeof BrunoAC>).search(
-        h,
-      ) as [number, string[]][];
+      const r = (ac as InstanceType<typeof BrunoAC>).search(h) as [
+        number,
+        string[],
+      ][];
       let c = 0;
       for (const [, kw] of r) c += kw.length;
       return c;
@@ -48,9 +47,7 @@ export const libs: Lib[] = [
     build: (p) => new MonYoneAC(p),
     search: (ac, h) => {
       let c = 0;
-      for (const _ of (
-        ac as InstanceType<typeof MonYoneAC>
-      ).matchInText(h))
+      for (const _ of (ac as InstanceType<typeof MonYoneAC>).matchInText(h))
         c++;
       return c;
     },
@@ -62,19 +59,13 @@ export const libs: Lib[] = [
         allowOverlaps: false,
       }),
     search: (ac, h) =>
-      (
-        ac as InstanceType<typeof TanishikingTrie>
-      ).parseText(h).length,
+      (ac as InstanceType<typeof TanishikingTrie>).parseText(h).length,
   },
 ];
 
 // ─── Bench runner ─────────────────────────────
 
-export const bench = (
-  name: string,
-  fn: () => number,
-  n: number,
-) => {
+export const bench = (name: string, fn: () => number, n: number) => {
   for (let i = 0; i < 2; i++) fn();
   const t = performance.now();
   let c = 0;

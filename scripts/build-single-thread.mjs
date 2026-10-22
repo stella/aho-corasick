@@ -5,17 +5,12 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const target = "wasm32-unknown-unknown";
-const targetInstall = spawnSync(
-  "rustup",
-  ["target", "add", target],
-  {
-    cwd: root,
-    stdio: "inherit",
-  },
-);
+const targetInstall = spawnSync("rustup", ["target", "add", target], {
+  cwd: root,
+  stdio: "inherit",
+});
 if (targetInstall.error) throw targetInstall.error;
-if (targetInstall.status !== 0)
-  process.exit(targetInstall.status ?? 1);
+if (targetInstall.status !== 0) process.exit(targetInstall.status ?? 1);
 
 const result = spawnSync(
   "cargo",
@@ -33,10 +28,7 @@ const result = spawnSync(
 if (result.error) throw result.error;
 if (result.status !== 0) process.exit(result.status ?? 1);
 
-const targetDir = resolve(
-  root,
-  process.env.CARGO_TARGET_DIR ?? "target",
-);
+const targetDir = resolve(root, process.env.CARGO_TARGET_DIR ?? "target");
 await copyFile(
   resolve(
     targetDir,

@@ -1,20 +1,12 @@
 import assert from "node:assert/strict";
 import { Buffer } from "node:buffer";
 import { spawnSync } from "node:child_process";
-import {
-  copyFile,
-  mkdtemp,
-  readdir,
-  rm,
-} from "node:fs/promises";
+import { copyFile, mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 
-import {
-  AhoCorasick,
-  StreamMatcher,
-} from "../dist/index.mjs";
+import { AhoCorasick, StreamMatcher } from "../dist/index.mjs";
 
 const haystack = "foo bar baz";
 const matcher = new AhoCorasick(["foo", "bar", "baz"]);
@@ -33,19 +25,13 @@ assert.equal(
 
 const stream = new StreamMatcher(["needle"]);
 assert.equal(stream.write(Buffer.from("nee")).length, 0);
-const streamMatches = stream.write(
-  Buffer.from("dle haystack"),
-);
+const streamMatches = stream.write(Buffer.from("dle haystack"));
 assert.equal(streamMatches.length, 1);
 assert.equal(streamMatches[0]?.pattern, 0);
 assert.equal(stream.flush().length, 0);
 
-const repositoryRoot = fileURLToPath(
-  new URL("../", import.meta.url),
-);
-const isolatedRoot = await mkdtemp(
-  path.join(tmpdir(), "aho-corasick-loader-"),
-);
+const repositoryRoot = fileURLToPath(new URL("../", import.meta.url));
+const isolatedRoot = await mkdtemp(path.join(tmpdir(), "aho-corasick-loader-"));
 
 /** @param {{env: NodeJS.ProcessEnv, expectedError?: RegExp}} options */
 function runLoaderProbe({ env, expectedError }) {
@@ -97,8 +83,7 @@ try {
   });
   runLoaderProbe({
     env: { NAPI_RS_WASI_FLAVOR: "wasm32-wasi" },
-    expectedError:
-      /WASI binding for flavor "wasm32-wasi" not found/,
+    expectedError: /WASI binding for flavor "wasm32-wasi" not found/,
   });
 } finally {
   await rm(isolatedRoot, { force: true, recursive: true });

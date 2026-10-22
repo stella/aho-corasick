@@ -1,10 +1,7 @@
 import { expect, test } from "bun:test";
 
 test("source import performs no I/O, allocation or worker startup in an SAB-less runtime", () => {
-  const entry = new URL(
-    "../src/single-thread.ts",
-    import.meta.url,
-  ).href;
+  const entry = new URL("../src/single-thread.ts", import.meta.url).href;
   const result = Bun.spawnSync([
     process.execPath,
     "-e",
@@ -24,10 +21,7 @@ test("source import performs no I/O, allocation or worker startup in an SAB-less
 });
 
 test("initSync compiles only the bytes inside a Buffer view", () => {
-  const entry = new URL(
-    "../src/single-thread.ts",
-    import.meta.url,
-  ).href;
+  const entry = new URL("../src/single-thread.ts", import.meta.url).href;
   const result = Bun.spawnSync([
     process.execPath,
     "-e",

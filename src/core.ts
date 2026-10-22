@@ -27,13 +27,8 @@ type NativeAhoCorasickInstance = {
   isMatch(haystack: string): boolean;
   _findIterPacked(haystack: string): Uint32Array;
   _findOverlappingIterPacked(haystack: string): Uint32Array;
-  replaceAll(
-    haystack: string,
-    replacements: string[],
-  ): string;
-  _findIterPackedBuf(
-    haystack: Buffer | Uint8Array,
-  ): Uint32Array;
+  replaceAll(haystack: string, replacements: string[]): string;
+  _findIterPackedBuf(haystack: Buffer | Uint8Array): Uint32Array;
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[];
   isMatchBuf(haystack: Buffer | Uint8Array): boolean;
   toPrepared(): Uint8Array;
@@ -65,9 +60,7 @@ export const initBinding = (b: NativeBinding) => {
  * - `"leftmost-longest"`: report the longest match
  *   at each position.
  */
-export type MatchKind =
-  | "leftmost-first"
-  | "leftmost-longest";
+export type MatchKind = "leftmost-first" | "leftmost-longest";
 
 /** Options for constructing an automaton. */
 export type Options = {
@@ -106,9 +99,7 @@ export type Options = {
 };
 
 /** A named pattern entry. */
-export type PatternEntry =
-  | string
-  | { pattern: string; name?: string };
+export type PatternEntry = string | { pattern: string; name?: string };
 
 /** A single match result (string methods). */
 export type Match = {
@@ -164,14 +155,8 @@ function unpack(
     const idx = packed[i];
     const start = packed[i + 1];
     const end = packed[i + 2];
-    if (
-      idx === undefined ||
-      start === undefined ||
-      end === undefined
-    ) {
-      throw new Error(
-        `Malformed packed matches at offset ${String(i)}`,
-      );
+    if (idx === undefined || start === undefined || end === undefined) {
+      throw new Error(`Malformed packed matches at offset ${String(i)}`);
     }
     const m: Match = {
       pattern: idx,
@@ -179,8 +164,7 @@ function unpack(
       end,
       text: haystack.slice(start, end),
     };
-    if (names && names[idx] !== undefined)
-      m.name = names[idx];
+    if (names && names[idx] !== undefined) m.name = names[idx];
     matches[j] = m;
   }
   return matches;
@@ -203,14 +187,8 @@ function unpackBuf(packed: Uint32Array): ByteMatch[] {
     const idx = packed[i];
     const start = packed[i + 1];
     const end = packed[i + 2];
-    if (
-      idx === undefined ||
-      start === undefined ||
-      end === undefined
-    ) {
-      throw new Error(
-        `Malformed packed matches at offset ${String(i)}`,
-      );
+    if (idx === undefined || start === undefined || end === undefined) {
+      throw new Error(`Malformed packed matches at offset ${String(i)}`);
     }
     matches[j] = { pattern: idx, start, end };
   }
@@ -235,9 +213,7 @@ export class EmptyPatternError extends RangeError {
   readonly patternIndex: number;
 
   constructor(patternIndex: number) {
-    super(
-      `Pattern at index ${patternIndex} must not be empty`,
-    );
+    super(`Pattern at index ${patternIndex} must not be empty`);
     this.patternIndex = patternIndex;
   }
 }
@@ -249,8 +225,7 @@ const rethrowBindingError = (error: unknown): never => {
           error.message,
         )?.[1]
       : undefined;
-  if (index !== undefined)
-    throw new EmptyPatternError(Number(index));
+  if (index !== undefined) throw new EmptyPatternError(Number(index));
   throw error;
 };
 
@@ -268,8 +243,7 @@ function normalizePatterns(patterns: readonly unknown[]): {
 
   for (const p of patterns) {
     if (typeof p === "string") {
-      if (p.length === 0)
-        throw new EmptyPatternError(strings.length);
+      if (p.length === 0) throw new EmptyPatternError(strings.length);
       strings.push(wellFormed(p));
       names.push(undefined);
       continue;
@@ -282,13 +256,11 @@ function normalizePatterns(patterns: readonly unknown[]): {
       typeof p.pattern !== "string"
     ) {
       throw new TypeError(
-        "Pattern must be a string or " +
-          "{ pattern: string; name?: string }",
+        "Pattern must be a string or " + "{ pattern: string; name?: string }",
       );
     }
 
-    if (p.pattern.length === 0)
-      throw new EmptyPatternError(strings.length);
+    if (p.pattern.length === 0) throw new EmptyPatternError(strings.length);
     strings.push(wellFormed(p.pattern));
     if (!("name" in p) || p.name === undefined) {
       names.push(undefined);
@@ -317,9 +289,7 @@ function normalizePrepared(
   names?: readonly (string | undefined)[],
 ): PreparedAhoCorasick {
   if (prepared instanceof Uint8Array) {
-    return names
-      ? { bytes: prepared, names }
-      : { bytes: prepared };
+    return names ? { bytes: prepared, names } : { bytes: prepared };
   }
   return prepared;
 }
@@ -380,20 +350,15 @@ export class AhoCorasick {
     names?: readonly (string | undefined)[],
   ): AhoCorasick {
     const normalized = normalizePrepared(prepared, names);
-    const instance = Object.create(
-      this.prototype,
-    ) as AhoCorasick;
+    const instance = Object.create(this.prototype) as AhoCorasick;
     try {
-      instance._inner =
-        this.getBinding().ahoCorasickFromPrepared(
-          normalized.bytes,
-        );
+      instance._inner = this.getBinding().ahoCorasickFromPrepared(
+        normalized.bytes,
+      );
     } catch (error) {
       rethrowBindingError(error);
     }
-    instance._names = normalized.names
-      ? Array.from(normalized.names)
-      : null;
+    instance._names = normalized.names ? Array.from(normalized.names) : null;
     return instance;
   }
 
@@ -410,11 +375,7 @@ export class AhoCorasick {
   /** Find all non-overlapping matches. */
   findIter(haystack: string): Match[] {
     haystack = wellFormed(haystack);
-    return unpack(
-      this._inner._findIterPacked(haystack),
-      haystack,
-      this._names,
-    );
+    return unpack(this._inner._findIterPacked(haystack), haystack, this._names);
   }
 
   /** Find all overlapping matches. */
@@ -434,10 +395,7 @@ export class AhoCorasick {
    * @throws {Error} If `replacements.length` does
    *   not equal `patternCount`.
    */
-  replaceAll(
-    haystack: string,
-    replacements: string[],
-  ): string {
+  replaceAll(haystack: string, replacements: string[]): string {
     if (replacements.length !== this.patternCount) {
       throw new Error(
         `Expected ${this.patternCount} ` +
@@ -452,9 +410,7 @@ export class AhoCorasick {
 
   toPrepared(): PreparedAhoCorasick {
     const bytes = this._inner.toPrepared();
-    return this._names
-      ? { bytes, names: this._names }
-      : { bytes };
+    return this._names ? { bytes, names: this._names } : { bytes };
   }
 
   /**
@@ -462,9 +418,7 @@ export class AhoCorasick {
    * Returns **byte offsets** (not UTF-16).
    */
   findIterBuf(haystack: Buffer | Uint8Array): ByteMatch[] {
-    return unpackBuf(
-      this._inner._findIterPackedBuf(haystack),
-    );
+    return unpackBuf(this._inner._findIterPackedBuf(haystack));
   }
 
   /**
@@ -500,11 +454,10 @@ export class StreamMatcher {
 
   constructor(patterns: string[], options?: Options) {
     const { strings } = normalizePatterns(patterns);
-    this._inner =
-      new (new.target.getBinding().StreamMatcher)(
-        strings,
-        normalizeOptions(options),
-      );
+    this._inner = new (new.target.getBinding().StreamMatcher)(
+      strings,
+      normalizeOptions(options),
+    );
   }
 
   /** Feed a chunk, get matches with global byte
