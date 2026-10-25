@@ -61,7 +61,6 @@
     "release:check": "node scripts/check-release-tarballs.mjs",
     "format": "bun fmt && cargo fmt --all",
     "typecheck": "bun check --no-pretty --all --project=tsconfig.json",
-    "check:typecheck-parity": "stll-typecheck-parity",
     "lint": "bun --bun oxlint -c oxlint.config.ts --report-unused-disable-directives-severity=error --deny-warnings --type-aware .",
     "lint:fix": "bun --bun oxlint -c oxlint.config.ts --type-aware --fix .",
     "check:wasm-compat": "node scripts/check-wasm-compat.mjs",
@@ -103,6 +102,7 @@
     "oxlint-tsgolint": "7.0.2003",
     "semver": "7.8.5",
     "tsdown": "0.23.0",
+    "tsrs": "0.18.0-ts7.1.0-dev.20260929",
     "typescript": "7.0.2",
     "vite": "^8.3.4"
   },
