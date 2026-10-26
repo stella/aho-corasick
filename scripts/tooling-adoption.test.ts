@@ -20,9 +20,9 @@ import {
 
 import config from "../oxlint.config";
 
-// This test spawns a full tsc run.
+// This test spawns a full tsrs declaration emit.
 const DECLARATION_TEST_TIMEOUT_MS = 60_000;
-const DECLARATION_TSC_TIMEOUT_MS = 55_000;
+const DECLARATION_EMIT_TIMEOUT_MS = 55_000;
 
 test(
   "the lint configuration emits a portable declaration",
@@ -48,19 +48,19 @@ test(
       const result = spawnSync(
         "node",
         [
-          fileURLToPath(new URL("node_modules/typescript/bin/tsc", root)),
+          fileURLToPath(new URL("node_modules/tsrs/bin/tsrs", root)),
           "--project",
           project,
         ],
         {
           cwd: root,
           encoding: "utf8",
-          timeout: DECLARATION_TSC_TIMEOUT_MS,
+          timeout: DECLARATION_EMIT_TIMEOUT_MS,
         },
       );
       expect(
         result.status,
-        `tsc exited with signal ${result.signal ?? "none"}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
+        `tsrs exited with signal ${result.signal ?? "none"}\nstdout:\n${result.stdout}\nstderr:\n${result.stderr}`,
       ).toBe(0);
       const declaration = readFileSync(
         join(fixture, "types/oxlint.config.d.ts"),
