@@ -284,7 +284,16 @@ jobs:
 
   ci-result:
     if: always()
-    needs: [check-changes, trust-check, changeset, checks, napi-ci, single-thread, hawk]
+    needs:
+      [
+        check-changes,
+        trust-check,
+        changeset,
+        checks,
+        napi-ci,
+        single-thread,
+        hawk,
+      ]
     runs-on: ubuntu-latest
     permissions:
       contents: read
