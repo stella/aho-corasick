@@ -10,14 +10,15 @@ test("repository workflows satisfy the installed shared toolchain guard", () => 
   const result = spawnSync("bunx", ["--no-install", "stll-toolchain-check"], {
     cwd: root,
     encoding: "utf8",
+    timeout: 20_000,
   });
-  expect(result.status, result.stderr).toBe(0);
+  expect(result.status, `${result.error ?? ""}\n${result.stderr}`).toBe(0);
   const workflow = read(".github/workflows/ci.yml");
   expect(workflow).toContain('HAWK_RUST_TOOLCHAIN: "1.97.1"');
   expect(workflow).toContain('toolchain: "1.97.1"');
   const manifest = JSON.parse(read("package.json"));
   expect(manifest.scripts["rust:hawk"]).toContain("cargo +1.97.1 hawk");
-});
+}, 30_000);
 
 test("change detection follows trust and the CI dependency graph stays acyclic", () => {
   const workflow = Bun.YAML.parse(read(".github/workflows/ci.yml"));
