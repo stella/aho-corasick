@@ -2,7 +2,7 @@
 name = "stella-aho-corasick-core"
 version = "2.0.0"
 edition = "2024"
-rust-version = "1.85"
+rust-version = "1.88"
 description = "Exact many-pattern string search core"
 license = "Apache-2.0"
 publish = ["crates-io"]

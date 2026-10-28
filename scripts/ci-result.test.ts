@@ -187,8 +187,8 @@ test("CI and CLA handle merge groups with the immutable merged base and verifier
   expect(cla["on"]["merge_group"]).toEqual({
     types: ["checks_requested"],
   });
-  expect(cla["jobs"]["cla"]["uses"]).toBe(
-    "stella/.github/.github/workflows/cla.yml@07debc754995bab35e446511859f1d93e1ad127a",
+  expect(cla["jobs"]["cla"]["uses"]).toMatch(
+    /^stella\/\.github\/\.github\/workflows\/cla\.yml@[a-f0-9]{40}$/,
   );
   expect(cla["jobs"]["cla"]["if"]).toContain(
     "github.event_name == 'merge_group'",

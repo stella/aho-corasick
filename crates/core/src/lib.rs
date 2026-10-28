@@ -1207,7 +1207,7 @@ mod tests {
                     ),
                   ] {
                     let mut expected = Vec::new();
-                    for packed_match in byte_matches.chunks_exact(3) {
+                    for packed_match in byte_matches.as_chunks::<3>().0 {
                       let mut fields = packed_match.iter().copied();
                       let pattern = fields.next();
                       assert!(
