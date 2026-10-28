@@ -187,7 +187,7 @@ jobs:
       - run: bun fmt --check
       - run: bun run check:toolchain
       - run: bun run test:tooling
-      - run: bun test scripts/shared-policy.test.ts scripts/ci-result.test.ts
+      - run: bun test scripts/shared-policy.test.ts scripts/ci-result.test.ts scripts/release-workflow.test.mjs
 
   napi-ci:
     if: ${{ always() && !cancelled() && needs.check-changes.result == 'success' && (github.event_name != 'pull_request' || needs.trust-check.outputs.trusted == 'true') }}
