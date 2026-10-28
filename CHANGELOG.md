@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.1
+
+### Patch Changes
+
+- [#244](https://github.com/stella/aho-corasick/pull/244) [`f8619ce`](https://github.com/stella/aho-corasick/commit/f8619cef6d5c9ee3f23929d5c13a7fc5645c52d6) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Refresh native matching dependencies and the emnapi 2 beta runtime. The Rust core now declares the Rust 1.88 minimum already required by its builder dependency.
+
 ## 2.0.0
 
 ### Major Changes
