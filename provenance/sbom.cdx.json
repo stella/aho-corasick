@@ -1910,7 +1910,7 @@
       "version": "0.4.12"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-core@2.0.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-core@2.0.1",
       "evidence": {
         "identity": [
           {
@@ -1935,12 +1935,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-core@2.0.0",
+      "purl": "pkg:cargo/stella-aho-corasick-core@2.0.1",
       "type": "library",
-      "version": "2.0.0"
+      "version": "2.0.1"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.1",
       "evidence": {
         "identity": [
           {
@@ -1965,12 +1965,12 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.0",
+      "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.1",
       "type": "library",
-      "version": "2.0.0"
+      "version": "2.0.1"
     },
     {
-      "bom-ref": "pkg:cargo/stella-aho-corasick@2.0.0",
+      "bom-ref": "pkg:cargo/stella-aho-corasick@2.0.1",
       "evidence": {
         "identity": [
           {
@@ -1995,9 +1995,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/stella-aho-corasick@2.0.0",
+      "purl": "pkg:cargo/stella-aho-corasick@2.0.1",
       "type": "library",
-      "version": "2.0.0"
+      "version": "2.0.1"
     },
     {
       "bom-ref": "pkg:cargo/strsim@0.11.1",
@@ -2675,7 +2675,7 @@
   "compositions": [
     {
       "aggregate": "incomplete",
-      "bom-ref": "pkg:npm/@stll/aho-corasick@2.0.0"
+      "bom-ref": "pkg:npm/@stll/aho-corasick@2.0.1"
     }
   ],
   "dependencies": [
@@ -2951,9 +2951,9 @@
         "pkg:cargo/napi-build@2.6.0",
         "pkg:cargo/napi-derive@3.6.13",
         "pkg:cargo/napi@3.15.0",
-        "pkg:cargo/stella-aho-corasick-core@2.0.0"
+        "pkg:cargo/stella-aho-corasick-core@2.0.1"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick@2.0.0"
+      "ref": "pkg:cargo/stella-aho-corasick@2.0.1"
     },
     {
       "dependsOn": [
@@ -2961,13 +2961,13 @@
         "pkg:cargo/daachorse@5.1.0",
         "pkg:cargo/unicode-case-mapping@1.0.0"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-core@2.0.0"
+      "ref": "pkg:cargo/stella-aho-corasick-core@2.0.1"
     },
     {
       "dependsOn": [
-        "pkg:cargo/stella-aho-corasick-core@2.0.0"
+        "pkg:cargo/stella-aho-corasick-core@2.0.1"
       ],
-      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.0"
+      "ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.1"
     },
     {
       "dependsOn": [],
@@ -3003,7 +3003,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:npm/@stll/aho-corasick@2.0.0"
+      "ref": "pkg:npm/@stll/aho-corasick@2.0.1"
     }
   ],
   "metadata": {
@@ -3013,10 +3013,10 @@
       }
     ],
     "component": {
-      "bom-ref": "pkg:npm/@stll/aho-corasick@2.0.0",
+      "bom-ref": "pkg:npm/@stll/aho-corasick@2.0.1",
       "components": [
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick@2.0.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick@2.0.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -3033,12 +3033,12 @@
             }
           ],
           "name": "stella-aho-corasick",
-          "purl": "pkg:cargo/stella-aho-corasick@2.0.0",
+          "purl": "pkg:cargo/stella-aho-corasick@2.0.1",
           "type": "application",
-          "version": "2.0.0"
+          "version": "2.0.1"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -3055,12 +3055,12 @@
             }
           ],
           "name": "stella-aho-corasick-wasm-single-thread",
-          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.0",
+          "purl": "pkg:cargo/stella-aho-corasick-wasm-single-thread@2.0.1",
           "type": "library",
-          "version": "2.0.0"
+          "version": "2.0.1"
         },
         {
-          "bom-ref": "pkg:cargo/stella-aho-corasick-core@2.0.0",
+          "bom-ref": "pkg:cargo/stella-aho-corasick-core@2.0.1",
           "externalReferences": [
             {
               "type": "vcs",
@@ -3081,9 +3081,9 @@
             }
           ],
           "name": "stella-aho-corasick-core",
-          "purl": "pkg:cargo/stella-aho-corasick-core@2.0.0",
+          "purl": "pkg:cargo/stella-aho-corasick-core@2.0.1",
           "type": "library",
-          "version": "2.0.0"
+          "version": "2.0.1"
         }
       ],
       "description": "Exact many-pattern string search for Node.js and Bun via Rust's aho-corasick engine exposed through NAPI-RS.",
@@ -3107,9 +3107,9 @@
         }
       ],
       "name": "aho-corasick",
-      "purl": "pkg:npm/%40stll/aho-corasick@2.0.0",
+      "purl": "pkg:npm/%40stll/aho-corasick@2.0.1",
       "type": "application",
-      "version": "2.0.0"
+      "version": "2.0.1"
     },
     "lifecycles": [
       {
