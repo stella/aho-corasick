@@ -10,17 +10,18 @@ permissions:
 
 jobs:
   suite:
-    name: suite ${{ matrix.shard }}
+    name: suite ${{ matrix.shard }} early-tools=${{ matrix.early }}
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
+        shard: [1, 2, 3, 4, 5, 6]
+        early: [true, false]
     steps:
       - run: date -u +%T.%N; uptime; cat /proc/pressure/io
       - name: tools early (odd shards)
-        if: matrix.shard % 2 == 1
+        if: matrix.early
         run: sudo apt-get install -y -q gdb strace >/dev/null 2>&1 || true
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
