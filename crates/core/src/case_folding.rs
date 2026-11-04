@@ -1,6 +1,6 @@
 #![allow(clippy::redundant_pub_crate)]
 
-use std::{collections::HashSet, sync::OnceLock};
+use std::{collections::HashMap, sync::OnceLock};
 
 use daachorse::{
   DoubleArrayAhoCorasick as RawAhoCorasick, DoubleArrayAhoCorasickBuilder,
@@ -28,12 +28,59 @@ fn simple_fold_string(s: &str) -> String {
   s.chars().map(simple_case_fold).collect()
 }
 
+/// The automaton's patterns, one per distinct effective pattern, plus every
+/// later input index whose effective pattern repeats an earlier one.
+struct EffectivePatterns {
+  values: Vec<(String, u32)>,
+  duplicates: PatternDuplicates,
+}
+
+/// Input indexes whose effective pattern (after case folding) repeats an
+/// earlier one. The automaton holds each distinct pattern once, under its
+/// first index; overlapping search reports every index, so each match of a
+/// first index also stands for the repeats listed here.
+#[derive(Default)]
+pub(crate) struct PatternDuplicates {
+  /// `(first index, repeating index)`, sorted by both fields.
+  pairs: Vec<(u32, u32)>,
+}
+
+impl PatternDuplicates {
+  pub(crate) fn from_pairs(pairs: Vec<(u32, u32)>) -> Result<Self, Error> {
+    let ordered = pairs.is_sorted()
+      && pairs.windows(2).all(|pair| pair.first() != pair.last());
+    let forward = pairs.iter().all(|(first, repeat)| first < repeat);
+    if !ordered || !forward {
+      return Err(Error::InvalidPreparedAutomaton(
+        "pattern duplicates must be sorted and refer forward".to_owned(),
+      ));
+    }
+    Ok(Self { pairs })
+  }
+
+  pub(crate) fn pairs(&self) -> &[(u32, u32)] {
+    &self.pairs
+  }
+
+  fn repeats_of(&self, first: u32) -> impl Iterator<Item = u32> + '_ {
+    let from = self.pairs.partition_point(|(index, _)| *index < first);
+    self
+      .pairs
+      .get(from..)
+      .unwrap_or_default()
+      .iter()
+      .take_while(move |(index, _)| *index == first)
+      .map(|(_, repeat)| *repeat)
+  }
+}
+
 fn effective_pattern_values(
   patterns: Vec<String>,
   case_insensitive: bool,
-) -> Result<Vec<(String, u32)>, Error> {
-  let mut seen = HashSet::with_capacity(patterns.len());
+) -> Result<EffectivePatterns, Error> {
+  let mut first_index = HashMap::with_capacity(patterns.len());
   let mut values = Vec::with_capacity(patterns.len());
+  let mut duplicates = Vec::new();
 
   for (index, mut pattern) in patterns.into_iter().enumerate() {
     let index =
@@ -48,12 +95,21 @@ fn effective_pattern_values(
         pattern = simple_fold_string(&pattern);
       }
     }
-    if seen.insert(pattern.clone()) {
+    if let Some(first) = first_index.get(&pattern) {
+      duplicates.push((*first, index));
+    } else {
+      first_index.insert(pattern.clone(), index);
       values.push((pattern, index));
     }
   }
 
-  Ok(values)
+  // Indexes arrive in ascending order, so sorting by first index keeps each
+  // first index's repeats ascending.
+  duplicates.sort_unstable();
+  Ok(EffectivePatterns {
+    values,
+    duplicates: PatternDuplicates { pairs: duplicates },
+  })
 }
 
 fn build_raw_automaton(
@@ -224,6 +280,7 @@ pub(crate) struct CaseFoldingAC {
   match_kind: RawMatchKind,
   overlap: OverlapAutomaton,
   case_insensitive: bool,
+  duplicates: PatternDuplicates,
 }
 
 enum OverlapAutomaton {
@@ -237,9 +294,10 @@ enum OverlapAutomaton {
   },
 }
 
-pub(crate) struct PreparedAutomata {
+pub(crate) struct PreparedAutomata<'a> {
   pub(crate) main: Vec<u8>,
   pub(crate) overlap: Option<Vec<u8>>,
+  pub(crate) duplicates: &'a [(u32, u32)],
 }
 
 impl CaseFoldingAC {
@@ -249,7 +307,10 @@ impl CaseFoldingAC {
     case_insensitive: bool,
     _dfa: bool,
   ) -> Result<Self, Error> {
-    let pattern_values = effective_pattern_values(patterns, case_insensitive)?;
+    let EffectivePatterns {
+      values: pattern_values,
+      duplicates,
+    } = effective_pattern_values(patterns, case_insensitive)?;
     let raw = build_raw_automaton(&pattern_values, match_kind)
       .map_err(Error::BuildAutomaton)?;
     let overlap = if matches!(match_kind, RawMatchKind::Standard) {
@@ -266,6 +327,7 @@ impl CaseFoldingAC {
       match_kind,
       overlap,
       case_insensitive,
+      duplicates,
     })
   }
 
@@ -274,6 +336,7 @@ impl CaseFoldingAC {
     case_insensitive: bool,
     main: &[u8],
     overlap: Option<&[u8]>,
+    duplicates: PatternDuplicates,
   ) -> Result<Self, Error> {
     let raw = deserialize_raw_automaton(main)?;
     let overlap = if matches!(match_kind, RawMatchKind::Standard) {
@@ -294,10 +357,13 @@ impl CaseFoldingAC {
       match_kind,
       overlap,
       case_insensitive,
+      duplicates,
     })
   }
 
-  pub(crate) fn prepared_automata(&self) -> Result<PreparedAutomata, Error> {
+  pub(crate) fn prepared_automata(
+    &self,
+  ) -> Result<PreparedAutomata<'_>, Error> {
     let main = serialize_raw_automaton(self.raw.as_ref());
     let overlap = match &self.overlap {
       OverlapAutomaton::Native => None,
@@ -318,7 +384,11 @@ impl CaseFoldingAC {
       }
     };
 
-    Ok(PreparedAutomata { main, overlap })
+    Ok(PreparedAutomata {
+      main,
+      overlap,
+      duplicates: self.duplicates.pairs(),
+    })
   }
 
   pub(crate) const fn match_kind(&self) -> RawMatchKind {
@@ -400,14 +470,27 @@ impl CaseFoldingAC {
   ) -> Result<Vec<RawMatch>, Error> {
     let automaton = self.overlapping_ac()?;
     let text = prep.search_text();
-    Ok(
-      overlapping_iter_raw(automaton, text.as_bytes())
-        .into_iter()
-        .filter(|m| {
-          text.is_char_boundary(m.start()) && text.is_char_boundary(m.end())
-        })
-        .collect(),
-    )
+    let matches = overlapping_iter_raw(automaton, text.as_bytes())
+      .into_iter()
+      .filter(|m| {
+        text.is_char_boundary(m.start()) && text.is_char_boundary(m.end())
+      });
+    if self.duplicates.pairs().is_empty() {
+      return Ok(matches.collect());
+    }
+    // Overlapping search reports every pattern that matches, so a repeated
+    // pattern matches under each of its indexes, in ascending order.
+    let mut expanded = Vec::new();
+    for m in matches {
+      expanded.push(m);
+      expanded.extend(
+        self
+          .duplicates
+          .repeats_of(m.pattern)
+          .map(|repeat| raw_match(repeat, m.start, m.end)),
+      );
+    }
+    Ok(expanded)
   }
 
   fn overlapping_ac(&self) -> Result<Option<&RawAhoCorasick<u32>>, Error> {
@@ -516,8 +599,8 @@ fn is_match_raw(
 #[allow(clippy::unwrap_used, clippy::missing_assert_message)]
 mod tests {
   use super::{
-    CaseFoldingAC, DoubleArrayAhoCorasickBuilder, PosMapping, RawMatchKind,
-    SearchCtx,
+    CaseFoldingAC, DoubleArrayAhoCorasickBuilder, PatternDuplicates,
+    PosMapping, RawMatchKind, SearchCtx,
   };
   use crate::Error;
 
@@ -567,8 +650,14 @@ mod tests {
         Some(valid_overlap.as_slice())
       };
       assert_eq!(
-        CaseFoldingAC::from_prepared(match_kind, false, &empty_main, overlap)
-          .err(),
+        CaseFoldingAC::from_prepared(
+          match_kind,
+          false,
+          &empty_main,
+          overlap,
+          PatternDuplicates::default(),
+        )
+        .err(),
         Some(Error::empty_pattern(7))
       );
       if matches!(match_kind, RawMatchKind::Standard) {
@@ -584,7 +673,8 @@ mod tests {
           match_kind,
           false,
           &valid_main,
-          Some(&empty_overlap)
+          Some(&empty_overlap),
+          PatternDuplicates::default(),
         )
         .err(),
         Some(Error::empty_pattern(7))

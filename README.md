@@ -331,6 +331,12 @@ type ByteMatch = {
   `error.empty_pattern_index()` returns the rejected input index.
   direct NAPI bindings report `InvalidArg` with an `ERR_EMPTY_PATTERN`
   message. Native and browser APIs use the same validation.
+- A pattern may repeat, including after case folding. Overlapping search
+  reports every index of a repeated pattern, in ascending order;
+  non-overlapping search and `replaceAll` use its first index.
+- Prepared automata carry the repeated-pattern table (format version 2).
+  A release loads only its own format: prepare automata again after
+  upgrading from 2.0.1 or earlier.
 
 ## Limitations
 

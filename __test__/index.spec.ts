@@ -190,6 +190,37 @@ describe("overlapping matches", () => {
     expect(overlapping.length).toBeGreaterThanOrEqual(4);
   });
 
+  test("a repeated pattern matches under every index", () => {
+    const at = (matches: { pattern: number; start: number }[]) =>
+      matches.map((m) => [m.pattern, m.start]);
+    for (const options of [{}, { wholeWords: true }]) {
+      const ac = new AhoCorasick(["a", "b", "a", "b"], options);
+      expect(at(ac.findOverlappingIter("a b"))).toEqual([
+        [0, 0],
+        [2, 0],
+        [1, 2],
+        [3, 2],
+      ]);
+      // Non-overlapping search reports a repeated pattern once, first index.
+      expect(at(ac.findIter("a b"))).toEqual([
+        [0, 0],
+        [1, 2],
+      ]);
+    }
+    const folded = new AhoCorasick(["x", "X"], { caseInsensitive: true });
+    expect(at(folded.findOverlappingIter("x"))).toEqual([
+      [0, 0],
+      [1, 0],
+    ]);
+    const prepared = AhoCorasick.fromPrepared(
+      AhoCorasick.prepare(["x", "X"], { caseInsensitive: true }),
+    );
+    expect(at(prepared.findOverlappingIter("x"))).toEqual([
+      [0, 0],
+      [1, 0],
+    ]);
+  });
+
   test("non-overlapping skips nested", () => {
     const ac = new AhoCorasick(["a", "ab", "abc"]);
     const non = ac.findIter("abc");
