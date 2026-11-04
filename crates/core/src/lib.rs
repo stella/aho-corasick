@@ -209,7 +209,19 @@ fn read_duplicates(
   if count >= pattern_count.max(1) {
     return Err(invalid_prepared("duplicate count exceeds pattern count"));
   }
-  let mut pairs = Vec::with_capacity(usize_from_u32(count).unwrap_or(0));
+  // The pattern count is read from the same untrusted bytes: bound the
+  // reservation by the pairs actually present.
+  let remaining = bytes.len().saturating_sub(*cursor);
+  let Some(count_len) = usize_from_u32(count) else {
+    return Err(invalid_prepared("duplicate count does not fit"));
+  };
+  if count_len
+    .checked_mul(8)
+    .is_none_or(|needed| needed > remaining)
+  {
+    return Err(invalid_prepared("missing duplicate pairs"));
+  }
+  let mut pairs = Vec::with_capacity(count_len);
   for _ in 0..count {
     let first = read_u32_le(bytes, cursor, "missing duplicate first index")?;
     let repeat = read_u32_le(bytes, cursor, "missing duplicate index")?;
@@ -1542,5 +1554,52 @@ mod tests {
       .unwrap()
       .copy_from_slice(&[1u32.to_le_bytes(), 0u32.to_le_bytes()].concat());
     assert!(AhoCorasick::from_prepared(&bytes).is_err());
+  }
+
+  /// Overwrites the last repeated-pattern pair of a prepared automaton.
+  fn with_last_pair(mut bytes: Vec<u8>, first: u32, repeat: u32) -> Vec<u8> {
+    let pair = bytes.len().saturating_sub(8);
+    bytes
+      .get_mut(pair..)
+      .unwrap()
+      .copy_from_slice(&[first.to_le_bytes(), repeat.to_le_bytes()].concat());
+    bytes
+  }
+
+  #[test]
+  fn prepared_repeats_must_belong_to_one_first_index() {
+    let options = Options::default();
+    // The table is (0, 2), (1, 3); listing 2 under 1 as well would make
+    // matches of "b" report the index of "a".
+    let bytes =
+      AhoCorasick::prepare(strings(&["a", "b", "a", "b"]), options).unwrap();
+    assert!(AhoCorasick::from_prepared(&with_last_pair(bytes, 1, 2)).is_err());
+    // The table is (0, 1), (0, 2); a repeat must not stand as a first index.
+    let chained =
+      AhoCorasick::prepare(strings(&["a", "a", "a"]), options).unwrap();
+    assert!(
+      AhoCorasick::from_prepared(&with_last_pair(chained, 1, 2)).is_err()
+    );
+  }
+
+  #[test]
+  fn prepared_duplicate_count_is_bounded_by_the_pairs_present() {
+    let mut bytes =
+      AhoCorasick::prepare(strings(&["a", "a"]), Options::default()).unwrap();
+    // Claim the largest pattern count and nearly as many repeats while only
+    // one pair follows: loading must fail before reserving for the claim.
+    bytes
+      .get_mut(12..16)
+      .unwrap()
+      .copy_from_slice(&u32::MAX.to_le_bytes());
+    let count = bytes.len() - 12;
+    bytes
+      .get_mut(count..count + 4)
+      .unwrap()
+      .copy_from_slice(&(u32::MAX - 1).to_le_bytes());
+    let message = AhoCorasick::from_prepared(&bytes)
+      .err()
+      .map_or_else(String::new, |error| error.to_string());
+    assert!(message.contains("missing duplicate pairs"), "{message}");
   }
 }

@@ -50,9 +50,19 @@ impl PatternDuplicates {
     let ordered = pairs.is_sorted()
       && pairs.windows(2).all(|pair| pair.first() != pair.last());
     let forward = pairs.iter().all(|(first, repeat)| first < repeat);
-    if !ordered || !forward {
+    // Each repeat repeats exactly one first index, and a repeat is never
+    // itself a first index: the automaton holds first indexes only.
+    let mut repeats: Vec<u32> =
+      pairs.iter().map(|(_, repeat)| *repeat).collect();
+    repeats.sort_unstable();
+    let unique = repeats.windows(2).all(|pair| pair.first() != pair.last());
+    let firsts_are_not_repeats = pairs
+      .iter()
+      .all(|(first, _)| repeats.binary_search(first).is_err());
+    if !ordered || !forward || !unique || !firsts_are_not_repeats {
       return Err(Error::InvalidPreparedAutomaton(
-        "pattern duplicates must be sorted and refer forward".to_owned(),
+        "pattern duplicates must be sorted, refer forward, and map each repeat to one first index"
+          .to_owned(),
       ));
     }
     Ok(Self { pairs })
