@@ -58,7 +58,7 @@ impl PatternDuplicates {
     Ok(Self { pairs })
   }
 
-  pub(crate) fn pairs(&self) -> &[(u32, u32)] {
+  fn pairs(&self) -> &[(u32, u32)] {
     &self.pairs
   }
 

@@ -1428,8 +1428,10 @@ mod tests {
   /// Packed `[pattern, start, end]` triples as `(pattern, start)` pairs.
   fn pattern_starts(packed: &[u32]) -> Vec<(u32, u32)> {
     packed
-      .chunks_exact(3)
-      .filter_map(|m| Some((*m.first()?, *m.get(1)?)))
+      .as_chunks::<3>()
+      .0
+      .iter()
+      .map(|[pattern, start, _]| (*pattern, *start))
       .collect()
   }
 
