@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.3
+
+### Patch Changes
+
+- [#257](https://github.com/stella/aho-corasick/pull/257) [`c0fb3d1`](https://github.com/stella/aho-corasick/commit/c0fb3d1e35e9583286182e6168b0be2e8a108147) Thanks [@jan-kubica](https://github.com/jan-kubica)! - The WebAssembly packages depend on `@napi-rs/wasm-runtime` 1.2.6, the release that matches `@emnapi/core` 2.0.0-beta.2. With 1.2.5, the worker threads of the threaded WebAssembly build failed to start, so importing `@stll/aho-corasick-wasm` in a browser threw `Worker sent an unknown error`.
+
 ## 2.0.2
 
 ### Patch Changes
