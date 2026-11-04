@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.0.2
+
+### Patch Changes
+
+- [#253](https://github.com/stella/aho-corasick/pull/253) [`0fc6093`](https://github.com/stella/aho-corasick/commit/0fc60933b2c160de9d5c0796c5174978652b173a) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Overlapping search reports every index of a repeated pattern again, including patterns that repeat after case folding, as 1.x did. 2.0 kept each distinct pattern once under its first index, so `findOverlappingIter` lost the later indexes, with or without `wholeWords`. Prepared automata now carry the repeated-pattern table (format version 2); automata prepared by 2.0.1 or earlier are rejected and must be prepared again.
+
+- [#254](https://github.com/stella/aho-corasick/pull/254) [`2c4917a`](https://github.com/stella/aho-corasick/commit/2c4917af6bcc913ce621e7c09db2b1e7377e14b8) Thanks [@jan-kubica](https://github.com/jan-kubica)! - The browser WebAssembly loader passes its worker options as a static object literal again, so Vite and other bundlers can resolve `new Worker(new URL(...), { type: "module" })` at build time. 2.0 passed a variable that also carried `workerData`, which browser workers ignore; the loader already posts the crash flag to each worker.
+
 ## 2.0.1
 
 ### Patch Changes
