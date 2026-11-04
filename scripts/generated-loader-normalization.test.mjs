@@ -29,7 +29,7 @@ const extractFunction = (source, name) => {
   throw new Error(`${name} is incomplete`);
 };
 
-const workerConstructionsWithoutSharedData = (source) => {
+const collectWorkers = (source) => {
   const ast = parse(source, {
     ecmaVersion: "latest",
     sourceType: "module",
@@ -58,7 +58,11 @@ const workerConstructionsWithoutSharedData = (source) => {
     }
   };
   visit(ast);
+  return { declarations, workers };
+};
 
+const workerConstructionsWithoutSharedData = (source) => {
+  const { declarations, workers } = collectWorkers(source);
   const dataSources = new Set();
   const violations = [];
   for (const worker of workers) {
@@ -86,6 +90,24 @@ const workerConstructionsWithoutSharedData = (source) => {
   }
   return violations;
 };
+
+// Bundlers (Vite, Rollup) resolve `new Worker(new URL(...), options)` at build
+// time and must read `options` as an object literal of literal values.
+const workerConstructionsWithDynamicOptions = (source) =>
+  collectWorkers(source)
+    .workers.filter((worker) => {
+      const options = worker.arguments[1];
+      return !(
+        options?.type === "ObjectExpression" &&
+        options.properties.every(
+          (property) =>
+            property.type === "Property" &&
+            !property.computed &&
+            property.value.type === "Literal",
+        )
+      );
+    })
+    .map((worker) => source.slice(worker.start, worker.end));
 
 describe("generated loader normalization", () => {
   test("adapts bundled plugins to the emnapi beta context", () => {
@@ -289,13 +311,10 @@ return {
     });
   }
 
-  test("every generated Worker construction shares workerData", () => {
-    for (const fileName of [
-      "aho-corasick.wasi-browser.js",
-      "aho-corasick.wasi.cjs",
-    ]) {
-      expect(workerConstructionsWithoutSharedData(read(fileName))).toEqual([]);
-    }
+  test("every Node worker construction shares workerData", () => {
+    expect(
+      workerConstructionsWithoutSharedData(read("aho-corasick.wasi.cjs")),
+    ).toEqual([]);
 
     const missingFallbackData = `
 const workerData = { crashFlag, crashReport }
@@ -308,6 +327,27 @@ try {
 `;
     expect(workerConstructionsWithoutSharedData(missingFallbackData)).toEqual([
       "new Worker(path)",
+    ]);
+  });
+
+  test("browser workers take static options and receive the crash flag by message", () => {
+    // A browser Worker ignores `workerData`; the loader posts the crash flag
+    // to each worker it creates instead.
+    const browserLoader = read("aho-corasick.wasi-browser.js");
+    expect(workerConstructionsWithDynamicOptions(browserLoader)).toEqual([]);
+    const { workers } = collectWorkers(browserLoader);
+    expect(workers.length).toBeGreaterThan(0);
+    expect(
+      browserLoader.split("__shareWasiAddonCrashFlag(worker)").length - 1,
+    ).toBeGreaterThanOrEqual(workers.length);
+
+    const dynamicOptions = `
+const options = { type: "module" }
+new Worker(new URL("./w.mjs", import.meta.url), options)
+new Worker(new URL("./w.mjs", import.meta.url), { type: "module" })
+`;
+    expect(workerConstructionsWithDynamicOptions(dynamicOptions)).toEqual([
+      'new Worker(new URL("./w.mjs", import.meta.url), options)',
     ]);
   });
 
