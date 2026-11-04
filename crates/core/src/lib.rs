@@ -134,7 +134,8 @@ enum BoundaryMode {
 
 const MATCH_FIELDS: usize = 3;
 const PREPARED_MAGIC: &[u8; 8] = b"STLAHO\0\0";
-const PREPARED_VERSION: u32 = 1;
+/// Version 2 appends the repeated-pattern table after the automata.
+const PREPARED_VERSION: u32 = 2;
 const PREPARED_HEADER_LEN: usize = 28;
 const PREPARED_FLAG_CASE_INSENSITIVE: u8 = 1;
 const PREPARED_FLAG_WHOLE_WORDS: u8 = 2;
@@ -195,6 +196,41 @@ fn read_u8(bytes: &[u8], cursor: &mut usize, field: &str) -> Result<u8> {
   };
   *cursor = cursor.saturating_add(1);
   Ok(value)
+}
+
+/// Reads the repeated-pattern table: a count, then `(first, repeat)` index
+/// pairs, each below the prepared pattern count.
+fn read_duplicates(
+  bytes: &[u8],
+  cursor: &mut usize,
+  pattern_count: u32,
+) -> Result<case_folding::PatternDuplicates> {
+  let count = read_u32_le(bytes, cursor, "missing duplicate count")?;
+  if count >= pattern_count.max(1) {
+    return Err(invalid_prepared("duplicate count exceeds pattern count"));
+  }
+  // The pattern count is read from the same untrusted bytes: bound the
+  // reservation by the pairs actually present.
+  let remaining = bytes.len().saturating_sub(*cursor);
+  let Some(count_len) = usize_from_u32(count) else {
+    return Err(invalid_prepared("duplicate count does not fit"));
+  };
+  if count_len
+    .checked_mul(8)
+    .is_none_or(|needed| needed > remaining)
+  {
+    return Err(invalid_prepared("missing duplicate pairs"));
+  }
+  let mut pairs = Vec::with_capacity(count_len);
+  for _ in 0..count {
+    let first = read_u32_le(bytes, cursor, "missing duplicate first index")?;
+    let repeat = read_u32_le(bytes, cursor, "missing duplicate index")?;
+    if repeat >= pattern_count {
+      return Err(invalid_prepared("duplicate index exceeds pattern count"));
+    }
+    pairs.push((first, repeat));
+  }
+  case_folding::PatternDuplicates::from_pairs(pairs)
 }
 
 fn skip_reserved(bytes: &[u8], cursor: &mut usize) -> Result<()> {
@@ -552,6 +588,7 @@ impl AhoCorasick {
     let main = read_bytes(bytes, &mut cursor, main_len, "missing main bytes")?;
     let overlap =
       read_bytes(bytes, &mut cursor, overlap_len, "missing overlap bytes")?;
+    let duplicates = read_duplicates(bytes, &mut cursor, pattern_count)?;
     if cursor != bytes.len() {
       return Err(invalid_prepared("trailing bytes"));
     }
@@ -583,6 +620,7 @@ impl AhoCorasick {
       case_insensitive,
       main,
       overlap,
+      duplicates,
     )?;
 
     Ok(Self {
@@ -621,6 +659,13 @@ impl AhoCorasick {
     bytes.extend_from_slice(&prepared.main);
     if let Some(overlap) = prepared.overlap {
       bytes.extend_from_slice(&overlap);
+    }
+    let duplicate_count = u32::try_from(prepared.duplicates.len())
+      .map_err(|_| invalid_prepared("too many repeated patterns"))?;
+    write_u32_le(&mut bytes, duplicate_count);
+    for (first, repeat) in prepared.duplicates {
+      write_u32_le(&mut bytes, *first);
+      write_u32_le(&mut bytes, *repeat);
     }
     Ok(bytes)
   }
@@ -1367,6 +1412,8 @@ mod tests {
       .unwrap()
       .copy_from_slice(&0u32.to_le_bytes());
     bytes.truncate(28usize.saturating_add(main_len));
+    // Keep the (empty) repeated-pattern table so only the overlap is missing.
+    bytes.extend_from_slice(&0u32.to_le_bytes());
 
     let result = AhoCorasick::from_prepared(&bytes);
 
@@ -1381,5 +1428,178 @@ mod tests {
       message.contains("missing overlap bytes"),
       "error should explain that overlap bytes are required"
     );
+  }
+
+  fn strings(patterns: &[&str]) -> Vec<String> {
+    patterns
+      .iter()
+      .map(|pattern| (*pattern).to_owned())
+      .collect()
+  }
+
+  /// Packed `[pattern, start, end]` triples as `(pattern, start)` pairs.
+  fn pattern_starts(packed: &[u32]) -> Vec<(u32, u32)> {
+    packed
+      .as_chunks::<3>()
+      .0
+      .iter()
+      .map(|[pattern, start, _]| (*pattern, *start))
+      .collect()
+  }
+
+  #[test]
+  fn overlapping_search_reports_every_index_of_a_repeated_pattern() {
+    for (match_kind, whole_words) in [
+      (MatchKind::LeftmostFirst, false),
+      (MatchKind::LeftmostLongest, false),
+      (MatchKind::LeftmostFirst, true),
+    ] {
+      let options = Options {
+        match_kind,
+        whole_words,
+        ..Options::default()
+      };
+      let ac =
+        AhoCorasick::new(strings(&["a", "b", "a", "b"]), options).unwrap();
+      assert_eq!(
+        pattern_starts(&ac.find_overlapping_iter_packed("a b").unwrap()),
+        vec![(0, 0), (2, 0), (1, 2), (3, 2)],
+        "{match_kind:?} whole_words: {whole_words}"
+      );
+    }
+  }
+
+  #[test]
+  fn overlapping_search_reports_patterns_repeated_after_case_folding() {
+    let options = Options {
+      case_insensitive: true,
+      ..Options::default()
+    };
+    let ac = AhoCorasick::new(strings(&["x", "X", "y", "x"]), options).unwrap();
+    assert_eq!(
+      pattern_starts(&ac.find_overlapping_iter_packed("xY").unwrap()),
+      vec![(0, 0), (1, 0), (3, 0), (2, 1)]
+    );
+    assert_eq!(
+      pattern_starts(&ac.find_overlapping_iter_packed_bytes("xY").unwrap()),
+      vec![(0, 0), (1, 0), (3, 0), (2, 1)]
+    );
+  }
+
+  #[test]
+  fn non_overlapping_search_reports_the_first_index_of_a_repeated_pattern() {
+    for whole_words in [false, true] {
+      let options = Options {
+        whole_words,
+        ..Options::default()
+      };
+      let ac = AhoCorasick::new(strings(&["b", "a", "a"]), options).unwrap();
+      assert_eq!(
+        pattern_starts(&ac.find_iter_packed("a").unwrap()),
+        vec![(1, 0)],
+        "whole_words: {whole_words}"
+      );
+    }
+  }
+
+  #[test]
+  fn prepared_roundtrip_preserves_repeated_patterns() {
+    let options = Options {
+      match_kind: MatchKind::LeftmostLongest,
+      case_insensitive: true,
+      ..Options::default()
+    };
+    let patterns = strings(&["ab", "AB", "b", "ab"]);
+    let direct = AhoCorasick::new(patterns.clone(), options).unwrap();
+    let prepared = AhoCorasick::from_prepared(
+      &AhoCorasick::prepare(patterns, options).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+      prepared.find_overlapping_iter_packed("xAb").unwrap(),
+      direct.find_overlapping_iter_packed("xAb").unwrap()
+    );
+    assert_eq!(
+      pattern_starts(&prepared.find_overlapping_iter_packed("xAb").unwrap()),
+      vec![(0, 1), (1, 1), (3, 1), (2, 2)]
+    );
+  }
+
+  #[test]
+  fn version_one_prepared_automata_are_rejected() {
+    let mut bytes =
+      AhoCorasick::prepare(strings(&["he", "she"]), Options::default())
+        .unwrap();
+    // Version 1 stored no repeated-pattern table: drop its empty count.
+    bytes.truncate(bytes.len() - 4);
+    bytes
+      .get_mut(8..12)
+      .unwrap()
+      .copy_from_slice(&1u32.to_le_bytes());
+    let message = AhoCorasick::from_prepared(&bytes)
+      .err()
+      .map_or_else(String::new, |error| error.to_string());
+    assert!(message.contains("unsupported version"), "{message}");
+  }
+
+  #[test]
+  fn prepared_repeated_patterns_must_refer_forward() {
+    let options = Options::default();
+    let mut bytes =
+      AhoCorasick::prepare(strings(&["a", "a"]), options).unwrap();
+    // The table's single pair is (0, 1); make it (1, 0).
+    let pair = bytes.len() - 8;
+    bytes
+      .get_mut(pair..)
+      .unwrap()
+      .copy_from_slice(&[1u32.to_le_bytes(), 0u32.to_le_bytes()].concat());
+    assert!(AhoCorasick::from_prepared(&bytes).is_err());
+  }
+
+  /// Overwrites the last repeated-pattern pair of a prepared automaton.
+  fn with_last_pair(mut bytes: Vec<u8>, first: u32, repeat: u32) -> Vec<u8> {
+    let pair = bytes.len().saturating_sub(8);
+    bytes
+      .get_mut(pair..)
+      .unwrap()
+      .copy_from_slice(&[first.to_le_bytes(), repeat.to_le_bytes()].concat());
+    bytes
+  }
+
+  #[test]
+  fn prepared_repeats_must_belong_to_one_first_index() {
+    let options = Options::default();
+    // The table is (0, 2), (1, 3); listing 2 under 1 as well would make
+    // matches of "b" report the index of "a".
+    let bytes =
+      AhoCorasick::prepare(strings(&["a", "b", "a", "b"]), options).unwrap();
+    assert!(AhoCorasick::from_prepared(&with_last_pair(bytes, 1, 2)).is_err());
+    // The table is (0, 1), (0, 2); a repeat must not stand as a first index.
+    let chained =
+      AhoCorasick::prepare(strings(&["a", "a", "a"]), options).unwrap();
+    assert!(
+      AhoCorasick::from_prepared(&with_last_pair(chained, 1, 2)).is_err()
+    );
+  }
+
+  #[test]
+  fn prepared_duplicate_count_is_bounded_by_the_pairs_present() {
+    let mut bytes =
+      AhoCorasick::prepare(strings(&["a", "a"]), Options::default()).unwrap();
+    // Claim the largest pattern count and nearly as many repeats while only
+    // one pair follows: loading must fail before reserving for the claim.
+    bytes
+      .get_mut(12..16)
+      .unwrap()
+      .copy_from_slice(&u32::MAX.to_le_bytes());
+    let count = bytes.len() - 12;
+    bytes
+      .get_mut(count..count + 4)
+      .unwrap()
+      .copy_from_slice(&(u32::MAX - 1).to_le_bytes());
+    let message = AhoCorasick::from_prepared(&bytes)
+      .err()
+      .map_or_else(String::new, |error| error.to_string());
+    assert!(message.contains("missing duplicate pairs"), "{message}");
   }
 }

@@ -25,16 +25,14 @@ const boundaries = (text: string) => {
   return result;
 };
 
-// Enumerate literal matches independently of either engine binding.
+// Enumerate literal matches independently of either engine binding. Every
+// index of a repeated pattern matches (overlapping search reports each one);
+// non-overlapping selection then prefers the lowest index.
 const reference = (patterns: string[], text: string, longest: boolean) => {
   const all: Match[] = [];
   for (const start of boundaries(text)) {
     for (const [pattern, needle] of patterns.entries()) {
-      if (
-        patterns.indexOf(needle) !== pattern ||
-        !text.startsWith(needle, start)
-      )
-        continue;
+      if (!text.startsWith(needle, start)) continue;
       all.push({
         pattern,
         start,
