@@ -337,8 +337,9 @@ try {
     expect(workerConstructionsWithDynamicOptions(browserLoader)).toEqual([]);
     const { workers } = collectWorkers(browserLoader);
     expect(workers.length).toBeGreaterThan(0);
-    expect(browserLoader.split("__shareWasiAddonCrashFlag(worker)").length - 1)
-      .toBeGreaterThanOrEqual(workers.length);
+    expect(
+      browserLoader.split("__shareWasiAddonCrashFlag(worker)").length - 1,
+    ).toBeGreaterThanOrEqual(workers.length);
 
     const dynamicOptions = `
 const options = { type: "module" }
