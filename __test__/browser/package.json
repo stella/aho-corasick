@@ -6,9 +6,6 @@
     "build": "vite build",
     "check": "node check.mjs"
   },
-  "dependencies": {
-    "@stll/aho-corasick-wasm": "file:./stll-aho-corasick-wasm.tgz"
-  },
   "devDependencies": {
     "playwright": "1.64.1",
     "vite": "8.3.5"
