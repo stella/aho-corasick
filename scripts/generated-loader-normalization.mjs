@@ -86,22 +86,6 @@ const NORMALIZED_WASI_WORKER_FACTORY = `function __createWasiWorker(filename) {
   }
 }`;
 
-const GENERATED_BROWSER_WORKER = `const worker = new Worker(new URL('./wasi-worker-browser.mjs', import.meta.url), {
-        type: 'module',
-      })`;
-
-const NORMALIZED_BROWSER_WORKER = `const __workerData = {
-        addonCrashFlag: __wasiAddonCrashFlag,
-      }
-      const __workerOptions = {
-        type: 'module',
-        workerData: __workerData,
-      }
-      const worker = new Worker(
-        new URL('./wasi-worker-browser.mjs', import.meta.url),
-        __workerOptions,
-      )`;
-
 const SAFE_SCHEDULER_HELPER = `function __invokeWasmCleanupPollScheduler(schedule, settle, reject) {
   let finishedDuringScheduling = false
   let scheduling = true
@@ -216,7 +200,6 @@ export const normalizeGeneratedLoader = (
     .replace(UNSAFE_ASYNC_WORK_POLL, SAFE_ASYNC_WORK_POLL)
     .replace(RETRYABLE_RUNTIME_CLEANUP, makeRuntimeCleanupRetryable)
     .replace(GENERATED_WASI_WORKER_FACTORY, NORMALIZED_WASI_WORKER_FACTORY)
-    .replace(GENERATED_BROWSER_WORKER, NORMALIZED_BROWSER_WORKER)
     .replace(EMNAPI_PLUGIN_LIST, EMNAPI_COMPATIBLE_PLUGIN_LIST)
     .replace(/[ \t]+$/gmu, "");
 
