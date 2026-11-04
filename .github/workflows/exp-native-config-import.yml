@@ -1,0 +1,41 @@
+name: exp native config import
+
+on:
+  push:
+    branches: [exp/native-config-import]
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    name: probe ${{ matrix.mode }} ${{ matrix.shard }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { mode: seq, n: 300, shard: 1 }
+          - { mode: seq, n: 300, shard: 2 }
+          - { mode: seq, n: 300, shard: 3 }
+          - { mode: cold, n: 40, shard: 1 }
+          - { mode: par, n: 40, shard: 1 }
+          - { mode: buntest, n: 40, shard: 1 }
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: sudo apt-get install -y -q gdb strace >/dev/null 2>&1 || true
+      - name: first import after install
+        run: bash .github/exp/probe.sh seq 3
+      - name: probe
+        run: bash .github/exp/probe.sh ${{ matrix.mode }} ${{ matrix.n }}
+      - name: diagnostics
+        if: always()
+        run: |
+          cat probe-out/diag.txt 2>/dev/null || echo "no slow runs"
