@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.0.4
+
+### Patch Changes
+
+- [#263](https://github.com/stella/aho-corasick/pull/263) [`2fd0cdc`](https://github.com/stella/aho-corasick/commit/2fd0cdcfa43a2ce49fd6d2842ec41b29095d2f7a) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Move the WebAssembly packages to `@emnapi/core` and `@emnapi/runtime` 2.0.0-beta.3 with `@napi-rs/wasm-runtime` 1.2.7.
+
+- [#262](https://github.com/stella/aho-corasick/pull/262) [`e7fb19f`](https://github.com/stella/aho-corasick/commit/e7fb19fd5d76a8cba5e62b205003a4c5c33e7ab0) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Build the native binding with napi 3.16 and napi-derive 3.7.
+
+- [#265](https://github.com/stella/aho-corasick/pull/265) [`98c3c47`](https://github.com/stella/aho-corasick/commit/98c3c478a28486cfa6a304dbe841722eb7fe67d9) Thanks [@jan-kubica](https://github.com/jan-kubica)! - Check pattern lists and single-thread WebAssembly exports without widening them to untyped values.
+
 ## 2.0.3
 
 ### Patch Changes
