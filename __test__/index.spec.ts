@@ -1,8 +1,25 @@
 /* oxlint-disable no-unsafe-inner-html/no-unsafe-inner-html -- StreamMatcher.write feeds bytes to the matcher; no DOM document is involved. */
 import { describe, expect, test } from "bun:test";
 
+import { list } from "../scripts/structured";
 import { AhoCorasick, StreamMatcher } from "../src/index";
 import "./empty-unicode.spec";
+
+// `findInChunk` is a native-only method behind the wrapper's `_inner`.
+const findInChunk = (matcher: AhoCorasick, chunk: Uint8Array): unknown[] => {
+  const inner: unknown = Reflect.get(matcher, "_inner");
+  if (
+    typeof inner !== "object" ||
+    inner === null ||
+    !("findInChunk" in inner) ||
+    typeof inner.findInChunk !== "function"
+  )
+    throw new Error("native matcher must expose findInChunk");
+  return list(
+    Reflect.apply(inner.findInChunk, inner, [chunk]),
+    "findInChunk result",
+  );
+};
 
 // Helper: extract matched substring from haystack
 const extract = (haystack: string, m: { start: number; end: number }) =>
@@ -81,9 +98,9 @@ describe("AhoCorasick", () => {
   });
 
   test("non-array patterns fail with a descriptive error", () => {
-    expect(() => Reflect.construct(AhoCorasick, ["foo"])).toThrow(
-      "Patterns must be an array",
-    );
+    expect(() => {
+      Reflect.construct(AhoCorasick, ["foo"]);
+    }).toThrow("Patterns must be an array");
   });
 
   test("empty haystack", () => {
@@ -1547,8 +1564,7 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("findInChunk: ASCII CI", () => {
-      // @ts-expect-error - accessing internal
-      const matches = ac._inner.findInChunk(Buffer.from("HELLO World"));
+      const matches = findInChunk(ac, Buffer.from("HELLO World"));
       expect(matches).toHaveLength(2);
     });
   });
@@ -1593,8 +1609,7 @@ describe("structural: case-insensitive on ALL APIs", () => {
     });
 
     test("findInChunk: İ CI", () => {
-      // @ts-expect-error - accessing internal
-      const matches = ac._inner.findInChunk(Buffer.from("İstanbul"));
+      const matches = findInChunk(ac, Buffer.from("İstanbul"));
       expect(matches).toHaveLength(1);
     });
   });
