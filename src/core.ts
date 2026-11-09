@@ -229,11 +229,15 @@ const rethrowBindingError = (error: unknown): never => {
   throw error;
 };
 
+// `Array.isArray` narrows to `any[]`; this keeps the elements `unknown`.
+const isPatternList = (value: unknown): value is readonly unknown[] =>
+  Array.isArray(value);
+
 function normalizePatterns(patterns: readonly unknown[]): {
   strings: string[];
   names: (string | undefined)[] | null;
 } {
-  if (!Array.isArray(patterns)) {
+  if (!isPatternList(patterns)) {
     throw new TypeError("Patterns must be an array");
   }
 
@@ -256,7 +260,7 @@ function normalizePatterns(patterns: readonly unknown[]): {
       typeof p.pattern !== "string"
     ) {
       throw new TypeError(
-        "Pattern must be a string or " + "{ pattern: string; name?: string }",
+        "Pattern must be a string or { pattern: string; name?: string }",
       );
     }
 
