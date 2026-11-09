@@ -104,9 +104,13 @@ const matches = (bytes: Uint8Array): ByteMatch[] => {
   return result;
 };
 
+type WasmFunction = (...args: number[]) => unknown;
+const isWasmFunction = (value: unknown): value is WasmFunction =>
+  typeof value === "function";
+
 /** Binary transport only; matching and options use the shared Rust core. */
 export const createSingleThreadBinding = (
-  exports: WebAssembly.Exports,
+  exports: Readonly<Record<string, unknown>>,
 ): NativeBinding => {
   const {
     memory,
@@ -117,10 +121,10 @@ export const createSingleThreadBinding = (
   } = exports;
   if (
     !(memory instanceof WebAssembly.Memory) ||
-    typeof allocate !== "function" ||
-    typeof run !== "function" ||
-    typeof outputPointer !== "function" ||
-    typeof outputLength !== "function"
+    !isWasmFunction(allocate) ||
+    !isWasmFunction(run) ||
+    !isWasmFunction(outputPointer) ||
+    !isWasmFunction(outputLength)
   )
     throw new Error("Invalid single-thread WASM module");
   let state: "ready" | "trapped" = "ready";

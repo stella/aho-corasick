@@ -1,6 +1,5 @@
 import { AhoCorasick as MonYoneAC } from "@monyone/aho-corasick";
 import { Trie as TanishikingTrie } from "@tanishiking/aho-corasick";
-// @ts-expect-error — no type declarations
 import BrunoAC from "ahocorasick";
 // @ts-expect-error — no type declarations
 import ModernAC from "modern-ahocorasick";
@@ -33,10 +32,7 @@ export const libs: Lib[] = [
     name: "ahocorasick",
     build: (p) => new BrunoAC(p),
     search: (ac, h) => {
-      const r = (ac as InstanceType<typeof BrunoAC>).search(h) as [
-        number,
-        string[],
-      ][];
+      const r = (ac as InstanceType<typeof BrunoAC>).search(h);
       let c = 0;
       for (const [, kw] of r) c += kw.length;
       return c;

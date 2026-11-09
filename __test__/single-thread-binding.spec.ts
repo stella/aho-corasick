@@ -11,8 +11,11 @@ const transport = () => {
     aho_run: mock(() => 0),
     aho_output_ptr: mock(() => 128),
     aho_output_len: mock(() => 4),
-  } satisfies WebAssembly.Exports;
+  };
 };
+
+const isCleanup = (value: unknown): value is (held: number) => void =>
+  typeof value === "function";
 
 for (const operation of [
   "aho_input_alloc",
@@ -25,11 +28,10 @@ for (const operation of [
     const originalRegistry = globalThis.FinalizationRegistry;
     globalThis.FinalizationRegistry = new Proxy(originalRegistry, {
       construct(target, args) {
-        const callback = args.at(0);
-        if (typeof callback !== "function")
-          throw new Error("Missing cleanup callback");
+        const callback: unknown = args.at(0);
+        if (!isCleanup(callback)) throw new Error("Missing cleanup callback");
         cleanups.push(() => callback(1));
-        return Reflect.construct(target, args);
+        return new target(callback);
       },
     });
     try {
@@ -75,11 +77,10 @@ test("a finalizer trap is contained and prevents subsequent WASM calls", () => {
   const originalRegistry = globalThis.FinalizationRegistry;
   globalThis.FinalizationRegistry = new Proxy(originalRegistry, {
     construct(target, args) {
-      const callback = args.at(0);
-      if (typeof callback !== "function")
-        throw new Error("Missing cleanup callback");
+      const callback: unknown = args.at(0);
+      if (!isCleanup(callback)) throw new Error("Missing cleanup callback");
       cleanups.push(() => callback(1));
-      return Reflect.construct(target, args);
+      return new target(callback);
     },
   });
   try {

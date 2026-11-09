@@ -68,7 +68,7 @@ const runAll = (patterns: string[], haystack: string): LibResult[] => {
   // ahocorasick (BrunoRB)
   try {
     const ac = new BrunoAC(patterns);
-    const ms = ac.search(haystack) as [number, string[]][];
+    const ms = ac.search(haystack);
     const flat: { text: string; start: number }[] = [];
     for (const [endIdx, keywords] of ms) {
       for (const kw of keywords) {
@@ -149,7 +149,7 @@ const printResults = (label: string, results: LibResult[]) => {
 
   for (const r of results) {
     if (r.error) {
-      console.log(`    ${r.name}: ` + `\x1b[31mERROR\x1b[0m ${r.error}`);
+      console.log(`    ${r.name}: \x1b[31mERROR\x1b[0m ${r.error}`);
       continue;
     }
     const summary = r.matches

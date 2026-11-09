@@ -6,8 +6,13 @@ import { join } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { runInNewContext } from "node:vm";
 
+import { at, list, parseJson, text as textAt } from "../scripts/structured";
 import { AhoCorasick, init, initSync } from "../src/single-thread";
 import { createSingleThreadBinding } from "../src/single-thread-binding";
+
+const isWasmFunction = (
+  value: unknown,
+): value is (...args: number[]) => unknown => typeof value === "function";
 
 const bytes = readFileSync(
   new URL("../aho-corasick.single-thread.wasm", import.meta.url),
@@ -173,7 +178,7 @@ test("a Response from another realm supplies bytes without fetching", async () =
       () => {
         throw new Error("Expected HTTP rejection");
       },
-      (error) => {
+      (error: unknown) => {
         if (!(error instanceof Error)) throw error;
         expect(error.message).toContain("404");
       },
@@ -187,7 +192,7 @@ test("a Response from another realm supplies bytes without fetching", async () =
 test("100 MiB inputs use one bounded binary request without JSON or numeric-array expansion", () => {
   const instance = new WebAssembly.Instance(new WebAssembly.Module(bytes));
   const { memory, aho_input_alloc: allocate } = instance.exports;
-  if (!(memory instanceof WebAssembly.Memory) || typeof allocate !== "function")
+  if (!(memory instanceof WebAssembly.Memory) || !isWasmFunction(allocate))
     throw new Error("Invalid WASM fixture");
   let maxRequest = 0;
   const binding = createSingleThreadBinding({
@@ -290,8 +295,10 @@ test.skipIf(process.platform === "win32")(
           encoding: "utf8",
         },
       );
-      const [packed] = JSON.parse(output);
-      const files = packed.files.map((file: { path: string }) => file.path);
+      const packed = list(parseJson(output), "npm pack output").at(0);
+      const files = list(at(packed, "files"), "packed files").map((file) =>
+        textAt(at(file, "path"), "packed file path"),
+      );
       for (const expected of [
         "dist/single-thread.mjs",
         "dist/single-thread.d.mts",
@@ -303,7 +310,7 @@ test.skipIf(process.platform === "win32")(
         expect(files).toContain(expected);
       execFileSync("tar", [
         "-xzf",
-        join(directory, packed.filename),
+        join(directory, textAt(at(packed, "filename"), "packed filename")),
         "-C",
         directory,
       ]);
@@ -356,7 +363,7 @@ test("explicit initialization accepts bytes or a caller URL and reports HTTP err
       () => {
         throw new Error("Expected HTTP rejection");
       },
-      (error) => {
+      (error: unknown) => {
         if (!(error instanceof Error)) throw error;
         expect(error.message).toContain("404");
       },
