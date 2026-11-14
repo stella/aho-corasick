@@ -937,7 +937,7 @@
       "version": "1.0.1"
     },
     {
-      "bom-ref": "pkg:cargo/itoa@1.0.18",
+      "bom-ref": "pkg:cargo/itoa@1.0.19",
       "evidence": {
         "identity": [
           {
@@ -958,7 +958,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "8f42a60cbdf9a97f5d2305f08a87dc4e09308d1276d28c869c684d7777685682"
+          "content": "3bd1574e617a9a6c1f8f8181bd7e841e1f20e4277607ef28945765188d6284d4"
         }
       ],
       "licenses": [
@@ -980,9 +980,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/itoa@1.0.18",
+      "purl": "pkg:cargo/itoa@1.0.19",
       "type": "library",
-      "version": "1.0.18"
+      "version": "1.0.19"
     },
     {
       "bom-ref": "pkg:cargo/libc@0.2.191",
@@ -2043,7 +2043,7 @@
       "version": "0.11.1"
     },
     {
-      "bom-ref": "pkg:cargo/syn@3.0.9",
+      "bom-ref": "pkg:cargo/syn@3.0.10",
       "evidence": {
         "identity": [
           {
@@ -2064,7 +2064,7 @@
       "hashes": [
         {
           "alg": "SHA-256",
-          "content": "d78c8dee4c7bf0e14673097256fed6142ce9d3b85a408189d07482442145823b"
+          "content": "4ae9ccbea3a7b0b09443036490c8f34a8b1b760fd345e5c0dae0aac718faea79"
         }
       ],
       "licenses": [
@@ -2086,9 +2086,9 @@
           "value": "Cargo.lock"
         }
       ],
-      "purl": "pkg:cargo/syn@3.0.9",
+      "purl": "pkg:cargo/syn@3.0.10",
       "type": "library",
-      "version": "3.0.9"
+      "version": "3.0.10"
     },
     {
       "bom-ref": "pkg:cargo/unicode-case-mapping@1.0.0",
@@ -2752,7 +2752,7 @@
         "pkg:cargo/prettyplease@0.3.0",
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/bon-macros@3.10.3"
     },
@@ -2787,7 +2787,7 @@
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
         "pkg:cargo/strsim@0.11.1",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/darling_core@0.24.1"
     },
@@ -2795,7 +2795,7 @@
       "dependsOn": [
         "pkg:cargo/darling_core@0.24.1",
         "pkg:cargo/quote@1.0.47",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/darling_macro@0.24.1"
     },
@@ -2838,7 +2838,7 @@
       "dependsOn": [
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/futures-macro@0.3.34"
     },
@@ -2870,7 +2870,7 @@
     },
     {
       "dependsOn": [],
-      "ref": "pkg:cargo/itoa@1.0.18"
+      "ref": "pkg:cargo/itoa@1.0.19"
     },
     {
       "dependsOn": [],
@@ -2913,7 +2913,7 @@
         "pkg:cargo/napi-derive-backend@7.0.0",
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/napi-derive@3.7.0"
     },
@@ -2923,7 +2923,7 @@
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
         "pkg:cargo/semver@1.0.28",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/napi-derive-backend@7.0.0"
     },
@@ -2944,7 +2944,7 @@
     {
       "dependsOn": [
         "pkg:cargo/proc-macro2@1.0.107",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/prettyplease@0.3.0"
     },
@@ -2984,13 +2984,13 @@
       "dependsOn": [
         "pkg:cargo/proc-macro2@1.0.107",
         "pkg:cargo/quote@1.0.47",
-        "pkg:cargo/syn@3.0.9"
+        "pkg:cargo/syn@3.0.10"
       ],
       "ref": "pkg:cargo/serde_derive@1.0.229"
     },
     {
       "dependsOn": [
-        "pkg:cargo/itoa@1.0.18",
+        "pkg:cargo/itoa@1.0.19",
         "pkg:cargo/memchr@2.8.3",
         "pkg:cargo/serde@1.0.229",
         "pkg:cargo/serde_core@1.0.229",
@@ -3035,7 +3035,7 @@
         "pkg:cargo/quote@1.0.47",
         "pkg:cargo/unicode-ident@1.0.27"
       ],
-      "ref": "pkg:cargo/syn@3.0.9"
+      "ref": "pkg:cargo/syn@3.0.10"
     },
     {
       "dependsOn": [],
