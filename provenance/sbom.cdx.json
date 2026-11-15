@@ -2558,62 +2558,6 @@
           "name": "GitHub Inc."
         }
       ],
-      "bom-ref": "pkg:npm/semver@7.8.5",
-      "description": "The semantic version parser used by npm.",
-      "evidence": {
-        "identity": [
-          {
-            "concludedValue": "node_modules/@stll/oxlint-config/node_modules/semver/package.json",
-            "confidence": 0.7,
-            "field": "purl",
-            "methods": [
-              {
-                "confidence": 0.7,
-                "technique": "manifest-analysis",
-                "value": "node_modules/@stll/oxlint-config/node_modules/semver/package.json"
-              }
-            ]
-          }
-        ],
-        "occurrences": [
-          {
-            "location": "scripts/engine-ranges.test.mjs#6"
-          }
-        ]
-      },
-      "externalReferences": [
-        {
-          "type": "vcs",
-          "url": "git+https://github.com/npm/node-semver.git"
-        }
-      ],
-      "group": "",
-      "licenses": [
-        {
-          "license": {
-            "id": "ISC",
-            "url": "https://opensource.org/licenses/ISC"
-          }
-        }
-      ],
-      "name": "semver",
-      "properties": [
-        {
-          "name": "SrcFile",
-          "value": "node_modules/@stll/oxlint-config/node_modules/semver/package.json"
-        }
-      ],
-      "purl": "pkg:npm/semver@7.8.5",
-      "scope": "required",
-      "type": "library",
-      "version": "7.8.5"
-    },
-    {
-      "authors": [
-        {
-          "name": "GitHub Inc."
-        }
-      ],
       "bom-ref": "pkg:npm/semver@7.8.6",
       "description": "The semantic version parser used by npm.",
       "evidence": {
@@ -2670,7 +2614,7 @@
           "name": "Evan You"
         }
       ],
-      "bom-ref": "pkg:npm/vite@8.3.5",
+      "bom-ref": "pkg:npm/vite@8.3.7",
       "description": "Native-ESM powered web dev build tool",
       "evidence": {
         "identity": [
@@ -2719,13 +2663,13 @@
           "value": "node_modules/vite/package.json"
         }
       ],
-      "purl": "pkg:npm/vite@8.3.5",
+      "purl": "pkg:npm/vite@8.3.7",
       "scope": "required",
       "tags": [
         "web"
       ],
       "type": "library",
-      "version": "8.3.5"
+      "version": "8.3.7"
     }
   ],
   "compositions": [
