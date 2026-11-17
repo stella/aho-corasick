@@ -193,10 +193,16 @@ test("CI and CLA handle merge groups with the immutable merged base and verifier
   expect(cla["jobs"]["cla"]["if"]).toContain(
     "github.event_name == 'merge_group'",
   );
-  expect(cla["permissions"]).toEqual({
+  expect(cla["on"]).not.toHaveProperty("pull_request_target");
+  expect(cla["on"]["workflow_run"]).toEqual({
+    workflows: ["CLA Request"],
+    types: ["completed"],
+  });
+  expect(cla["permissions"]).toEqual({});
+  expect(cla["jobs"]["cla"]["permissions"]).toEqual({
     contents: "read",
+    checks: "write",
     issues: "write",
     "pull-requests": "read",
-    checks: "write",
   });
 });
