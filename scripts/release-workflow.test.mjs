@@ -34,30 +34,44 @@ describe("release artifact layout", () => {
     ]);
   });
 
-  test("rejects a renamed or duplicated WASM upload step", () => {
+  test("rejects a renamed, duplicated or inline WASM upload input", () => {
     expect(() =>
       extractWasmUploadGlobs(
-        workflow.replace(
-          "Upload WASM bindings",
-          "Upload renamed WASM bindings",
-        ),
+        workflow.replace("wasm-artifact-paths:", "wasm-artifact-globs:"),
       ),
-    ).toThrow("Expected exactly one Upload WASM bindings step, found 0");
+    ).toThrow("Expected exactly one wasm-artifact-paths input, found 0");
+    expect(() =>
+      extractWasmUploadGlobs(`${workflow}\n      wasm-artifact-paths: |\n`),
+    ).toThrow("Expected exactly one wasm-artifact-paths input, found 2");
     expect(() =>
       extractWasmUploadGlobs(
-        `${workflow}\n      - name: Upload WASM bindings\n`,
+        workflow.replace("wasm-artifact-paths: |", "wasm-artifact-paths: x"),
       ),
-    ).toThrow("Expected exactly one Upload WASM bindings step, found 2");
+    ).toThrow("wasm-artifact-paths must be a block of globs");
   });
 
   test("downloads napi and single-thread artifacts separately", () => {
-    for (const jobName of ["test", "pack"]) {
-      const job = readJob(jobName);
-      expect(job).toContain("pattern: bindings-*");
-      expect(job).toContain("name: single-thread-wasm");
-      expect(job).toContain("path: .");
-    }
-    expect(readJob("build")).toContain("name: Upload single-thread WASM");
+    const pack = readJob("pack");
+    expect(pack).toContain("pattern: bindings-*");
+    expect(pack).toContain("name: single-thread-wasm");
+    expect(pack).toContain("path: .");
+    const shared = readJob("test");
+    expect(shared).toMatch(
+      /uses: stella\/\.github\/\.github\/workflows\/rust-napi-release\.yml@[0-9a-f]{40}\n/u,
+    );
+    expect(shared).toContain(
+      "single-thread-wasm: aho-corasick.single-thread.wasm",
+    );
+    expect(shared).toContain(
+      "pre-test-commands: |\n        bun run build:js\n        bun run test:single-thread\n",
+    );
+    expect(shared).toContain("needs: [preflight, verify]");
+    expect(shared).toContain(
+      "\n    if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'\n",
+    );
+    expect(shared).toMatch(/permissions:\n      contents: read\n/u);
+    expect(shared).not.toContain("secrets:");
+    expect(workflow).not.toMatch(/^  build:\n/mu);
   });
 });
 
@@ -96,7 +110,6 @@ describe("attested npm release recovery", () => {
     for (const jobName of [
       "preflight",
       "verify",
-      "build",
       "test",
       "pack",
       "core-verify",

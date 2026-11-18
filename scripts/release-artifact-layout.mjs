@@ -14,49 +14,39 @@ import { fileURLToPath } from "node:url";
 
 import { isRecord } from "./release-script-inputs.mjs";
 
-const STEP_NAME = "Upload WASM bindings";
+const INPUT_NAME = "wasm-artifact-paths";
 const WASI_TARGET = "wasm32-wasip1-threads";
 
+// The shared release workflow uploads the WASM build with the caller's
+// `wasm-artifact-paths` input, so the release job's block is the manifest.
 /** @param {string} workflow */
 export const extractWasmUploadGlobs = (workflow) => {
   const lines = workflow.split("\n");
-  const stepIndexes = lines.flatMap((line, index) =>
-    line.trim() === `- name: ${STEP_NAME}` ? [index] : [],
+  const inputIndexes = lines.flatMap((line, index) =>
+    line.trim().startsWith(`${INPUT_NAME}:`) ? [index] : [],
   );
-  if (stepIndexes.length !== 1) {
+  if (inputIndexes.length !== 1) {
     throw new Error(
-      `Expected exactly one ${STEP_NAME} step, found ${stepIndexes.length}`,
+      `Expected exactly one ${INPUT_NAME} input, found ${inputIndexes.length}`,
     );
   }
 
-  const stepIndent = lines[stepIndexes[0]].search(/\S/u);
-  const stepEnd = lines.findIndex(
-    (line, index) =>
-      index > stepIndexes[0] &&
-      line.trim().startsWith("- ") &&
-      line.search(/\S/u) === stepIndent,
-  );
-  const step = lines.slice(
-    stepIndexes[0],
-    stepEnd === -1 ? undefined : stepEnd,
-  );
-  const pathIndex = step.findIndex((line) => line.trim() === "path: |");
-  if (pathIndex === -1) {
-    throw new Error(`${STEP_NAME} must have a path block`);
+  const input = lines[inputIndexes[0]];
+  if (input.trim() !== `${INPUT_NAME}: |`) {
+    throw new Error(`${INPUT_NAME} must be a block of globs`);
   }
-
-  const pathIndent = step[pathIndex].search(/\S/u);
+  const inputIndent = input.search(/\S/u);
   const globs = [];
-  for (const line of step.slice(pathIndex + 1)) {
+  for (const line of lines.slice(inputIndexes[0] + 1)) {
     const indent = line.search(/\S/u);
-    if (line.trim() === "" || indent > pathIndent) {
+    if (line.trim() === "" || indent > inputIndent) {
       if (line.trim() !== "") globs.push(line.trim());
       continue;
     }
     break;
   }
   if (globs.length === 0) {
-    throw new Error(`${STEP_NAME} path block has no globs`);
+    throw new Error(`${INPUT_NAME} has no globs`);
   }
   return globs;
 };
@@ -104,7 +94,7 @@ const run = async () => {
       (entry) => entry.isFile() && matchesUpload(globs, entry.name),
     );
     if (uploaded.length === 0) {
-      throw new Error(`${STEP_NAME} globs matched no files`);
+      throw new Error(`${INPUT_NAME} globs matched no files`);
     }
     await Promise.all(
       uploaded.map((entry) =>
