@@ -106,7 +106,7 @@ jobs:
       - run: node scripts/version-sync.mjs check
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.99.1"
+          toolchain: "1.100.0"
           components: clippy, rustfmt
           targets: wasm32-wasip1-threads, wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
@@ -143,7 +143,7 @@ jobs:
     if: inputs.recover_from_run == '' && needs.preflight.outputs.already-released != 'true'
     permissions:
       contents: read
-    uses: stella/.github/.github/workflows/rust-napi-release.yml@ba1d8b5e67dd5b252f6d3edd0c9fa047c5d386fc
+    uses: stella/.github/.github/workflows/rust-napi-release.yml@964e75f409643716a2c8ff29c26235f18d2e34a0
     with:
       wasm-artifact-paths: |
         *.wasm
@@ -363,7 +363,7 @@ jobs:
           node-version-file: .node-version
       - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
         with:
-          toolchain: "1.99.1"
+          toolchain: "1.100.0"
       - run: node scripts/version-sync.mjs check
       - run: cargo package --locked --manifest-path crates/core/Cargo.toml
 
@@ -381,7 +381,7 @@ jobs:
         && needs.core-verify.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/crates-io-publish.yml@156afa9596e6a469c10e329f459168d34a00e0fd
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@964e75f409643716a2c8ff29c26235f18d2e34a0
     with:
       crate-name: stella-aho-corasick-core
       manifest-path: crates/core/Cargo.toml
@@ -400,7 +400,7 @@ jobs:
         && needs.core-verify.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/crates-io-publish.yml@156afa9596e6a469c10e329f459168d34a00e0fd
+    uses: stella/.github/.github/workflows/crates-io-publish.yml@964e75f409643716a2c8ff29c26235f18d2e34a0
     with:
       crate-name: stella-aho-corasick-core
       manifest-path: crates/core/Cargo.toml
@@ -440,7 +440,7 @@ jobs:
         && needs.core.result == 'success'
         && (github.event_name == 'push'
             || inputs.publish_to_npm))
-    uses: stella/.github/.github/workflows/npm-version-finalize.yml@156afa9596e6a469c10e329f459168d34a00e0fd
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@964e75f409643716a2c8ff29c26235f18d2e34a0
     with:
       package-files: |
         package.json
@@ -471,7 +471,7 @@ jobs:
       github.ref == 'refs/heads/main' && (
         inputs.recover_from_run != ''
         && inputs.publish_to_npm)
-    uses: stella/.github/.github/workflows/npm-version-finalize.yml@156afa9596e6a469c10e329f459168d34a00e0fd
+    uses: stella/.github/.github/workflows/npm-version-finalize.yml@964e75f409643716a2c8ff29c26235f18d2e34a0
     with:
       package-files: |
         package.json
