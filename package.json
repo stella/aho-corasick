@@ -104,7 +104,7 @@
     "semver": "7.8.6",
     "tsdown": "0.23.7",
     "tsrs": "0.23.0-ts7.1.0-beta",
-    "vite": "8.3.7"
+    "vite": "8.3.8"
   },
   "napi": {
     "binaryName": "aho-corasick",
